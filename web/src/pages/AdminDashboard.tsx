@@ -441,6 +441,7 @@ export const AdminDashboard: React.FC = () => {
                           <span>Remind</span>
                         </a>
                       </td>
+                    </tr>
                   ))}
                 </tbody>
               </table>
