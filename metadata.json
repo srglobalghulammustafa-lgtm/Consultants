@@ -1,0 +1,8 @@
+{
+  "name": "SR Global Consultants",
+  "description": "Education and migration consultancy platform for international admissions, visa counseling, study destinations, course discovery, and appointment bookings.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

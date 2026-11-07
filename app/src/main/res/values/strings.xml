@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">SR Global Consultants</string>
+    <string name="tagline">Education &amp; Migration Consultants</string>
+    <string name="location_gujranwala">1st Floor, 239A Civic Center, Gujranwala, Pakistan</string>
+    <string name="phone_pakistan">+92 327 8321560</string>
+    <string name="phone_australia">+61 415 331872</string>
+    <string name="email_contact">contact@srglobalconsultants.com</string>
+</resources>

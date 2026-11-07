@@ -1,0 +1,9 @@
+{
+  "name": "sr-global-consultants-monorepo",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "build": "cd web && npm install && npm run build",
+    "start": "cd web && npm run dev"
+  }
+}
