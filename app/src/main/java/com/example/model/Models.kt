@@ -39,6 +39,7 @@ data class Lead(
 
 data class Appointment(
     val id: String = UUID.randomUUID().toString(),
+    val appointmentCode: String = "SRG-APT-${(1000..9999).random()}",
     val clientName: String,
     val email: String,
     val phone: String,
@@ -46,8 +47,9 @@ data class Appointment(
     val date: String, // YYYY-MM-DD
     val timeSlot: String, // e.g. "10:00 AM - 11:00 AM"
     val mode: AppointmentMode = AppointmentMode.OFFICE,
-    val status: AppointmentStatus = AppointmentStatus.CONFIRMED,
+    val status: AppointmentStatus = AppointmentStatus.PENDING,
     val message: String = "",
+    val notes: String = "",
     val createdAt: String = "Today"
 )
 

@@ -31,7 +31,9 @@ export const Footer: React.FC = () => {
 
           {/* Study Destinations */}
           <div>
-            <h4 className="text-white font-bold text-base mb-4 tracking-wide border-b border-navy-800 pb-2">Study Destinations</h4>
+            <h4 className="text-white font-bold text-base mb-4 tracking-wide border-b border-navy-800 pb-2">
+              {footer.destinationsTitle || 'Study Destinations'}
+            </h4>
             <ul className="space-y-2.5 text-sm">
               {footer.destinationLinks.map((link) => (
                 <li key={link.id || link.label}>
@@ -46,7 +48,9 @@ export const Footer: React.FC = () => {
 
           {/* Quick Links & Resources */}
           <div>
-            <h4 className="text-white font-bold text-base mb-4 tracking-wide border-b border-navy-800 pb-2">Useful Links</h4>
+            <h4 className="text-white font-bold text-base mb-4 tracking-wide border-b border-navy-800 pb-2">
+              {footer.quickLinksTitle || 'Useful Links'}
+            </h4>
             <ul className="space-y-2.5 text-sm">
               {footer.quickLinks.map((link) => (
                 <li key={link.id || link.label}>

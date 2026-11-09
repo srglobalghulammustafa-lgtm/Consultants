@@ -50,6 +50,144 @@ fun StudentWorkspaceScreen(
             )
         }
 
+        // Appointment Status Tracker Search Box
+        item {
+            var searchCode by remember { mutableStateOf("") }
+            var foundAppt by remember { mutableStateOf<com.example.model.Appointment?>(null) }
+            var searched by remember { mutableStateOf(false) }
+
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(2.dp),
+                modifier = Modifier.fillMaxWidth().testTag("track_appointment_card")
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Track Appointment Status",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = NavyDark)
+                    )
+                    Text(
+                        text = "Enter your Reference ID (e.g. SRG-APT-8492) or registered phone number",
+                        style = MaterialTheme.typography.bodySmall.copy(color = SlateTextSecondary, fontSize = 11.sp)
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedTextField(
+                            value = searchCode,
+                            onValueChange = { searchCode = it },
+                            placeholder = { Text("SRG-APT-8492", fontSize = 12.sp) },
+                            singleLine = true,
+                            modifier = Modifier.weight(1f).testTag("track_code_input")
+                        )
+                        Button(
+                            onClick = {
+                                foundAppt = viewModel.repository.findAppointmentByCodeOrPhone(searchCode)
+                                searched = true
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = AegeanCyan, contentColor = Color.White),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("Search", fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    if (searched) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        if (foundAppt != null) {
+                            val appt = foundAppt!!
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = SlateBackground,
+                                border = ButtonDefaults.outlinedButtonBorder.copy(
+                                    brush = androidx.compose.ui.graphics.SolidColor(SlateBorder)
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(14.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = appt.appointmentCode.ifEmpty { "SRG-APT-8492" },
+                                            style = MaterialTheme.typography.titleMedium.copy(
+                                                fontWeight = FontWeight.Black,
+                                                color = NavyDark
+                                            )
+                                        )
+                                        Surface(
+                                            shape = RoundedCornerShape(20.dp),
+                                            color = when (appt.status) {
+                                                com.example.model.AppointmentStatus.CONFIRMED -> SuccessGreen
+                                                com.example.model.AppointmentStatus.PENDING -> AmberGold
+                                                else -> AegeanCyan
+                                            }
+                                        ) {
+                                            Text(
+                                                text = appt.status.label.uppercase(),
+                                                style = MaterialTheme.typography.labelSmall.copy(
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color.White,
+                                                    fontSize = 9.sp
+                                                ),
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text(
+                                        text = "${appt.clientName} • ${appt.destination}",
+                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = NavyDark)
+                                    )
+                                    Text(
+                                        text = "Date: ${appt.date} at ${appt.timeSlot} (${appt.mode.label})",
+                                        style = MaterialTheme.typography.bodySmall.copy(color = SlateTextSecondary)
+                                    )
+
+                                    if (appt.status == com.example.model.AppointmentStatus.PENDING) {
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text(
+                                            text = "● Action Needed: Please send your consultation fee receipt via WhatsApp to get your slot confirmed.",
+                                            style = MaterialTheme.typography.labelSmall.copy(color = ErrorRed, fontWeight = FontWeight.Bold)
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    Button(
+                                        onClick = {
+                                            launchWhatsApp(
+                                                context,
+                                                contact.whatsappNumber,
+                                                "Hello SR Global Consultants! My Appointment Reference ID is ${appt.appointmentCode}. I am checking my slot status for ${appt.date}."
+                                            )
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = WhatsAppGreen, contentColor = Color.White),
+                                        shape = RoundedCornerShape(8.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text("Chat on WhatsApp", fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        } else {
+                            Text(
+                                text = "No appointment found for '$searchCode'. Check Reference ID or phone number.",
+                                style = MaterialTheme.typography.bodySmall.copy(color = ErrorRed, fontWeight = FontWeight.Bold)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         // Student Case Summary Card
         item {
             Card(

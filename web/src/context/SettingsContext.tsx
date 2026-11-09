@@ -30,6 +30,7 @@ const DEFAULT_SETTINGS: SiteSettings = {
     phoneAustralia: COMPANY_CONTACT.phoneAustralia || '+61 415 331872',
     email: COMPANY_CONTACT.email || 'contact@srglobalconsultants.com',
     officeHours: COMPANY_CONTACT.officeHours || 'Monday - Saturday: 10:00 AM - 6:00 PM (PKT)',
+    destinationsTitle: 'Study Destinations',
     destinationLinks: [
       { id: 'd1', label: 'Australia (Subclass 500)', path: '/destinations' },
       { id: 'd2', label: 'United Kingdom (Graduate Route)', path: '/destinations' },
@@ -37,6 +38,7 @@ const DEFAULT_SETTINGS: SiteSettings = {
       { id: 'd4', label: 'United States (F-1 & STEM OPT)', path: '/destinations' },
       { id: 'd5', label: 'Europe (Germany, Italy, Ireland)', path: '/destinations' },
     ],
+    quickLinksTitle: 'Useful Links',
     quickLinks: [
       { id: 'q1', label: 'Book Appointment', path: '/book-appointment' },
       { id: 'q2', label: 'Courses Catalog', path: '/courses' },
@@ -58,6 +60,7 @@ const DEFAULT_SETTINGS: SiteSettings = {
     maxMonthlyLimit: 99,
     currentMonth: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`,
   },
+  adminPin: '1234',
 };
 
 const LOCAL_STORAGE_KEY = 'sr_global_site_settings_v1';
@@ -69,6 +72,7 @@ interface SettingsContextType {
   updateFooter: (config: SiteSettings['footer']) => Promise<boolean>;
   updateMetrics: (config: SiteSettings['metrics']) => Promise<boolean>;
   updateIpstack: (config: SiteSettings['ipstack']) => Promise<boolean>;
+  updateAdminPin: (newPin: string) => Promise<boolean>;
   resetIpstackQuota: () => Promise<boolean>;
   resetToDefaults: () => Promise<boolean>;
   isSyncing: boolean;
@@ -119,6 +123,8 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               liveMerged.metrics = { ...liveMerged.metrics, ...row.setting_value };
             } else if (row.setting_key === 'ipstack_config' && row.setting_value) {
               liveMerged.ipstack = { ...liveMerged.ipstack, ...row.setting_value };
+            } else if (row.setting_key === 'admin_security' && row.setting_value) {
+              liveMerged.adminPin = row.setting_value.pin || row.setting_value;
             }
           });
 
@@ -207,6 +213,15 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return true;
   };
 
+  const updateAdminPin = async (newPin: string) => {
+    const next = { ...settings, adminPin: newPin };
+    setSettings(next);
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(next));
+    localStorage.setItem('sr_global_admin_pin', newPin);
+    await saveToSupabase('admin_security', { pin: newPin, updated_at: new Date().toISOString() });
+    return true;
+  };
+
   const resetIpstackQuota = async () => {
     const next = {
       ...settings,
@@ -241,6 +256,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         updateFooter,
         updateMetrics,
         updateIpstack,
+        updateAdminPin,
         resetIpstackQuota,
         resetToDefaults,
         isSyncing,

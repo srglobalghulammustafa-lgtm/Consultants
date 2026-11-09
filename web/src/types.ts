@@ -35,6 +35,7 @@ export interface Lead {
 
 export interface Appointment {
   id: string;
+  appointment_code?: string;
   client_name: string;
   email: string;
   phone: string;
@@ -44,6 +45,7 @@ export interface Appointment {
   mode: AppointmentMode;
   status: AppointmentStatus;
   message?: string;
+  notes?: string;
   created_at?: string;
 }
 
@@ -127,7 +129,9 @@ export interface FooterConfig {
   phoneAustralia: string;
   email: string;
   officeHours: string;
+  destinationsTitle?: string;
   destinationLinks: FooterLinkItem[];
+  quickLinksTitle?: string;
   quickLinks: FooterLinkItem[];
   copyright: string;
 }
@@ -154,4 +158,5 @@ export interface SiteSettings {
   footer: FooterConfig;
   metrics: CompanyMetrics;
   ipstack: IpstackConfig;
+  adminPin?: string;
 }

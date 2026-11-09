@@ -1,9 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, MapPin, Video, CheckCircle2, AlertCircle, Send, ArrowRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Calendar, Clock, MapPin, Video, CheckCircle2, AlertCircle, Send, ArrowRight, Copy, Check, ShieldCheck, MessageCircle, ExternalLink } from 'lucide-react';
 import { TIME_SLOTS, COMPANY_CONTACT } from '../data/mockData';
 import { supabase } from '../lib/supabase';
+import { useLiveData } from '../context/LiveDataContext';
+import { useSiteSettings } from '../context/SettingsContext';
 
 export const BookAppointment: React.FC = () => {
+  const { addAppointment } = useLiveData();
+  const { settings } = useSiteSettings();
+
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     const today = new Date();
     today.setDate(today.getDate() + 1);
@@ -25,6 +31,7 @@ export const BookAppointment: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [successData, setSuccessData] = useState<any | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [copiedCode, setCopiedCode] = useState(false);
 
   // Check double-booking availability on date change
   useEffect(() => {
@@ -68,6 +75,8 @@ export const BookAppointment: React.FC = () => {
     setSubmitting(true);
     setErrorMessage(null);
 
+    const generatedCode = `SRG-APT-${Math.floor(1000 + Math.random() * 9000)}`;
+
     try {
       const appointmentPayload = {
         client_name: form.name,
@@ -77,28 +86,15 @@ export const BookAppointment: React.FC = () => {
         appointment_date: selectedDate,
         time_slot: selectedSlot,
         mode: form.mode,
-        status: 'Confirmed',
+        status: 'Pending' as const,
+        appointment_code: generatedCode,
         message: form.message
       };
 
-      const { data, error } = await supabase
-        .from('appointments')
-        .insert([appointmentPayload])
-        .select()
-        .single();
-
-      if (error) {
-        // Fallback or double-booking violation
-        if (error.code === '23505') {
-          throw new Error('This time slot was just booked by another applicant. Please choose another time.');
-        }
-        console.warn('Supabase booking note (offline fallback):', error.message);
-      }
-
-      setSuccessData(appointmentPayload);
+      const created = await addAppointment(appointmentPayload);
+      setSuccessData(created || appointmentPayload);
     } catch (err: any) {
       console.warn('Booking exception:', err);
-      // If error specifically states duplicate slot, alert user
       if (err.message && err.message.includes('booked')) {
         setErrorMessage(err.message);
       } else {
@@ -107,13 +103,25 @@ export const BookAppointment: React.FC = () => {
           appointment_date: selectedDate,
           time_slot: selectedSlot,
           mode: form.mode,
-          destination: form.destination
+          destination: form.destination,
+          appointment_code: generatedCode,
+          status: 'Pending'
         });
       }
     } finally {
       setSubmitting(false);
     }
   };
+
+  const copyAppointmentCode = () => {
+    if (successData?.appointment_code) {
+      navigator.clipboard.writeText(successData.appointment_code);
+      setCopiedCode(true);
+      setTimeout(() => setCopiedCode(false), 2500);
+    }
+  };
+
+  const targetWhatsAppNumber = settings.whatsapp?.phone || COMPANY_CONTACT.whatsappNumber || '923278321560';
 
   return (
     <div className="py-16 bg-slate-50 min-h-screen">
@@ -125,24 +133,51 @@ export const BookAppointment: React.FC = () => {
           </span>
           <h1 className="text-4xl font-black text-navy-950 mt-3 font-serif">Book Consultation Appointment</h1>
           <p className="text-slate-600 mt-2 text-base">
-            Guaranteed one-on-one session with our certified counselors. Double-booking protected.
+            Guaranteed one-on-one session with our certified counselors. Unique ID & fee verification enabled.
           </p>
         </div>
 
         {successData ? (
-          <div className="bg-white rounded-3xl p-8 sm:p-12 shadow-xl border border-green-200 text-center max-w-2xl mx-auto space-y-6">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center text-green-600 mx-auto">
-              <CheckCircle2 className="w-10 h-10" />
+          <div className="bg-white rounded-3xl p-8 sm:p-12 shadow-2xl border border-brand-200 text-center max-w-2xl mx-auto space-y-6 animate-fade-in">
+            <div className="w-16 h-16 bg-amber-100 border border-amber-200 rounded-full flex items-center justify-center text-amber-600 mx-auto shadow-sm">
+              <Clock className="w-9 h-9" />
             </div>
 
-            <h2 className="text-3xl font-black text-navy-950">Appointment Confirmed!</h2>
-            <p className="text-slate-600 text-sm leading-relaxed">
-              Thank you, <strong>{successData.client_name}</strong>. Your consultation has been scheduled for{' '}
-              <strong className="text-brand-600">{successData.appointment_date}</strong> at{' '}
-              <strong className="text-brand-600">{successData.time_slot}</strong> ({successData.mode} Mode).
-            </p>
+            <div>
+              <span className="bg-amber-100 text-amber-800 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+                ● Pending Fee Verification
+              </span>
+              <h2 className="text-3xl font-black text-navy-950 mt-3">Slot Reserved! Pay Fee to Confirm</h2>
+              <p className="text-slate-600 text-sm mt-2 leading-relaxed">
+                Thank you, <strong>{successData.client_name}</strong>. Your consultation slot has been reserved for{' '}
+                <strong className="text-brand-600">{successData.appointment_date}</strong> at{' '}
+                <strong className="text-brand-600">{successData.time_slot}</strong> ({successData.mode} Mode).
+              </p>
+            </div>
 
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-left text-xs space-y-2 max-w-md mx-auto">
+            {/* UNIQUE APPOINTMENT CODE BOX */}
+            <div className="p-6 bg-slate-900 text-white rounded-2xl border border-slate-800 space-y-3 shadow-inner">
+              <div className="text-xs font-bold uppercase tracking-widest text-amber-400">
+                Unique Appointment Reference ID
+              </div>
+              <div className="flex items-center justify-center gap-3">
+                <span className="text-3xl sm:text-4xl font-mono font-black tracking-widest text-white">
+                  {successData.appointment_code || 'SRG-APT-8492'}
+                </span>
+                <button
+                  onClick={copyAppointmentCode}
+                  className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-slate-200 transition-colors"
+                  title="Copy Appointment ID"
+                >
+                  {copiedCode ? <Check className="w-5 h-5 text-green-400" /> : <Copy className="w-5 h-5" />}
+                </button>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                {copiedCode ? '✓ Copied to clipboard!' : 'Use this ID to pay fee via WhatsApp or check status anytime.'}
+              </p>
+            </div>
+
+            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 text-left text-xs space-y-2.5 max-w-md mx-auto">
               <div className="flex justify-between">
                 <span className="text-slate-500 font-semibold">Study Destination:</span>
                 <span className="font-bold text-slate-800">{successData.destination}</span>
@@ -152,32 +187,44 @@ export const BookAppointment: React.FC = () => {
                 <span className="font-bold text-slate-800">{successData.mode}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500 font-semibold">Office Location:</span>
-                <span className="font-bold text-slate-800">1st Floor, 239A Civic Center, Gujranwala</span>
+                <span className="text-slate-500 font-semibold">Verification Step:</span>
+                <span className="font-bold text-amber-600">Send Fee Receipt on WhatsApp</span>
               </div>
             </div>
 
-            <div className="pt-4 flex flex-col sm:flex-row gap-4 justify-center">
+            {/* ACTION BUTTONS */}
+            <div className="pt-4 space-y-3">
               <a
-                href={`https://wa.me/${COMPANY_CONTACT.whatsappNumber}?text=${encodeURIComponent(
-                  `Hello SR Global, I have booked an appointment for ${successData.appointment_date} at ${successData.time_slot}. My name is ${successData.client_name}.`
+                href={`https://wa.me/${targetWhatsAppNumber.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+                  `Hello SR Global Consultants! My Appointment Reference ID is ${successData.appointment_code || 'SRG-APT-8492'}. I have booked for ${successData.appointment_date} at ${successData.time_slot}. I would like to pay the consultation fee and get my slot confirmed.`
                 )}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="bg-[#25D366] hover:bg-[#20ba5a] text-white font-bold py-3 px-6 rounded-xl shadow-md transition-all inline-flex items-center justify-center gap-2"
+                className="w-full bg-[#25D366] hover:bg-[#20ba5a] text-white font-bold py-4 px-6 rounded-2xl shadow-lg shadow-green-500/20 transition-all flex items-center justify-center gap-2 text-base"
               >
-                <span>Notify via WhatsApp</span>
+                <MessageCircle className="w-5 h-5 fill-current" />
+                <span>Pay Fee & Confirm on WhatsApp</span>
               </a>
 
-              <button
-                onClick={() => {
-                  setSuccessData(null);
-                  setSelectedSlot(null);
-                }}
-                className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold py-3 px-6 rounded-xl transition-all"
-              >
-                Book Another Slot
-              </button>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+                <Link
+                  to={`/track-appointment?id=${encodeURIComponent(successData.appointment_code || '')}`}
+                  className="inline-flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold py-3 px-5 rounded-xl text-xs transition-colors"
+                >
+                  <ExternalLink className="w-4 h-4 text-brand-400" />
+                  <span>Track Status Live</span>
+                </Link>
+
+                <button
+                  onClick={() => {
+                    setSuccessData(null);
+                    setSelectedSlot(null);
+                  }}
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold py-3 px-5 rounded-xl text-xs transition-colors"
+                >
+                  Book Another Appointment
+                </button>
+              </div>
             </div>
           </div>
         ) : (
@@ -367,9 +414,9 @@ export const BookAppointment: React.FC = () => {
                 <Calendar className="w-5 h-5" />
                 <span>
                   {submitting
-                    ? 'Confirming Slot...'
+                    ? 'Generating Appointment ID...'
                     : selectedSlot
-                    ? `Confirm Booking for ${selectedSlot}`
+                    ? `Reserve Slot for ${selectedSlot}`
                     : 'Select a Time Slot Above to Continue'}
                 </span>
               </button>

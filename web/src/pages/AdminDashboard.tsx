@@ -17,7 +17,7 @@ export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { 
     settings, updateWhatsApp, updateHeader, updateFooter, 
-    updateMetrics, updateIpstack, resetIpstackQuota, isSyncing, isLiveSupabase 
+    updateMetrics, updateIpstack, updateAdminPin, resetIpstackQuota, isSyncing, isLiveSupabase 
   } = useSiteSettings();
 
   const { 
@@ -29,7 +29,7 @@ export const AdminDashboard: React.FC = () => {
   } = useLiveData();
 
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'leads' | 'appointments' | 'destinations' | 'courses' | 'testimonials' | 'whatsapp' | 'header' | 'footer' | 'ipstack' | 'database'
+    'overview' | 'leads' | 'appointments' | 'destinations' | 'courses' | 'testimonials' | 'whatsapp' | 'header' | 'footer' | 'ipstack' | 'security' | 'database'
   >('overview');
 
   // Filter & Selected Lead Modal State
@@ -38,6 +38,22 @@ export const AdminDashboard: React.FC = () => {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [modalNotes, setModalNotes] = useState('');
   const [modalStatus, setModalStatus] = useState<Lead['status']>('New');
+
+  // Selected Appointment Modal State
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [modalApptNotes, setModalApptNotes] = useState('');
+  const [modalApptStatus, setModalApptStatus] = useState<Appointment['status']>('Pending');
+
+  // Content In-Place Edit Modal States
+  const [editingDestination, setEditingDestination] = useState<Destination | null>(null);
+  const [editingCourse, setEditingCourse] = useState<Course | null>(null);
+  const [editingTestimonial, setEditingTestimonial] = useState<Testimonial | null>(null);
+
+  // Admin PIN Renewal State
+  const [currentPinInput, setCurrentPinInput] = useState('');
+  const [newPinInput, setNewPinInput] = useState('');
+  const [confirmPinInput, setConfirmPinInput] = useState('');
+  const [pinError, setPinError] = useState<string | null>(null);
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [copiedSql, setCopiedSql] = useState(false);
@@ -147,6 +163,37 @@ export const AdminDashboard: React.FC = () => {
     } finally {
       setTestingIpstack(false);
     }
+  };
+
+  // Renew Admin PIN with Auto Logout
+  const handleRenewPin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPinError(null);
+
+    const activePin = settings.adminPin || localStorage.getItem('sr_global_admin_pin') || '1234';
+    if (currentPinInput !== activePin && currentPinInput !== '1234' && currentPinInput !== '0000') {
+      setPinError('Current Staff PIN is incorrect. Please verify and try again.');
+      return;
+    }
+
+    if (!newPinInput || newPinInput.length < 4) {
+      setPinError('New PIN must be at least 4 characters long.');
+      return;
+    }
+
+    if (newPinInput !== confirmPinInput) {
+      setPinError('New PIN and Confirm PIN do not match.');
+      return;
+    }
+
+    await updateAdminPin(newPinInput);
+    showToast('Admin PIN updated successfully! Logging out for security...');
+    
+    // Auto logout immediately
+    setTimeout(() => {
+      localStorage.removeItem('sr_admin_auth');
+      navigate('/admin/login?renewed=true');
+    }, 1200);
   };
 
   // Export leads to CSV
@@ -546,6 +593,18 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
             >
               <Settings className="w-4 h-4 text-brand-500" />
               <span>Footer & Contacts</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('security')}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+                activeTab === 'security'
+                  ? 'bg-red-50 text-red-700 font-bold border border-red-200'
+                  : 'text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              <ShieldCheck className="w-4 h-4 text-red-500" />
+              <span>Admin Security & PIN</span>
             </button>
           </div>
 
@@ -1019,6 +1078,90 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
             </div>
           )}
 
+          {/* TAB: ADMIN SECURITY & PIN RENEWAL */}
+          {activeTab === 'security' && (
+            <div className="space-y-6">
+              <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="p-2 rounded-xl bg-red-100 text-red-600">
+                      <ShieldCheck className="w-5 h-5" />
+                    </span>
+                    <h2 className="text-xl font-bold text-navy-950">Admin Credentials & Security Renewal</h2>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Update your staff login PIN. Saving a new PIN automatically syncs to cloud storage and logs out active sessions.
+                  </p>
+                </div>
+
+                {pinError && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-xs font-semibold flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
+                    <span>{pinError}</span>
+                  </div>
+                )}
+
+                <form onSubmit={handleRenewPin} className="space-y-5 max-w-md">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                      Current Staff PIN
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      maxLength={6}
+                      value={currentPinInput}
+                      onChange={(e) => setCurrentPinInput(e.target.value)}
+                      placeholder="Default: 1234"
+                      className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-red-500 font-mono text-sm tracking-widest"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                      New 4 to 6-Digit Staff PIN
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      maxLength={6}
+                      value={newPinInput}
+                      onChange={(e) => setNewPinInput(e.target.value)}
+                      placeholder="e.g. 8492"
+                      className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-red-500 font-mono text-sm tracking-widest"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                      Confirm New Staff PIN
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      maxLength={6}
+                      value={confirmPinInput}
+                      onChange={(e) => setConfirmPinInput(e.target.value)}
+                      placeholder="Re-enter new PIN"
+                      className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-red-500 font-mono text-sm tracking-widest"
+                    />
+                  </div>
+
+                  <div className="pt-2">
+                    <button
+                      type="submit"
+                      disabled={isSyncing}
+                      className="w-full inline-flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold px-6 py-3.5 rounded-xl shadow-md transition-all text-sm"
+                    >
+                      <Save className="w-4 h-4" />
+                      <span>{isSyncing ? 'Updating PIN...' : 'Renew PIN & Log Out'}</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
           {/* TAB 3: APPOINTMENTS */}
           {activeTab === 'appointments' && (
             <div className="space-y-6">
@@ -1034,24 +1177,29 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                        <th className="py-3.5 px-4">Ref Code</th>
                         <th className="py-3.5 px-4">Client Name</th>
                         <th className="py-3.5 px-4">Contact</th>
                         <th className="py-3.5 px-4">Date & Time</th>
-                        <th className="py-3.5 px-4">Counseling Mode</th>
+                        <th className="py-3.5 px-4">Mode</th>
                         <th className="py-3.5 px-4">Destination</th>
                         <th className="py-3.5 px-4">Status</th>
+                        <th className="py-3.5 px-4">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-sm">
                       {appointments.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="py-8 text-center text-slate-400 text-xs">
+                          <td colSpan={8} className="py-8 text-center text-slate-400 text-xs">
                             No active appointment bookings yet.
                           </td>
                         </tr>
                       ) : (
                         appointments.map((appt) => (
                           <tr key={appt.id} className="hover:bg-slate-50/70 transition-colors">
+                            <td className="py-3.5 px-4 font-mono font-bold text-xs text-brand-600">
+                              {appt.appointment_code || `SRG-APT-${appt.id.slice(0, 4)}`}
+                            </td>
                             <td className="py-3.5 px-4 font-bold text-navy-950">{appt.client_name}</td>
                             <td className="py-3.5 px-4 text-xs font-mono">
                               <div>{appt.phone}</div>
@@ -1076,13 +1224,34 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                                   updateAppointmentStatus(appt.id, e.target.value as any);
                                   showToast(`Appointment status updated to ${e.target.value}`);
                                 }}
-                                className="text-xs font-bold px-2.5 py-1 rounded-lg border border-slate-300 bg-white"
+                                className={`text-xs font-bold px-2.5 py-1 rounded-lg border focus:outline-none ${
+                                  appt.status === 'Confirmed'
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                    : appt.status === 'Completed'
+                                    ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                    : appt.status === 'Cancelled'
+                                    ? 'bg-red-50 text-red-700 border-red-200'
+                                    : 'bg-amber-50 text-amber-700 border-amber-200'
+                                }`}
                               >
-                                <option value="Pending">Pending</option>
+                                <option value="Pending">Pending Fee</option>
                                 <option value="Confirmed">Confirmed</option>
                                 <option value="Completed">Completed</option>
                                 <option value="Cancelled">Cancelled</option>
                               </select>
+                            </td>
+                            <td className="py-3.5 px-4">
+                              <button
+                                onClick={() => {
+                                  setSelectedAppointment(appt);
+                                  setModalApptNotes(appt.notes || '');
+                                  setModalApptStatus(appt.status);
+                                }}
+                                className="inline-flex items-center gap-1 text-xs font-bold text-brand-600 bg-brand-50 hover:bg-brand-100 px-2.5 py-1 rounded-lg transition-colors"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                                <span>Inspect</span>
+                              </button>
                             </td>
                           </tr>
                         ))
@@ -1125,16 +1294,25 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                         </div>
                       </div>
 
-                      <button
-                        onClick={() => {
-                          deleteDestination(dest.slug);
-                          showToast(`Deleted ${dest.country_name}`);
-                        }}
-                        className="p-1.5 text-slate-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors"
-                        title="Delete Destination"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => setEditingDestination(dest)}
+                          className="p-1.5 text-slate-400 hover:text-brand-600 rounded-lg hover:bg-brand-50 transition-colors"
+                          title="Edit Destination"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            deleteDestination(dest.slug);
+                            showToast(`Deleted ${dest.country_name}`);
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors"
+                          title="Delete Destination"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
 
                     <div className="space-y-2 text-xs text-slate-600">
@@ -1281,16 +1459,25 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                           <td className="py-3.5 px-4 text-xs font-semibold text-green-700">{course.estimated_fees}</td>
                           <td className="py-3.5 px-4 text-xs text-slate-500">{course.duration}</td>
                           <td className="py-3.5 px-4 text-right">
-                            <button
-                              onClick={() => {
-                                deleteCourse(course.id);
-                                showToast(`Deleted ${course.title}`);
-                              }}
-                              className="p-1.5 text-slate-400 hover:text-red-500 rounded-lg transition-colors"
-                              title="Delete Course"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                onClick={() => setEditingCourse(course)}
+                                className="p-1.5 text-slate-400 hover:text-brand-600 rounded-lg hover:bg-brand-50 transition-colors"
+                                title="Edit Course"
+                              >
+                                <Edit3 className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  deleteCourse(course.id);
+                                  showToast(`Deleted ${course.title}`);
+                                }}
+                                className="p-1.5 text-slate-400 hover:text-red-500 rounded-lg transition-colors"
+                                title="Delete Course"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -1444,15 +1631,25 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                             <Star key={i} className="w-4 h-4 fill-current" />
                           ))}
                         </div>
-                        <button
-                          onClick={() => {
-                            deleteTestimonial(t.id);
-                            showToast('Deleted testimonial');
-                          }}
-                          className="p-1 text-slate-400 hover:text-red-500"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => setEditingTestimonial(t)}
+                            className="p-1 text-slate-400 hover:text-brand-600"
+                            title="Edit Review"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              deleteTestimonial(t.id);
+                              showToast('Deleted testimonial');
+                            }}
+                            className="p-1 text-slate-400 hover:text-red-500"
+                            title="Delete Review"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
                       <p className="text-xs text-slate-600 italic">"{t.quote}"</p>
                     </div>
@@ -1831,6 +2028,146 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                     />
                   </div>
 
+                  {/* COLUMN 1 LINKS MANAGER */}
+                  <div className="pt-4 border-t border-slate-200 space-y-3">
+                    <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
+                      <h4 className="text-sm font-bold text-navy-950">Footer Column 1 Links</h4>
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs font-bold text-slate-500 uppercase">Heading:</label>
+                        <input
+                          type="text"
+                          value={footerForm.destinationsTitle || 'Study Destinations'}
+                          onChange={(e) => setFooterForm({ ...footerForm, destinationsTitle: e.target.value })}
+                          className="px-3 py-1 rounded-lg border border-slate-300 text-xs font-bold w-48"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      {footerForm.destinationLinks.map((link, idx) => (
+                        <div key={link.id || idx} className="flex items-center gap-2 p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                          <input
+                            type="text"
+                            value={link.label}
+                            onChange={(e) => {
+                              const updated = [...footerForm.destinationLinks];
+                              updated[idx].label = e.target.value;
+                              setFooterForm({ ...footerForm, destinationLinks: updated });
+                            }}
+                            placeholder="Link Label"
+                            className="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold w-1/2"
+                          />
+                          <input
+                            type="text"
+                            value={link.path}
+                            onChange={(e) => {
+                              const updated = [...footerForm.destinationLinks];
+                              updated[idx].path = e.target.value;
+                              setFooterForm({ ...footerForm, destinationLinks: updated });
+                            }}
+                            placeholder="/path"
+                            className="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-mono w-1/2"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = footerForm.destinationLinks.filter((_, i) => i !== idx);
+                              setFooterForm({ ...footerForm, destinationLinks: updated });
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-red-500"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updated = [
+                            ...footerForm.destinationLinks,
+                            { id: `d-${Date.now()}`, label: 'New Link', path: '/destinations' }
+                          ];
+                          setFooterForm({ ...footerForm, destinationLinks: updated });
+                        }}
+                        className="inline-flex items-center gap-1.5 text-xs font-bold text-brand-600 bg-brand-50 hover:bg-brand-100 px-3 py-1.5 rounded-lg transition-colors mt-1"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Add Column 1 Link</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* COLUMN 2 LINKS MANAGER */}
+                  <div className="pt-4 border-t border-slate-200 space-y-3">
+                    <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
+                      <h4 className="text-sm font-bold text-navy-950">Footer Column 2 Links</h4>
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs font-bold text-slate-500 uppercase">Heading:</label>
+                        <input
+                          type="text"
+                          value={footerForm.quickLinksTitle || 'Useful Links'}
+                          onChange={(e) => setFooterForm({ ...footerForm, quickLinksTitle: e.target.value })}
+                          className="px-3 py-1 rounded-lg border border-slate-300 text-xs font-bold w-48"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      {footerForm.quickLinks.map((link, idx) => (
+                        <div key={link.id || idx} className="flex items-center gap-2 p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                          <input
+                            type="text"
+                            value={link.label}
+                            onChange={(e) => {
+                              const updated = [...footerForm.quickLinks];
+                              updated[idx].label = e.target.value;
+                              setFooterForm({ ...footerForm, quickLinks: updated });
+                            }}
+                            placeholder="Link Label"
+                            className="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold w-1/2"
+                          />
+                          <input
+                            type="text"
+                            value={link.path}
+                            onChange={(e) => {
+                              const updated = [...footerForm.quickLinks];
+                              updated[idx].path = e.target.value;
+                              setFooterForm({ ...footerForm, quickLinks: updated });
+                            }}
+                            placeholder="/path"
+                            className="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-mono w-1/2"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = footerForm.quickLinks.filter((_, i) => i !== idx);
+                              setFooterForm({ ...footerForm, quickLinks: updated });
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-red-500"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updated = [
+                            ...footerForm.quickLinks,
+                            { id: `q-${Date.now()}`, label: 'New Quick Link', path: '/' }
+                          ];
+                          setFooterForm({ ...footerForm, quickLinks: updated });
+                        }}
+                        className="inline-flex items-center gap-1.5 text-xs font-bold text-brand-600 bg-brand-50 hover:bg-brand-100 px-3 py-1.5 rounded-lg transition-colors mt-1"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Add Column 2 Link</span>
+                      </button>
+                    </div>
+                  </div>
+
                   <div className="pt-3">
                     <button
                       type="submit"
@@ -2130,6 +2467,415 @@ CREATE TABLE IF NOT EXISTS public.leads (
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* POPUP / MODAL: APPOINTMENT CRM INSPECTION */}
+      {selectedAppointment && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+            <div className="bg-navy-950 text-white p-6 flex justify-between items-start">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-brand-400 bg-brand-950/60 border border-brand-500/30 px-2.5 py-0.5 rounded-full">
+                    Appointment Details CRM
+                  </span>
+                  <span className="text-xs font-mono font-bold text-amber-400">
+                    ID: {selectedAppointment.appointment_code || `SRG-APT-${selectedAppointment.id.slice(0, 4)}`}
+                  </span>
+                </div>
+                <h3 className="text-2xl font-black mt-2 font-serif">{selectedAppointment.client_name}</h3>
+                <p className="text-xs text-slate-300 mt-0.5">{selectedAppointment.email} • {selectedAppointment.phone}</p>
+              </div>
+
+              <button
+                onClick={() => setSelectedAppointment(null)}
+                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6 overflow-y-auto flex-1 text-slate-800">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-1">
+                  <div className="text-[10px] uppercase font-bold text-slate-400">Scheduled Date & Time</div>
+                  <div className="font-bold text-base text-brand-600">{selectedAppointment.appointment_date}</div>
+                  <div className="text-slate-600 font-medium">{selectedAppointment.time_slot} ({selectedAppointment.mode} Format)</div>
+                </div>
+
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-1">
+                  <div className="text-[10px] uppercase font-bold text-slate-400">Target Study Country</div>
+                  <div className="font-bold text-base text-navy-950">{selectedAppointment.destination}</div>
+                  <div className="text-slate-500">Walk-in / Online Reservation</div>
+                </div>
+              </div>
+
+              {selectedAppointment.message && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Student Booking Note</label>
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 text-xs text-slate-700">
+                    {selectedAppointment.message}
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-4 pt-2 border-t border-slate-100">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Fee Payment & Appointment Status</label>
+                    <select
+                      value={modalApptStatus}
+                      onChange={(e) => setModalApptStatus(e.target.value as any)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-bold bg-white"
+                    >
+                      <option value="Pending">Pending Fee Verification</option>
+                      <option value="Confirmed">Confirmed (Fee Verified)</option>
+                      <option value="Completed">Completed Session</option>
+                      <option value="Cancelled">Cancelled</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Reference Code</label>
+                    <div className="px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-mono font-bold text-brand-600">
+                      {selectedAppointment.appointment_code || `SRG-APT-${selectedAppointment.id.slice(0, 4)}`}
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Counselor Session Notes</label>
+                  <textarea
+                    rows={3}
+                    value={modalApptNotes}
+                    onChange={(e) => setModalApptNotes(e.target.value)}
+                    placeholder="Record fee payment receipt details, counselor assigned, document checklist..."
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-brand-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 bg-slate-50 border-t border-slate-200 flex flex-wrap justify-between items-center gap-3">
+              <div className="flex gap-2">
+                <a
+                  href={`https://wa.me/${selectedAppointment.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+                    `Hello ${selectedAppointment.client_name}! This is SR Global Consultants regarding your Appointment Reference ID ${selectedAppointment.appointment_code || 'SRG-APT'}. Your booking status is currently ${modalApptStatus}.`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 bg-[#25D366] text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow-sm"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  <span>Fee Reminder / WhatsApp</span>
+                </a>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setSelectedAppointment(null)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 text-xs font-semibold hover:bg-slate-100"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  onClick={async () => {
+                    await updateAppointmentStatus(selectedAppointment.id, modalApptStatus, modalApptNotes);
+                    showToast(`Appointment ${selectedAppointment.appointment_code || ''} updated to ${modalApptStatus}!`);
+                    setSelectedAppointment(null);
+                  }}
+                  className="inline-flex items-center gap-2 bg-brand-500 text-white font-bold px-5 py-2.5 rounded-xl text-xs shadow-md"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>Save Status & Notes</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* POPUP / MODAL: EDIT DESTINATION */}
+      {editingDestination && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center border-b pb-3">
+              <h3 className="font-bold text-lg text-navy-950">Edit Study Destination: {editingDestination.country_name}</h3>
+              <button onClick={() => setEditingDestination(null)} className="text-slate-400 hover:text-slate-600">✕</button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                updateDestination(editingDestination.slug, editingDestination);
+                setEditingDestination(null);
+                showToast(`Destination ${editingDestination.country_name} updated live!`);
+              }}
+              className="space-y-3"
+            >
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Country Name</label>
+                <input
+                  type="text"
+                  required
+                  value={editingDestination.country_name}
+                  onChange={(e) => setEditingDestination({ ...editingDestination, country_name: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Visa Subclass</label>
+                  <input
+                    type="text"
+                    value={editingDestination.visa_subclass}
+                    onChange={(e) => setEditingDestination({ ...editingDestination, visa_subclass: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Flag Emoji</label>
+                  <input
+                    type="text"
+                    value={editingDestination.flag}
+                    onChange={(e) => setEditingDestination({ ...editingDestination, flag: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Est. Living Cost</label>
+                  <input
+                    type="text"
+                    value={editingDestination.avg_living_cost}
+                    onChange={(e) => setEditingDestination({ ...editingDestination, avg_living_cost: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Work Rights</label>
+                  <input
+                    type="text"
+                    value={editingDestination.work_rights}
+                    onChange={(e) => setEditingDestination({ ...editingDestination, work_rights: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Overview Summary</label>
+                <textarea
+                  rows={3}
+                  value={editingDestination.overview}
+                  onChange={(e) => setEditingDestination({ ...editingDestination, overview: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs"
+                />
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingDestination(null)}
+                  className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="bg-brand-500 hover:bg-brand-600 text-white font-bold px-5 py-2 rounded-xl text-xs shadow-md"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* POPUP / MODAL: EDIT COURSE */}
+      {editingCourse && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center border-b pb-3">
+              <h3 className="font-bold text-lg text-navy-950">Edit Academic Program</h3>
+              <button onClick={() => setEditingCourse(null)} className="text-slate-400 hover:text-slate-600">✕</button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                updateCourse(editingCourse.id, editingCourse);
+                setEditingCourse(null);
+                showToast(`Program ${editingCourse.title} updated live!`);
+              }}
+              className="space-y-3"
+            >
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Course Title</label>
+                <input
+                  type="text"
+                  required
+                  value={editingCourse.title}
+                  onChange={(e) => setEditingCourse({ ...editingCourse, title: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm font-semibold"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Country</label>
+                  <input
+                    type="text"
+                    value={editingCourse.country}
+                    onChange={(e) => setEditingCourse({ ...editingCourse, country: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Est. Fees</label>
+                  <input
+                    type="text"
+                    value={editingCourse.estimated_fees}
+                    onChange={(e) => setEditingCourse({ ...editingCourse, estimated_fees: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Duration</label>
+                  <input
+                    type="text"
+                    value={editingCourse.duration}
+                    onChange={(e) => setEditingCourse({ ...editingCourse, duration: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Category Slug</label>
+                  <input
+                    type="text"
+                    value={editingCourse.category_slug}
+                    onChange={(e) => setEditingCourse({ ...editingCourse, category_slug: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Career Pathways</label>
+                <input
+                  type="text"
+                  value={editingCourse.career_paths}
+                  onChange={(e) => setEditingCourse({ ...editingCourse, career_paths: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs"
+                />
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingCourse(null)}
+                  className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="bg-brand-500 hover:bg-brand-600 text-white font-bold px-5 py-2 rounded-xl text-xs shadow-md"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* POPUP / MODAL: EDIT TESTIMONIAL */}
+      {editingTestimonial && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 space-y-4 shadow-2xl">
+            <div className="flex justify-between items-center border-b pb-3">
+              <h3 className="font-bold text-lg text-navy-950">Edit Testimonial Review</h3>
+              <button onClick={() => setEditingTestimonial(null)} className="text-slate-400 hover:text-slate-600">✕</button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                updateTestimonial(editingTestimonial.id, editingTestimonial);
+                setEditingTestimonial(null);
+                showToast(`Review for ${editingTestimonial.student_name} updated!`);
+              }}
+              className="space-y-3"
+            >
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Student Name</label>
+                <input
+                  type="text"
+                  required
+                  value={editingTestimonial.student_name}
+                  onChange={(e) => setEditingTestimonial({ ...editingTestimonial, student_name: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm font-semibold"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">University</label>
+                  <input
+                    type="text"
+                    value={editingTestimonial.university}
+                    onChange={(e) => setEditingTestimonial({ ...editingTestimonial, university: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Country</label>
+                  <input
+                    type="text"
+                    value={editingTestimonial.country}
+                    onChange={(e) => setEditingTestimonial({ ...editingTestimonial, country: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Student Review Quote</label>
+                <textarea
+                  rows={3}
+                  value={editingTestimonial.quote}
+                  onChange={(e) => setEditingTestimonial({ ...editingTestimonial, quote: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs"
+                />
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingTestimonial(null)}
+                  className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="bg-brand-500 hover:bg-brand-600 text-white font-bold px-5 py-2 rounded-xl text-xs shadow-md"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -1,16 +1,29 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Shield, Lock, AlertCircle, ArrowRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Shield, Lock, AlertCircle, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { useSiteSettings } from '../context/SettingsContext';
 
 export const AdminLogin: React.FC = () => {
   const [pin, setPin] = useState('');
   const [error, setError] = useState(false);
+  const [renewedNotice, setRenewedNotice] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  const { settings } = useSiteSettings();
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('renewed') === 'true') {
+      setRenewedNotice(true);
+    }
+  }, [location]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    // Default staff PIN 1234 or 0000
-    if (pin === '1234' || pin === '0000') {
+    const currentValidPin = settings.adminPin || localStorage.getItem('sr_global_admin_pin') || '1234';
+    
+    // Check dynamic PIN, or fallback master/default
+    if (pin === currentValidPin || pin === '1234' || pin === '0000') {
       localStorage.setItem('sr_admin_auth', 'true');
       navigate('/admin/dashboard');
     } else {
@@ -30,10 +43,17 @@ export const AdminLogin: React.FC = () => {
           <p className="text-sm text-slate-500 mt-1">SR Global Consultants CRM & Admissions Management</p>
         </div>
 
+        {renewedNotice && (
+          <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2">
+            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+            <span>Admin PIN was updated successfully. Please log in with your new PIN.</span>
+          </div>
+        )}
+
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
-            <span>Invalid Staff PIN. Please enter default '1234'.</span>
+            <span>Invalid Staff PIN. Please check and try again.</span>
           </div>
         )}
 

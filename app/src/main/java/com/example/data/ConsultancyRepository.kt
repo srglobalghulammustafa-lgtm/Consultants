@@ -371,7 +371,9 @@ class ConsultancyRepository(
             return Result.failure(IllegalStateException("The slot '$timeSlot' on $date has already been booked. Please choose another available slot."))
         }
 
+        val code = "SRG-APT-${(1000..9999).random()}"
         val newAppointment = Appointment(
+            appointmentCode = code,
             clientName = clientName,
             email = email,
             phone = phone,
@@ -379,7 +381,7 @@ class ConsultancyRepository(
             date = date,
             timeSlot = timeSlot,
             mode = mode,
-            status = AppointmentStatus.CONFIRMED,
+            status = AppointmentStatus.PENDING,
             message = message
         )
 
@@ -399,6 +401,18 @@ class ConsultancyRepository(
             notes = "Booked $mode appointment for $date at $timeSlot"
         )
         return Result.success(newAppointment)
+    }
+
+    fun findAppointmentByCodeOrPhone(query: String): Appointment? {
+        if (query.isBlank()) return null
+        val cleanQuery = query.trim().uppercase()
+        val cleanPhone = query.replace(Regex("[^0-9]"), "")
+
+        return _appointments.value.find { a ->
+            val codeMatch = a.appointmentCode.uppercase() == cleanQuery || a.id.uppercase() == cleanQuery
+            val phoneMatch = cleanPhone.length >= 7 && a.phone.replace(Regex("[^0-9]"), "").contains(cleanPhone)
+            codeMatch || phoneMatch
+        }
     }
 
     fun submitLead(

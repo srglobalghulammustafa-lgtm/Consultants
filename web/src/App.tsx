@@ -8,6 +8,7 @@ import { About } from './pages/About';
 import { Courses } from './pages/Courses';
 import { Destinations } from './pages/Destinations';
 import { BookAppointment } from './pages/BookAppointment';
+import { TrackAppointment } from './pages/TrackAppointment';
 import { Contact } from './pages/Contact';
 import { PrivacyPolicy, Terms } from './pages/PrivacyPolicy';
 import { AdminLogin } from './pages/AdminLogin';
@@ -30,6 +31,7 @@ const AppLayout: React.FC = () => {
           <Route path="/courses" element={<Courses />} />
           <Route path="/destinations" element={<Destinations />} />
           <Route path="/book-appointment" element={<BookAppointment />} />
+          <Route path="/track-appointment" element={<TrackAppointment />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<Terms />} />

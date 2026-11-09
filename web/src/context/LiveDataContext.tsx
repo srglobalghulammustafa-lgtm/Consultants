@@ -28,9 +28,11 @@ interface LiveDataContextType {
   updateTestimonial: (id: string, item: Partial<Testimonial>) => Promise<boolean>;
   deleteTestimonial: (id: string) => Promise<boolean>;
 
-  // Leads & Appointments status update
+  // Leads & Appointments operations
+  addAppointment: (appt: Omit<Appointment, 'id'> & { id?: string }) => Promise<Appointment>;
+  getAppointmentByCodeOrPhone: (query: string) => Appointment | undefined;
   updateLeadStatus: (id: string, status: Lead['status'], notes?: string) => Promise<boolean>;
-  updateAppointmentStatus: (id: string, status: Appointment['status']) => Promise<boolean>;
+  updateAppointmentStatus: (id: string, status: Appointment['status'], notes?: string) => Promise<boolean>;
 }
 
 const LiveDataContext = createContext<LiveDataContextType | undefined>(undefined);
@@ -258,13 +260,68 @@ export const LiveDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return true;
   };
 
+  // Appointment creation with auto appointment_code
+  const addAppointment = async (newAppt: Omit<Appointment, 'id'> & { id?: string }): Promise<Appointment> => {
+    const code = newAppt.appointment_code || `SRG-APT-${Math.floor(1000 + Math.random() * 9000)}`;
+    const tempId = newAppt.id || `appt-${Date.now()}`;
+    const fullAppt: Appointment = {
+      ...newAppt,
+      id: tempId,
+      appointment_code: code,
+      status: newAppt.status || 'Pending',
+      created_at: new Date().toISOString(),
+    };
+
+    setAppointments((prev) => [fullAppt, ...prev]);
+
+    try {
+      const { data, error } = await supabase
+        .from('appointments')
+        .insert([{
+          client_name: fullAppt.client_name,
+          email: fullAppt.email,
+          phone: fullAppt.phone,
+          destination: fullAppt.destination,
+          appointment_date: fullAppt.appointment_date,
+          time_slot: fullAppt.time_slot,
+          mode: fullAppt.mode,
+          status: fullAppt.status,
+          message: fullAppt.message,
+          appointment_code: fullAppt.appointment_code,
+          notes: fullAppt.notes,
+        }])
+        .select()
+        .single();
+
+      if (!error && data) {
+        setAppointments((prev) => prev.map((a) => (a.id === tempId ? data : a)));
+        return data;
+      }
+    } catch (e) {
+      console.warn('Sync notice for addAppointment:', e);
+    }
+    return fullAppt;
+  };
+
+  const getAppointmentByCodeOrPhone = (query: string): Appointment | undefined => {
+    if (!query) return undefined;
+    const cleanQuery = query.trim().toUpperCase();
+    const cleanPhone = query.replace(/[^0-9]/g, '');
+
+    return appointments.find((a) => {
+      const codeMatch = a.appointment_code?.toUpperCase() === cleanQuery || a.id.toUpperCase() === cleanQuery;
+      const phoneMatch = cleanPhone.length >= 7 && a.phone.replace(/[^0-9]/g, '').includes(cleanPhone);
+      return codeMatch || phoneMatch;
+    });
+  };
+
   // Appointment status update
-  const updateAppointmentStatus = async (id: string, status: Appointment['status']) => {
+  const updateAppointmentStatus = async (id: string, status: Appointment['status'], notes?: string) => {
     setAppointments((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, status } : a))
+      prev.map((a) => (a.id === id ? { ...a, status, notes: notes !== undefined ? notes : a.notes } : a))
     );
     try {
-      await supabase.from('appointments').update({ status }).eq('id', id);
+      await supabase.from('appointments').update({ status, ...(notes !== undefined ? { notes } : {}) }).eq('id', id);
     } catch (e) {
       console.warn('Sync notice for updateAppointmentStatus:', e);
     }
@@ -292,6 +349,8 @@ export const LiveDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         updateTestimonial,
         deleteTestimonial,
         updateLeadStatus,
+        addAppointment,
+        getAppointmentByCodeOrPhone,
         updateAppointmentStatus,
       }}
     >

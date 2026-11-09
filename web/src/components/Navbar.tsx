@@ -16,6 +16,7 @@ export const Navbar: React.FC = () => {
         { name: 'About Us', path: '/about' },
         { name: 'Courses & Programs', path: '/courses' },
         { name: 'Study Destinations', path: '/destinations' },
+        { name: 'Track Status', path: '/track-appointment' },
         { name: 'Contact Office', path: '/contact' }
       ];
 
