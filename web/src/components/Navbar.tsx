@@ -9,6 +9,17 @@ export const Navbar: React.FC = () => {
   const [showBellDropdown, setShowBellDropdown] = useState(false);
   const [dismissedBannerId, setDismissedBannerId] = useState<string | null>(null);
   const [lastChimedId, setLastChimedId] = useState<string | null>(null);
+  const dropdownRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowBellDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const location = useLocation();
   const { settings, clearBroadcastHistory } = useSiteSettings();
@@ -38,132 +49,6 @@ export const Navbar: React.FC = () => {
       ];
 
   const hasActiveBroadcast = activeBroadcast && activeBroadcast.id !== dismissedBannerId;
-
-  return (
-    <header className="sticky top-0 z-50 w-full shadow-md bg-white">
-      {/* Broadcast Announcement Header Banner (if broadcast active) */}
-      {hasActiveBroadcast && (
-        <div className={`text-white text-xs py-2.5 px-4 transition-all ${
-          activeBroadcast.priority === 'Urgent' 
-            ? 'bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 animate-pulse' 
-            : 'bg-gradient-to-r from-brand-700 via-navy-900 to-brand-800'
-        }`}>
-          <div className="max-w-[98%] xl:max-w-[96%] mx-auto flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <span className="p-1 bg-white/20 rounded-full shrink-0">
-                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-              </span>
-              <div className="truncate">
-                <strong className="font-bold mr-1.5 uppercase tracking-wide bg-white/20 px-1.5 py-0.5 rounded text-[10px]">
-                  {activeBroadcast.priority === 'Urgent' ? '⚡ URGENT ANNOUNCEMENT' : '📢 OFFICIAL UPDATE'}
-                </strong>
-                <span className="font-semibold text-slate-100">{activeBroadcast.title}:</span>{' '}
-                <span className="text-slate-200 truncate">{activeBroadcast.message}</span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3 shrink-0">
-              {activeBroadcast.link && (
-                <a
-                  href={activeBroadcast.link}
-                  className="bg-white/20 hover:bg-white/30 text-white font-medium px-2.5 py-1 rounded-md text-[11px] inline-flex items-center gap-1 transition-colors"
-                >
-                  View Details <ExternalLink className="w-3 h-3" />
-                </a>
-              )}
-              <button
-                onClick={() => setDismissedBannerId(activeBroadcast.id)}
-                className="text-white/80 hover:text-white p-1 rounded hover:bg-white/10"
-                title="Dismiss banner"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="bg-navy-950 text-white text-xs py-2 px-4 border-b border-navy-800">
-        <div className="max-w-[98%] xl:max-w-[96%] mx-auto flex flex-col sm:flex-row justify-between items-center gap-2">
-          <div className="flex flex-wrap items-center gap-4 text-slate-300">
-            <span className="flex items-center gap-1">
-              <MapPin className="w-3.5 h-3.5 text-brand-400" />
-              {header.topAnnouncement || header.address}
-            </span>
-            <span className="hidden md:flex items-center gap-1">
-              <Mail className="w-3.5 h-3.5 text-brand-400" />
-              {header.email}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <a href={`tel:${header.phonePakistan}`} className="flex items-center gap-1 hover:text-brand-300 transition-colors">
-              <Phone className="w-3.5 h-3.5 text-green-400" />
-              PK: {header.phonePakistan}
-            </a>
-            <span className="text-slate-600">|</span>
-            <a href={`tel:${header.phoneAustralia}`} className="hidden sm:flex items-center gap-1 hover:text-brand-300 transition-colors">
-              <Phone className="w-3.5 h-3.5 text-brand-400" />
-              AU: {header.phoneAustralia}
-            </a>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Navbar */}
-      <div className="max-w-[98%] xl:max-w-[96%] mx-auto">
-        <div className="flex justify-between items-center h-20">
-          {/* Official Logo Brand */}
-          <Link to="/" className="flex items-center gap-3 group">
-            <img 
-              src="/logo.png" 
-              alt="SR Global Consultants Logo" 
-              className="h-12 w-12 rounded-full object-cover shadow-sm group-hover:scale-105 transition-transform"
-            />
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="font-serif font-black text-xl text-navy-950 tracking-wider">SR GLOBAL</span>
-                <span className="bg-brand-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider">Pakistan • Australia</span>
-              </div>
-              <p className="text-[11px] font-semibold tracking-widest text-brand-600 uppercase">
-                — CONSULTANTS —
-              </p>
-            </div>
-          </Link>
-
-          {/* Desktop Navigation Links */}
-          <nav className="hidden lg:flex items-center gap-1">
-            {navLinks.map((link) => {
-              const isActive = location.pathname === link.path;
-              return (
-                <Link
-                  key={link.path}
-                  to={link.path}
-                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'text-brand-600 bg-brand-50 font-bold'
-                      : 'text-slate-700 hover:text-brand-600 hover:bg-slate-50'
-                  }`}
-                >
-                  {link.name}
-                </Link>
-              );
-            })}
-          </nav>
-
-          {/* Right Action Bar (Notification Bell & Book Appointment CTA) */}
-          <div className="hidden sm:flex items-center gap-3">
-  const dropdownRef = React.useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setShowBellDropdown(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   return (
     <header className="sticky top-0 z-50 w-full shadow-md bg-white">
@@ -424,4 +309,3 @@ export const Navbar: React.FC = () => {
     </header>
   );
 };
-
