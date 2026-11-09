@@ -2066,6 +2066,7 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                         className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-medium"
                       />
                     </div>
+                  </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
