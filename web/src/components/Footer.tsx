@@ -89,10 +89,24 @@ export const Footer: React.FC = () => {
                   {footer.email}
                 </a>
               </p>
-              <p className="flex items-center gap-2.5 text-xs text-slate-400">
+              <p className="flex items-center gap-2.5 text-xs text-slate-400 mb-3">
                 <Clock className="w-4 h-4 text-brand-400 shrink-0" />
                 <span>{footer.officeHours}</span>
               </p>
+
+              <a
+                href={footer.accreditedBadgeUrl || 'https://www.icef.com/agency-status/#7092'}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block group"
+                title="ICEF Accredited Certified Global Partner #7092"
+              >
+                <img
+                  src="/assets/icef_badge.png"
+                  alt="ICEF Accredited Certified Global Partner"
+                  className="h-24 w-auto object-contain rounded-xl shadow-lg ring-2 ring-brand-500/30 group-hover:scale-105 transition-transform bg-navy-900/60 p-1"
+                />
+              </a>
             </div>
           </div>
         </div>

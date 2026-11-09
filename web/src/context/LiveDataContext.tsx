@@ -32,7 +32,9 @@ interface LiveDataContextType {
   addAppointment: (appt: Omit<Appointment, 'id'> & { id?: string }) => Promise<Appointment>;
   getAppointmentByCodeOrPhone: (query: string) => Appointment | undefined;
   updateLeadStatus: (id: string, status: Lead['status'], notes?: string) => Promise<boolean>;
+  deleteLead: (id: string) => Promise<boolean>;
   updateAppointmentStatus: (id: string, status: Appointment['status'], notes?: string) => Promise<boolean>;
+  deleteAppointment: (id: string) => Promise<boolean>;
 }
 
 const LiveDataContext = createContext<LiveDataContextType | undefined>(undefined);
@@ -328,6 +330,26 @@ export const LiveDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return true;
   };
 
+  const deleteLead = async (id: string) => {
+    setLeads((prev) => prev.filter((l) => l.id !== id));
+    try {
+      await supabase.from('leads').delete().eq('id', id);
+    } catch (e) {
+      console.warn('Sync notice for deleteLead:', e);
+    }
+    return true;
+  };
+
+  const deleteAppointment = async (id: string) => {
+    setAppointments((prev) => prev.filter((a) => a.id !== id));
+    try {
+      await supabase.from('appointments').delete().eq('id', id);
+    } catch (e) {
+      console.warn('Sync notice for deleteAppointment:', e);
+    }
+    return true;
+  };
+
   return (
     <LiveDataContext.Provider
       value={{
@@ -349,9 +371,11 @@ export const LiveDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         updateTestimonial,
         deleteTestimonial,
         updateLeadStatus,
+        deleteLead,
         addAppointment,
         getAppointmentByCodeOrPhone,
         updateAppointmentStatus,
+        deleteAppointment,
       }}
     >
       {children}

@@ -135,6 +135,7 @@ export interface FooterConfig {
   quickLinks: FooterLinkItem[];
   copyright: string;
   copyrightYear?: string;
+  accreditedBadgeUrl?: string;
 }
 
 export interface BroadcastNotification {

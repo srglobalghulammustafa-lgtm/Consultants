@@ -48,6 +48,7 @@ const DEFAULT_SETTINGS: SiteSettings = {
     ],
     copyright: 'SR Global Consultants. All rights reserved. Gujranwala • Australia.',
     copyrightYear: '2026',
+    accreditedBadgeUrl: 'https://www.icef.com/agency-status/#7092',
   },
   metrics: {
     studentsGuided: SITE_METRICS.studentsGuided || 5200,

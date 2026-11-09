@@ -25,7 +25,7 @@ export const AdminDashboard: React.FC = () => {
     addCourse, updateCourse, deleteCourse, 
     addDestination, updateDestination, deleteDestination,
     addTestimonial, updateTestimonial, deleteTestimonial,
-    updateLeadStatus, updateAppointmentStatus, refreshData, isSupabaseConnected
+    updateLeadStatus, deleteLead, updateAppointmentStatus, deleteAppointment, refreshData, isSupabaseConnected
   } = useLiveData();
 
   const [activeTab, setActiveTab] = useState<
@@ -937,7 +937,7 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                                 </select>
                               </td>
 
-                              <td className="py-3.5 px-4">
+                              <td className="py-3.5 px-4 flex items-center gap-2">
                                 <button
                                   onClick={() => {
                                     setSelectedLead(lead);
@@ -948,6 +948,18 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                                 >
                                   <Eye className="w-3.5 h-3.5" />
                                   <span>View</span>
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    if (window.confirm(`Are you sure you want to delete lead for ${lead.full_name}?`)) {
+                                      deleteLead(lead.id);
+                                      showToast('Lead deleted successfully');
+                                    }
+                                  }}
+                                  className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                  title="Delete Lead"
+                                >
+                                  <Trash2 className="w-4 h-4" />
                                 </button>
                               </td>
                             </tr>
@@ -1309,7 +1321,7 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                                 <option value="Cancelled">Cancelled</option>
                               </select>
                             </td>
-                            <td className="py-3.5 px-4">
+                            <td className="py-3.5 px-4 flex items-center gap-2">
                               <button
                                 onClick={() => {
                                   setSelectedAppointment(appt);
@@ -1320,6 +1332,18 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                               >
                                 <Eye className="w-3.5 h-3.5" />
                                 <span>Inspect</span>
+                              </button>
+                              <button
+                                onClick={() => {
+                                  if (window.confirm(`Are you sure you want to delete appointment for ${appt.client_name}?`)) {
+                                    deleteAppointment(appt.id);
+                                    showToast('Appointment deleted successfully');
+                                  }
+                                }}
+                                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Delete Appointment"
+                              >
+                                <Trash2 className="w-4 h-4" />
                               </button>
                             </td>
                           </tr>
@@ -2256,6 +2280,19 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                         placeholder="e.g. 2026"
                       />
                     </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                      Accredited Badge Clickable Link URL (ICEF / Partner Directory)
+                    </label>
+                    <input
+                      type="text"
+                      value={footerForm.accreditedBadgeUrl || ''}
+                      onChange={(e) => setFooterForm({ ...footerForm, accreditedBadgeUrl: e.target.value })}
+                      placeholder="https://www.icef.com/agency-status/#7092"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-mono"
+                    />
                   </div>
 
                   {/* COLUMN 1 LINKS MANAGER */}
