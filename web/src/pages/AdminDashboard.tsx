@@ -621,6 +621,7 @@ export const AdminDashboard: React.FC = () => {
                     if (!newTestimonial.name || !newTestimonial.quote) return;
                     const created: Testimonial = {
                       id: String(Date.now()),
+                      student_name: newTestimonial.name,
                       name: newTestimonial.name,
                       university: newTestimonial.university,
                       country: newTestimonial.country,
@@ -630,7 +631,7 @@ export const AdminDashboard: React.FC = () => {
                     };
                     setTestimonialsList([created, ...testimonialsList]);
                     setNewTestimonial({ name: '', university: '', country: 'Australia', quote: '', year: '2026' });
-                    setSettingsSavedAlert(`Added success story for ${created.name}`);
+                    setSettingsSavedAlert(`Added success story for ${created.student_name}`);
                   }}
                   className="inline-flex items-center gap-1.5 bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-sm"
                 >
@@ -645,7 +646,7 @@ export const AdminDashboard: React.FC = () => {
                   <div key={t.id} className="p-4 rounded-xl border border-slate-200 bg-white flex justify-between items-start gap-3">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-sm text-navy-950">{t.name}</span>
+                        <span className="font-bold text-sm text-navy-950">{t.student_name || t.name}</span>
                         <span className="text-[10px] bg-brand-50 text-brand-700 px-2 py-0.5 rounded-full font-bold">{t.country} ({t.year})</span>
                       </div>
                       <p className="text-xs text-slate-500 font-medium">{t.university}</p>

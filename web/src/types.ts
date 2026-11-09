@@ -67,6 +67,7 @@ export interface Destination {
 export interface Testimonial {
   id: string;
   student_name: string;
+  name?: string;
   university: string;
   country: string;
   quote: string;
