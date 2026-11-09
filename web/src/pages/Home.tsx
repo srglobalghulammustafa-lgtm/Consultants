@@ -428,7 +428,7 @@ export const Home: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {testimonials.map((item) => (
-              <div key={item.id} className="bg-white p-7 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between">
+              <div key={item.id} className="bg-white p-7 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between hover:shadow-md transition-shadow">
                 <div>
                   <div className="flex gap-1 text-yellow-400 mb-4">
                     {[...Array(item.rating)].map((_, i) => (
@@ -440,9 +440,17 @@ export const Home: React.FC = () => {
                   </p>
                 </div>
                 <div className="pt-4 border-t border-slate-100 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-brand-500 text-white font-bold flex items-center justify-center">
-                    {item.student_name[0]}
-                  </div>
+                  {item.imageUrl ? (
+                    <img 
+                      src={item.imageUrl} 
+                      alt={item.student_name} 
+                      className="w-10 h-10 rounded-full object-cover border border-slate-100" 
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-brand-500 text-white font-bold flex items-center justify-center">
+                      {item.student_name[0]}
+                    </div>
+                  )}
                   <div>
                     <h5 className="font-bold text-sm text-navy-950">{item.student_name}</h5>
                     <p className="text-xs text-slate-500">{item.university} • {item.country}</p>

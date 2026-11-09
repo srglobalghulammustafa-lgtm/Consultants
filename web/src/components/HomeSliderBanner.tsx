@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, ArrowRight, Sparkles, CheckCircle2 } from 'lucide-react';
+import { useLiveData } from '../context/LiveDataContext';
 
 interface Slide {
   id: string;
@@ -11,9 +12,10 @@ interface Slide {
   ctaText: string;
   ctaLink: string;
   gradient: string;
+  bgImage?: string;
 }
 
-const SLIDES: Slide[] = [
+const MOCK_SLIDES: Slide[] = [
   {
     id: 'australia',
     tag: 'AUSTRALIA SUBCLASS 500 & 485',
@@ -57,18 +59,36 @@ const SLIDES: Slide[] = [
 ];
 
 export const HomeSliderBanner: React.FC = () => {
+  const { banners } = useLiveData();
   const [current, setCurrent] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+
+  // Merge live banners with mock slides
+  const activeSlides: Slide[] = banners.length > 0 
+    ? banners.map(b => ({
+        id: b.id,
+        tag: 'SPECIAL ANNOUNCEMENT',
+        title: b.title,
+        subtitle: b.description,
+        highlight: 'SR Global Consultants • Gujranwala',
+        ctaText: 'Learn More',
+        ctaLink: b.link || '/destinations',
+        gradient: 'from-brand-600 via-brand-700 to-navy-950',
+        bgImage: b.imageUrl
+      }))
+    : MOCK_SLIDES;
 
   useEffect(() => {
     if (isPaused) return;
     const interval = setInterval(() => {
-      setCurrent((prev) => (prev + 1) % SLIDES.length);
-    }, 5000);
+      setCurrent((prev) => (prev + 1) % activeSlides.length);
+    }, 6000);
     return () => clearInterval(interval);
-  }, [isPaused]);
+  }, [isPaused, activeSlides.length]);
 
-  const slide = SLIDES[current];
+  const slide = activeSlides[current];
+
+  if (!slide) return null;
 
   return (
     <div 
@@ -76,74 +96,86 @@ export const HomeSliderBanner: React.FC = () => {
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
-      <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-r ${slide.gradient} text-white shadow-2xl p-6 sm:p-10 transition-all duration-700 border border-white/10`}>
+      <div className={`relative overflow-hidden rounded-3xl text-white shadow-2xl p-8 sm:p-12 transition-all duration-700 border border-white/10 min-h-[340px] flex items-center ${!slide.bgImage ? `bg-gradient-to-r ${slide.gradient}` : ''}`}>
+        {/* Background Image if exists */}
+        {slide.bgImage && (
+          <>
+            <img 
+              src={slide.bgImage} 
+              alt={slide.title} 
+              className="absolute inset-0 w-full h-full object-cover" 
+            />
+            <div className={`absolute inset-0 bg-gradient-to-r ${slide.gradient} opacity-85`} />
+          </>
+        )}
+
         {/* Background decorative grid */}
         <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]" />
 
-        <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-          <div className="max-w-3xl space-y-3">
+        <div className="relative z-10 w-full flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
+          <div className="max-w-3xl space-y-4">
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-white/20 backdrop-blur-md text-xs font-bold uppercase tracking-wider text-yellow-300 border border-white/20">
                 <Sparkles className="w-3.5 h-3.5" />
                 {slide.tag}
               </span>
               <span className="text-xs text-white/70 font-mono">
-                {current + 1} / {SLIDES.length}
+                {current + 1} / {activeSlides.length}
               </span>
             </div>
 
-            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-white leading-snug">
+            <h2 className="text-2xl sm:text-3xl lg:text-5xl font-black tracking-tight text-white leading-tight">
               {slide.title}
             </h2>
 
-            <p className="text-sm sm:text-base text-white/90 leading-relaxed max-w-2xl">
+            <p className="text-sm sm:text-lg text-white/90 leading-relaxed max-w-2xl font-medium">
               {slide.subtitle}
             </p>
 
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-black/25 backdrop-blur-sm text-xs font-semibold text-yellow-200">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/25 backdrop-blur-sm text-xs font-bold text-yellow-200">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
               <span>{slide.highlight}</span>
             </div>
           </div>
 
           {/* Action button & Carousel controls */}
-          <div className="flex flex-col sm:flex-row md:flex-col items-start sm:items-center md:items-end gap-4 shrink-0">
+          <div className="flex flex-col sm:flex-row md:flex-col items-start sm:items-center md:items-end gap-5 shrink-0 w-full md:w-auto">
             <Link
               to={slide.ctaLink}
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-navy-950 font-bold shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 text-sm"
+              className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-2xl bg-yellow-400 hover:bg-yellow-300 text-navy-950 font-black shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-1 text-base w-full sm:w-auto"
             >
               <span>{slide.ctaText}</span>
-              <ArrowRight className="w-4 h-4" />
+              <ArrowRight className="w-5 h-5" />
             </Link>
 
             {/* Prev / Next Buttons */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <button
-                onClick={() => setCurrent((prev) => (prev === 0 ? SLIDES.length - 1 : prev - 1))}
-                className="p-2 rounded-full bg-white/15 hover:bg-white/30 backdrop-blur-sm transition-colors text-white"
+                onClick={() => setCurrent((prev) => (prev === 0 ? activeSlides.length - 1 : prev - 1))}
+                className="p-3 rounded-full bg-white/15 hover:bg-white/30 backdrop-blur-md transition-all text-white border border-white/20"
                 aria-label="Previous slide"
               >
-                <ChevronLeft className="w-4 h-4" />
+                <ChevronLeft className="w-5 h-5" />
               </button>
               <button
-                onClick={() => setCurrent((prev) => (prev + 1) % SLIDES.length)}
-                className="p-2 rounded-full bg-white/15 hover:bg-white/30 backdrop-blur-sm transition-colors text-white"
+                onClick={() => setCurrent((prev) => (prev + 1) % activeSlides.length)}
+                className="p-3 rounded-full bg-white/15 hover:bg-white/30 backdrop-blur-md transition-all text-white border border-white/20"
                 aria-label="Next slide"
               >
-                <ChevronRight className="w-4 h-4" />
+                <ChevronRight className="w-5 h-5" />
               </button>
             </div>
           </div>
         </div>
 
         {/* Indicators */}
-        <div className="flex justify-center items-center gap-2 pt-6">
-          {SLIDES.map((_, idx) => (
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex justify-center items-center gap-2">
+          {activeSlides.map((_, idx) => (
             <button
               key={idx}
               onClick={() => setCurrent(idx)}
-              className={`h-2 rounded-full transition-all duration-300 ${
-                idx === current ? 'w-8 bg-yellow-400' : 'w-2 bg-white/40 hover:bg-white/60'
+              className={`h-2.5 rounded-full transition-all duration-300 ${
+                idx === current ? 'w-10 bg-yellow-400 shadow-sm' : 'w-2.5 bg-white/40 hover:bg-white/60'
               }`}
               aria-label={`Go to slide ${idx + 1}`}
             />

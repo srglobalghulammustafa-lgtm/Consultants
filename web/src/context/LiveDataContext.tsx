@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Course, Destination, Testimonial, Lead, Appointment } from '../types';
+import { Course, Destination, Testimonial, Lead, Appointment, Banner } from '../types';
 import { COURSES, DESTINATIONS, TESTIMONIALS } from '../data/mockData';
 
 interface LiveDataContextType {
@@ -184,7 +184,226 @@ export const LiveDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return true;
   };
 
-  // ... (existing CRUD operations)
+  // Course operations
+  const addCourse = async (newCourse: Omit<Course, 'id'>) => {
+    const tempId = `temp-${Date.now()}`;
+    const courseWithId = { ...newCourse, id: tempId };
+    setCourses((prev) => [courseWithId, ...prev]);
+
+    try {
+      const { data, error } = await supabase.from('courses').insert([newCourse]).select().single();
+      if (!error && data) {
+        setCourses((prev) => prev.map((c) => (c.id === tempId ? data : c)));
+        return true;
+      }
+    } catch (e) {
+      console.warn('Sync notice for addCourse:', e);
+    }
+    return true;
+  };
+
+  const updateCourse = async (id: string, updated: Partial<Course>) => {
+    setCourses((prev) => prev.map((c) => (c.id === id ? { ...c, ...updated } : c)));
+    try {
+      await supabase.from('courses').update(updated).eq('id', id);
+    } catch (e) {
+      console.warn('Sync notice for updateCourse:', e);
+    }
+    return true;
+  };
+
+  const deleteCourse = async (id: string) => {
+    setCourses((prev) => prev.filter((c) => c.id !== id));
+    try {
+      await supabase.from('courses').delete().eq('id', id);
+    } catch (e) {
+      console.warn('Sync notice for deleteCourse:', e);
+    }
+    return true;
+  };
+
+  // Destination operations
+  const addDestination = async (newDest: Destination) => {
+    setDestinations((prev) => [...prev, newDest]);
+    try {
+      await supabase.from('destinations').insert([
+        {
+          country_name: newDest.country_name,
+          slug: newDest.slug,
+          capital: newDest.capital,
+          currency: newDest.currency,
+          avg_living_cost: newDest.avg_living_cost,
+          work_rights: newDest.work_rights,
+          visa_subclass: newDest.visa_subclass,
+          overview: newDest.overview,
+          visa_process: newDest.visa_process.join('\n'),
+          admission_requirements: newDest.admission_requirements,
+          imageUrl: newDest.imageUrl,
+        }
+      ]);
+    } catch (e) {
+      console.warn('Sync notice for addDestination:', e);
+    }
+    return true;
+  };
+
+  const updateDestination = async (slug: string, updated: Partial<Destination>) => {
+    setDestinations((prev) => prev.map((d) => (d.slug === slug ? { ...d, ...updated } : d)));
+    try {
+      await supabase.from('destinations').update(updated).eq('slug', slug);
+    } catch (e) {
+      console.warn('Sync notice for updateDestination:', e);
+    }
+    return true;
+  };
+
+  const deleteDestination = async (slug: string) => {
+    setDestinations((prev) => prev.filter((d) => d.slug !== slug));
+    try {
+      await supabase.from('destinations').delete().eq('slug', slug);
+    } catch (e) {
+      console.warn('Sync notice for deleteDestination:', e);
+    }
+    return true;
+  };
+
+  // Testimonial operations
+  const addTestimonial = async (newItem: Omit<Testimonial, 'id'>) => {
+    const tempId = `temp-${Date.now()}`;
+    const itemWithId = { ...newItem, id: tempId, student_name: newItem.student_name };
+    setTestimonials((prev) => [itemWithId, ...prev]);
+
+    try {
+      const { data, error } = await supabase.from('testimonials').insert([newItem]).select().single();
+      if (!error && data) {
+        setTestimonials((prev) => prev.map((t) => (t.id === tempId ? data : t)));
+      }
+    } catch (e) {
+      console.warn('Sync notice for addTestimonial:', e);
+    }
+    return true;
+  };
+
+  const updateTestimonial = async (id: string, updated: Partial<Testimonial>) => {
+    setTestimonials((prev) => prev.map((t) => (t.id === id ? { ...t, ...updated } : t)));
+    try {
+      await supabase.from('testimonials').update(updated).eq('id', id);
+    } catch (e) {
+      console.warn('Sync notice for updateTestimonial:', e);
+    }
+    return true;
+  };
+
+  const deleteTestimonial = async (id: string) => {
+    setTestimonials((prev) => prev.filter((t) => t.id !== id));
+    try {
+      await supabase.from('testimonials').delete().eq('id', id);
+    } catch (e) {
+      console.warn('Sync notice for deleteTestimonial:', e);
+    }
+    return true;
+  };
+
+  // Lead status update
+  const updateLeadStatus = async (id: string, status: Lead['status'], notes?: string) => {
+    setLeads((prev) =>
+      prev.map((l) => (l.id === id ? { ...l, status, notes: notes !== undefined ? notes : l.notes } : l))
+    );
+    try {
+      await supabase.from('leads').update({ status, ...(notes !== undefined ? { notes } : {}) }).eq('id', id);
+    } catch (e) {
+      console.warn('Sync notice for updateLeadStatus:', e);
+    }
+    return true;
+  };
+
+  // Appointment creation with auto appointment_code
+  const addAppointment = async (newAppt: Omit<Appointment, 'id'> & { id?: string }): Promise<Appointment> => {
+    const code = newAppt.appointment_code || `SRG-APT-${Math.floor(1000 + Math.random() * 9000)}`;
+    const tempId = newAppt.id || `appt-${Date.now()}`;
+    const fullAppt: Appointment = {
+      ...newAppt,
+      id: tempId,
+      appointment_code: code,
+      status: newAppt.status || 'Pending',
+      created_at: new Date().toISOString(),
+    };
+
+    setAppointments((prev) => [fullAppt, ...prev]);
+
+    try {
+      const { data, error } = await supabase
+        .from('appointments')
+        .insert([{
+          client_name: fullAppt.client_name,
+          email: fullAppt.email,
+          phone: fullAppt.phone,
+          destination: fullAppt.destination,
+          appointment_date: fullAppt.appointment_date,
+          time_slot: fullAppt.time_slot,
+          mode: fullAppt.mode,
+          status: fullAppt.status,
+          message: fullAppt.message,
+          appointment_code: fullAppt.appointment_code,
+          notes: fullAppt.notes,
+        }])
+        .select()
+        .single();
+
+      if (!error && data) {
+        setAppointments((prev) => prev.map((a) => (a.id === tempId ? data : a)));
+        return data;
+      }
+    } catch (e) {
+      console.warn('Sync notice for addAppointment:', e);
+    }
+    return fullAppt;
+  };
+
+  const getAppointmentByCodeOrPhone = (query: string): Appointment | undefined => {
+    if (!query) return undefined;
+    const cleanQuery = query.trim().toUpperCase();
+    const cleanPhone = query.replace(/[^0-9]/g, '');
+
+    return appointments.find((a) => {
+      const codeMatch = a.appointment_code?.toUpperCase() === cleanQuery || a.id.toUpperCase() === cleanQuery;
+      const phoneMatch = cleanPhone.length >= 7 && a.phone.replace(/[^0-9]/g, '').includes(cleanPhone);
+      return codeMatch || phoneMatch;
+    });
+  };
+
+  // Appointment status update
+  const updateAppointmentStatus = async (id: string, status: Appointment['status'], notes?: string) => {
+    setAppointments((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, status, notes: notes !== undefined ? notes : a.notes } : a))
+    );
+    try {
+      await supabase.from('appointments').update({ status, ...(notes !== undefined ? { notes } : {}) }).eq('id', id);
+    } catch (e) {
+      console.warn('Sync notice for updateAppointmentStatus:', e);
+    }
+    return true;
+  };
+
+  const deleteLead = async (id: string) => {
+    setLeads((prev) => prev.filter((l) => l.id !== id));
+    try {
+      await supabase.from('leads').delete().eq('id', id);
+    } catch (e) {
+      console.warn('Sync notice for deleteLead:', e);
+    }
+    return true;
+  };
+
+  const deleteAppointment = async (id: string) => {
+    setAppointments((prev) => prev.filter((a) => a.id !== id));
+    try {
+      await supabase.from('appointments').delete().eq('id', id);
+    } catch (e) {
+      console.warn('Sync notice for deleteAppointment:', e);
+    }
+    return true;
+  };
 
   return (
     <LiveDataContext.Provider

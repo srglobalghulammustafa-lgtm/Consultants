@@ -17,14 +17,17 @@ export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { 
     settings, updateWhatsApp, updateHeader, updateFooter, 
-    updateMetrics, updateIpstack, updateAppointmentConfig, updateAdminPin, sendBroadcastNotification, resetIpstackQuota, isSyncing, isLiveSupabase 
+    updateMetrics, updateIpstack, updateAppointmentConfig, updateAdminPin, 
+    sendBroadcastNotification, deleteBroadcast, clearBroadcastHistory,
+    resetIpstackQuota, isSyncing, isLiveSupabase 
   } = useSiteSettings();
 
   const { 
-    courses, destinations, testimonials, leads, appointments, 
+    courses, destinations, testimonials, banners, leads, appointments, 
     addCourse, updateCourse, deleteCourse, 
     addDestination, updateDestination, deleteDestination,
     addTestimonial, updateTestimonial, deleteTestimonial,
+    addBanner, updateBanner, deleteBanner,
     updateLeadStatus, deleteLead, updateAppointmentStatus, deleteAppointment, refreshData, isSupabaseConnected
   } = useLiveData();
 
@@ -61,6 +64,14 @@ export const AdminDashboard: React.FC = () => {
   const [testIpResult, setTestIpResult] = useState<any | null>(null);
 
   // Form states for adding items
+  const [showAddBannerModal, setShowAddBannerModal] = useState(false);
+  const [newBanner, setNewBanner] = useState({
+    title: '',
+    description: '',
+    imageUrl: '',
+    link: '/destinations',
+  });
+
   const [showAddCourseModal, setShowAddCourseModal] = useState(false);
   const [newCourse, setNewCourse] = useState({
     title: '',
@@ -87,6 +98,7 @@ export const AdminDashboard: React.FC = () => {
     admission_requirements: 'IELTS 6.0 overall or equivalent academic score.',
     top_universities: ['Top Ranked Universities'],
     flag: '🌍',
+    imageUrl: '',
   });
 
   const [showAddTestimonialModal, setShowAddTestimonialModal] = useState(false);
@@ -96,6 +108,7 @@ export const AdminDashboard: React.FC = () => {
     country: 'Australia',
     quote: '',
     rating: 5,
+    imageUrl: '',
   });
 
   // Local editing states for settings
@@ -321,6 +334,7 @@ CREATE TABLE IF NOT EXISTS public.destinations (
     overview TEXT NOT NULL,
     visa_process TEXT NOT NULL,
     admission_requirements TEXT NOT NULL,
+    imageUrl TEXT,
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -331,8 +345,18 @@ CREATE TABLE IF NOT EXISTS public.testimonials (
     university TEXT NOT NULL,
     country TEXT NOT NULL,
     quote TEXT NOT NULL,
+    imageUrl TEXT,
     rating INT DEFAULT 5,
     is_featured BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.banners (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    title TEXT NOT NULL,
+    description TEXT,
+    imageUrl TEXT NOT NULL,
+    link TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -349,12 +373,14 @@ ALTER TABLE public.appointments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.courses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.destinations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.testimonials ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.banners ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.site_settings ENABLE ROW LEVEL SECURITY;
 
 -- Public Access Policies
 CREATE POLICY "Public read active courses" ON public.courses FOR SELECT USING (TRUE);
 CREATE POLICY "Public read active destinations" ON public.destinations FOR SELECT USING (TRUE);
 CREATE POLICY "Public read testimonials" ON public.testimonials FOR SELECT USING (TRUE);
+CREATE POLICY "Public read banners" ON public.banners FOR SELECT USING (TRUE);
 CREATE POLICY "Public read site settings" ON public.site_settings FOR SELECT USING (TRUE);
 CREATE POLICY "Public can submit leads" ON public.leads FOR INSERT WITH CHECK (TRUE);
 CREATE POLICY "Public can book appointments" ON public.appointments FOR INSERT WITH CHECK (TRUE);
@@ -363,6 +389,7 @@ CREATE POLICY "Full access to site_settings" ON public.site_settings FOR ALL USI
 CREATE POLICY "Full access to courses" ON public.courses FOR ALL USING (TRUE);
 CREATE POLICY "Full access to destinations" ON public.destinations FOR ALL USING (TRUE);
 CREATE POLICY "Full access to testimonials" ON public.testimonials FOR ALL USING (TRUE);
+CREATE POLICY "Full access to banners" ON public.banners FOR ALL USING (TRUE);
 CREATE POLICY "Full access to leads" ON public.leads FOR ALL USING (TRUE);
 CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING (TRUE);
 `;
@@ -2060,11 +2087,24 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                   <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Currently Active Broadcast</span>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        settings.activeBroadcast.priority === 'Urgent' ? 'bg-rose-100 text-rose-700' : 'bg-brand-100 text-brand-700'
-                      }`}>
-                        {settings.activeBroadcast.priority}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          settings.activeBroadcast.priority === 'Urgent' ? 'bg-rose-100 text-rose-700' : 'bg-brand-100 text-brand-700'
+                        }`}>
+                          {settings.activeBroadcast.priority}
+                        </span>
+                        <button
+                          onClick={() => {
+                            if(confirm('Stop and delete active broadcast?')) {
+                              deleteBroadcast(settings.activeBroadcast!.id);
+                              showToast('Broadcast stopped');
+                            }
+                          }}
+                          className="p-1 text-slate-400 hover:text-red-500"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                     <h4 className="font-bold text-navy-950 text-base">{settings.activeBroadcast.title}</h4>
                     <p className="text-xs text-slate-600">{settings.activeBroadcast.message}</p>
@@ -2073,6 +2113,54 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                     </div>
                   </div>
                 )}
+
+                {/* Broadcast History */}
+                <div className="pt-6 border-t border-slate-100">
+                  <div className="flex justify-between items-center mb-4">
+                    <h4 className="text-sm font-bold text-navy-950 uppercase tracking-wider">Broadcast History</h4>
+                    <button
+                      onClick={() => {
+                        if(confirm('Clear all broadcast history?')) {
+                          clearBroadcastHistory();
+                          showToast('History cleared');
+                        }
+                      }}
+                      className="text-xs text-red-500 hover:underline font-semibold"
+                    >
+                      Clear History
+                    </button>
+                  </div>
+
+                  <div className="space-y-3">
+                    {(!settings.broadcastHistory || settings.broadcastHistory.length === 0) ? (
+                      <p className="text-xs text-slate-400 text-center py-4">No recent broadcasts</p>
+                    ) : (
+                      settings.broadcastHistory.map((notif) => (
+                        <div key={notif.id} className="p-4 rounded-xl border border-slate-100 bg-white shadow-sm flex justify-between items-center">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className={`w-2 h-2 rounded-full ${notif.is_active ? 'bg-green-500 animate-pulse' : 'bg-slate-300'}`} />
+                              <h5 className="font-bold text-sm text-navy-950">{notif.title}</h5>
+                              <span className="text-[10px] text-slate-400">
+                                {new Date(notif.created_at).toLocaleDateString()}
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-500 line-clamp-1">{notif.message}</p>
+                          </div>
+                          <button
+                            onClick={() => {
+                              deleteBroadcast(notif.id);
+                              showToast('Deleted from history');
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-red-500 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -2500,30 +2588,163 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
           {/* TAB: BANNERS */}
           {activeTab === 'banners' && (
             <div className="space-y-6">
-              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex justify-between items-center">
+               <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex justify-between items-center">
                 <div>
                   <h2 className="text-xl font-bold text-navy-950">Homepage Banner Management</h2>
-                  <p className="text-xs text-slate-500">Add or manage hero banners displayed on the homepage.</p>
+                  <p className="text-xs text-slate-500">Add or manage hero banners displayed on the homepage slider.</p>
                 </div>
+                <button 
+                  onClick={() => setShowAddBannerModal(true)}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-500 text-white font-bold text-sm hover:bg-brand-600 shadow-sm"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add New Banner</span>
+                </button>
               </div>
-              <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
-                 {/* Simplified Banner List */}
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {banners.map((banner) => (
-                    <div key={banner.id} className="p-4 border rounded-2xl bg-slate-50 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                         <img src={banner.imageUrl} alt={banner.title} className="w-16 h-10 object-cover rounded" />
-                         <div>
-                           <p className="font-bold text-sm text-navy-950">{banner.title}</p>
-                           <p className="text-xs text-slate-500 truncate max-w-xs">{banner.description}</p>
-                         </div>
-                      </div>
-                      <button onClick={() => { deleteBanner(banner.id); showToast('Banner deleted'); }} className="text-red-500 hover:text-red-700">
-                        <Trash2 className="w-5 h-5" />
-                      </button>
-                    </div>
-                  ))}
+
+              <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+                 <div className="overflow-x-auto">
+                   <table className="w-full text-left border-collapse">
+                     <thead>
+                       <tr className="bg-slate-50 border-b border-slate-200">
+                         <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Preview</th>
+                         <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Title & Description</th>
+                         <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Action Link</th>
+                         <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
+                       </tr>
+                     </thead>
+                     <tbody className="divide-y divide-slate-100">
+                       {banners.length === 0 ? (
+                         <tr>
+                           <td colSpan={4} className="px-6 py-12 text-center text-slate-400 text-sm">
+                             No custom banners added. The homepage will use default slides.
+                           </td>
+                         </tr>
+                       ) : (
+                         banners.map((banner) => (
+                           <tr key={banner.id} className="hover:bg-slate-50 transition-colors">
+                             <td className="px-6 py-4">
+                               <img 
+                                 src={banner.imageUrl} 
+                                 alt={banner.title} 
+                                 className="w-24 h-14 object-cover rounded-lg border border-slate-200" 
+                                 onError={(e) => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&q=80&w=400'; }}
+                               />
+                             </td>
+                             <td className="px-6 py-4">
+                               <p className="font-bold text-sm text-navy-950">{banner.title}</p>
+                               <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">{banner.description}</p>
+                             </td>
+                             <td className="px-6 py-4">
+                               <span className="text-xs font-mono bg-slate-100 px-2 py-1 rounded text-slate-600">{banner.link}</span>
+                             </td>
+                             <td className="px-6 py-4 text-right">
+                               <button 
+                                 onClick={() => { if(confirm('Delete this banner?')) { deleteBanner(banner.id); showToast('Banner deleted'); } }} 
+                                 className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                               >
+                                 <Trash2 className="w-5 h-5" />
+                               </button>
+                             </td>
+                           </tr>
+                         ))
+                       )}
+                     </tbody>
+                   </table>
                  </div>
+              </div>
+            </div>
+          )}
+
+          {/* ADD BANNER MODAL */}
+          {showAddBannerModal && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-navy-950/40 backdrop-blur-sm animate-in fade-in duration-200">
+              <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
+                <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                  <h3 className="text-xl font-bold text-navy-950">Add Custom Homepage Banner</h3>
+                  <button onClick={() => setShowAddBannerModal(false)} className="p-2 rounded-full hover:bg-slate-200 transition-colors">
+                    <X className="w-5 h-5 text-slate-500" />
+                  </button>
+                </div>
+
+                <div className="p-6 space-y-4 overflow-y-auto">
+                  <div className="bg-brand-50 p-4 rounded-2xl border border-brand-100 text-xs text-brand-700 leading-relaxed">
+                    Custom banners added here will appear in the homepage hero slider. 
+                    Recommended size: 1920x800px.
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Banner Title *</label>
+                    <input
+                      type="text"
+                      required
+                      value={newBanner.title}
+                      onChange={(e) => setNewBanner({ ...newBanner, title: e.target.value })}
+                      placeholder="e.g. 50% Scholarship for UK Intakes"
+                      className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Short Description *</label>
+                    <textarea
+                      required
+                      rows={2}
+                      value={newBanner.description}
+                      onChange={(e) => setNewBanner({ ...newBanner, description: e.target.value })}
+                      placeholder="A short subtitle describing the offer or news..."
+                      className="w-full px-3.5 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Image URL *</label>
+                    <input
+                      type="url"
+                      required
+                      value={newBanner.imageUrl}
+                      onChange={(e) => setNewBanner({ ...newBanner, imageUrl: e.target.value })}
+                      placeholder="https://drive.google.com/uc?id=..."
+                      className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm"
+                    />
+                    <p className="text-[10px] text-slate-500 mt-1">Use a direct image link or Google Drive direct link.</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Action Link (Optional)</label>
+                    <input
+                      type="text"
+                      value={newBanner.link}
+                      onChange={(e) => setNewBanner({ ...newBanner, link: e.target.value })}
+                      placeholder="e.g. /destinations or /book-appointment"
+                      className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div className="p-6 border-t border-slate-100 flex justify-end gap-3 bg-slate-50">
+                  <button
+                    onClick={() => setShowAddBannerModal(false)}
+                    className="px-5 py-2.5 rounded-xl font-bold text-sm text-slate-600 hover:bg-slate-200 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (!newBanner.title || !newBanner.imageUrl) {
+                        alert('Title and Image URL are required');
+                        return;
+                      }
+                      addBanner(newBanner);
+                      setShowAddBannerModal(false);
+                      setNewBanner({ title: '', description: '', imageUrl: '', link: '/destinations' });
+                      showToast('New banner added successfully');
+                    }}
+                    className="px-6 py-2.5 rounded-xl font-bold text-sm bg-brand-500 text-white hover:bg-brand-600 shadow-md"
+                  >
+                    Add Banner
+                  </button>
+                </div>
               </div>
             </div>
           )}
