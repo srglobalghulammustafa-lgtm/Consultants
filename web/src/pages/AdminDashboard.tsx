@@ -1,841 +1,1650 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Users, Calendar, CheckCircle2, Clock, Phone, Download, 
   MessageCircle, Edit3, Trash2, LogOut, RefreshCw, Database, 
-  ShieldCheck, ArrowRight, Filter, Save, Plus, Globe, Sparkles 
+  ShieldCheck, ArrowRight, Filter, Save, Plus, Globe, Sparkles,
+  LayoutDashboard, BookOpen, Star, Settings, ExternalLink, Copy, Check,
+  ChevronRight, MapPin, Mail, AlertCircle, Eye, EyeOff
 } from 'lucide-react';
-import { Lead, Appointment, LeadStatus, Testimonial, Course } from '../types';
-import { supabase } from '../lib/supabase';
-import { COMPANY_CONTACT, TESTIMONIALS, COURSES } from '../data/mockData';
+import { useSiteSettings } from '../context/SettingsContext';
+import { useLiveData } from '../context/LiveDataContext';
+import { Lead, Appointment, Destination, Course, Testimonial } from '../types';
 
 export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'leads' | 'appointments' | 'settings'>('leads');
-  const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('all');
+  const { settings, updateWhatsApp, updateHeader, updateFooter, updateMetrics, isSyncing, isLiveSupabase } = useSiteSettings();
+  const { 
+    courses, destinations, testimonials, leads, appointments, 
+    addCourse, updateCourse, deleteCourse, 
+    addDestination, updateDestination, deleteDestination,
+    addTestimonial, updateTestimonial, deleteTestimonial,
+    updateLeadStatus, updateAppointmentStatus, refreshData, isSupabaseConnected
+  } = useLiveData();
 
-  // Dynamic Settings & Content States
-  const [contactSettings, setContactSettings] = useState({ ...COMPANY_CONTACT });
-  const [testimonialsList, setTestimonialsList] = useState<Testimonial[]>([...TESTIMONIALS]);
-  const [coursesList, setCoursesList] = useState<Course[]>([...COURSES]);
-  const [settingsSavedAlert, setSettingsSavedAlert] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<
+    'overview' | 'leads' | 'appointments' | 'destinations' | 'courses' | 'testimonials' | 'whatsapp' | 'header' | 'footer' | 'database'
+  >('overview');
 
-  // New Testimonial Form State
-  const [newTestimonial, setNewTestimonial] = useState({
-    name: '',
-    university: '',
-    country: 'Australia',
-    quote: '',
-    year: '2026'
-  });
+  // Filter states
+  const [leadStatusFilter, setLeadStatusFilter] = useState<string>('all');
+  const [leadSearch, setLeadSearch] = useState('');
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [copiedSql, setCopiedSql] = useState(false);
 
-  // New Course Form State
+  // Form states for adding items
+  const [showAddCourseModal, setShowAddCourseModal] = useState(false);
   const [newCourse, setNewCourse] = useState({
     title: '',
     category_slug: 'trade-courses',
     country: 'Australia',
     duration: '2 Years',
     estimated_fees: 'AUD 14,000 / year',
-    intake_months: 'February, July',
+    intake_months: 'February, July, October',
     description: '',
-    career_paths: ''
+    career_paths: '',
   });
 
-  const [leads, setLeads] = useState<Lead[]>([
-    {
-      id: '1',
-      full_name: 'Muhammad Ali',
-      email: 'ali.muhammad@gmail.com',
-      phone: '+92 301 2345678',
-      destination: 'Australia',
-      course_interest: 'Automotive Technology',
-      status: 'New',
-      notes: 'Graduated with DAE Mechanical. Wants July intake.',
-      created_at: 'Today, 10:15 AM'
-    },
-    {
-      id: '2',
-      full_name: 'Sana Tariq',
-      email: 'sana.tariq@gmail.com',
-      phone: '+92 321 7654321',
-      destination: 'United Kingdom',
-      course_interest: 'Master in Business Analytics',
-      status: 'Contacted',
-      notes: 'IELTS score 6.5. Sent university brochure list.',
-      created_at: 'Yesterday'
-    },
-    {
-      id: '3',
-      full_name: 'Daniyal Qasim',
-      email: 'daniyal.qasim@gmail.com',
-      phone: '+92 345 8899001',
-      destination: 'Canada',
-      course_interest: 'Software Engineering',
-      status: 'In Progress',
-      notes: 'Transcripts assessed. Waiting on bank statement verification.',
-      created_at: '3 days ago'
-    },
-    {
-      id: '4',
-      full_name: 'Khadija Bibi',
-      email: 'khadija.bibi@yahoo.com',
-      phone: '+92 333 1122334',
-      destination: 'Australia',
-      course_interest: 'Commercial Cookery',
-      status: 'Converted',
-      notes: 'Offer letter received from Melbourne Culinary Institute. Preparing eCoE.',
-      created_at: '5 days ago'
-    }
-  ]);
+  const [showAddDestinationModal, setShowAddDestinationModal] = useState(false);
+  const [newDestination, setNewDestination] = useState<Destination>({
+    country_name: '',
+    slug: '',
+    capital: '',
+    currency: '',
+    avg_living_cost: '',
+    work_rights: '20-24 hrs/week',
+    visa_subclass: 'Student Visa',
+    overview: '',
+    visa_process: ['1. Course Application', '2. Offer Letter & Deposit', '3. Visa Lodgement'],
+    admission_requirements: 'IELTS 6.0 overall or equivalent academic score.',
+    top_universities: ['Top Ranked Universities'],
+    flag: '🌍',
+  });
 
-  const [appointments, setAppointments] = useState<Appointment[]>([
-    {
-      id: '1',
-      client_name: 'Zubair Ahmad',
-      email: 'zubair.ahmad@gmail.com',
-      phone: '+92 300 1234567',
-      destination: 'Australia',
-      appointment_date: '2026-11-10',
-      time_slot: '10:00 AM - 11:00 AM',
-      mode: 'Office',
-      status: 'Confirmed',
-      message: 'Inquiry regarding Subclass 500 visa for Cookery course in Melbourne.'
-    },
-    {
-      id: '2',
-      client_name: 'Fatima Noor',
-      email: 'fatima.noor@outlook.com',
-      phone: '+92 312 9876543',
-      destination: 'United Kingdom',
-      appointment_date: '2026-11-10',
-      time_slot: '02:00 PM - 03:00 PM',
-      mode: 'Online',
-      status: 'Confirmed',
-      message: 'Wants counseling on 1-year Master\'s in London and CAS timeline.'
-    }
-  ]);
+  const [showAddTestimonialModal, setShowAddTestimonialModal] = useState(false);
+  const [newTestimonial, setNewTestimonial] = useState({
+    student_name: '',
+    university: '',
+    country: 'Australia',
+    quote: '',
+    rating: 5,
+  });
 
-  const [loading, setLoading] = useState(false);
-  const [editingLead, setEditingLead] = useState<Lead | null>(null);
-  const [noteInput, setNoteInput] = useState('');
+  // Local editing states for settings
+  const [whatsappForm, setWhatsappForm] = useState({ ...settings.whatsapp });
+  const [headerForm, setHeaderForm] = useState({ ...settings.header });
+  const [footerForm, setFooterForm] = useState({ ...settings.footer });
+  const [metricsForm, setMetricsForm] = useState({ ...settings.metrics });
 
-  // Fetch real leads & appointments from Supabase
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const { data: remoteLeads, error: lErr } = await supabase.from('leads').select('*').order('created_at', { ascending: false });
-      if (!lErr && remoteLeads && remoteLeads.length > 0) {
-        setLeads(remoteLeads as Lead[]);
-      }
-
-      const { data: remoteAppts, error: aErr } = await supabase.from('appointments').select('*').order('appointment_date', { ascending: true });
-      if (!aErr && remoteAppts && remoteAppts.length > 0) {
-        setAppointments(remoteAppts as Appointment[]);
-      }
-    } catch (err) {
-      console.warn('Using local CRM records:', err);
-    } finally {
-      setLoading(false);
-    }
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
   };
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const handleStatusChange = async (leadId: string, nextStatus: LeadStatus) => {
-    setLeads((prev) =>
-      prev.map((l) => (l.id === leadId ? { ...l, status: nextStatus } : l))
-    );
-
-    try {
-      await supabase.from('leads').update({ status: nextStatus }).eq('id', leadId);
-    } catch (e) {
-      // local update retained
-    }
+  const handleLogout = () => {
+    localStorage.removeItem('sr_admin_auth');
+    navigate('/admin/login');
   };
 
-  const handleUpdateNote = async () => {
-    if (!editingLead) return;
-    const updatedNotes = editingLead.notes ? `${editingLead.notes}\n[Follow-up]: ${noteInput}` : noteInput;
-
-    setLeads((prev) =>
-      prev.map((l) => (l.id === editingLead.id ? { ...l, notes: updatedNotes } : l))
-    );
-
-    try {
-      await supabase.from('leads').update({ notes: updatedNotes }).eq('id', editingLead.id);
-    } catch (e) {}
-
-    setEditingLead(null);
-    setNoteInput('');
+  // WhatsApp form submit
+  const handleSaveWhatsApp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await updateWhatsApp(whatsappForm);
+    showToast('WhatsApp configuration saved and published live!');
   };
 
-  const handleExportCSV = () => {
-    const headers = 'ID,Full Name,Phone,Email,Destination,Course Interest,Status,Notes\n';
-    const rows = leads
-      .map(
-        (l) =>
-          `"${l.id}","${l.full_name}","${l.phone}","${l.email}","${l.destination}","${l.course_interest || ''}","${l.status}","${(l.notes || '').replace(/"/g, '""')}"`
-      )
-      .join('\n');
+  // Header form submit
+  const handleSaveHeader = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await updateHeader(headerForm);
+    showToast('Header & navigation settings updated successfully!');
+  };
 
-    const blob = new Blob([headers + rows], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
+  // Footer form submit
+  const handleSaveFooter = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await updateFooter(footerForm);
+    showToast('Footer contacts and links updated successfully!');
+  };
+
+  // Metrics form submit
+  const handleSaveMetrics = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await updateMetrics(metricsForm);
+    showToast('Homepage counters and metrics updated successfully!');
+  };
+
+  // Export leads to CSV
+  const exportLeadsCSV = () => {
+    const headers = ['Full Name', 'Phone', 'Email', 'Target Country', 'Course Interest', 'Status', 'Notes', 'Date'];
+    const rows = leads.map((l) => [
+      `"${l.full_name}"`,
+      `"${l.phone}"`,
+      `"${l.email}"`,
+      `"${l.destination}"`,
+      `"${l.course_interest || ''}"`,
+      `"${l.status}"`,
+      `"${(l.notes || '').replace(/"/g, '""')}"`,
+      `"${l.created_at || ''}"`,
+    ]);
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `sr_global_leads_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `sr_global_leads_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    showToast('Leads CSV exported successfully!');
+  };
+
+  // Copy Supabase SQL schema
+  const copySupabaseSql = () => {
+    const sqlText = `-- ========================================================================
+-- SR Global Consultants - Production Supabase Schema
+-- Run this once in your Supabase SQL Editor
+-- ========================================================================
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+CREATE TABLE IF NOT EXISTS public.leads (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    full_name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    destination TEXT NOT NULL,
+    course_interest TEXT,
+    status TEXT NOT NULL DEFAULT 'New',
+    source TEXT DEFAULT 'Website Quick Form',
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.appointments (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    client_name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    destination TEXT NOT NULL,
+    appointment_date DATE NOT NULL,
+    time_slot TEXT NOT NULL,
+    mode TEXT NOT NULL DEFAULT 'Office',
+    status TEXT NOT NULL DEFAULT 'Pending',
+    message TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.courses (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    title TEXT NOT NULL,
+    category_slug TEXT NOT NULL,
+    country TEXT NOT NULL,
+    duration TEXT NOT NULL,
+    estimated_fees TEXT NOT NULL,
+    intake_months TEXT NOT NULL,
+    description TEXT NOT NULL,
+    career_paths TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.destinations (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    country_name TEXT NOT NULL UNIQUE,
+    slug TEXT NOT NULL UNIQUE,
+    capital TEXT,
+    currency TEXT,
+    avg_living_cost TEXT,
+    work_rights TEXT,
+    visa_subclass TEXT,
+    overview TEXT NOT NULL,
+    visa_process TEXT NOT NULL,
+    admission_requirements TEXT NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.testimonials (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    student_name TEXT NOT NULL,
+    university TEXT NOT NULL,
+    country TEXT NOT NULL,
+    quote TEXT NOT NULL,
+    rating INT DEFAULT 5,
+    is_featured BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.site_settings (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    setting_key TEXT NOT NULL UNIQUE,
+    setting_value JSONB NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Enable RLS
+ALTER TABLE public.leads ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.appointments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.courses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.destinations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.testimonials ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.site_settings ENABLE ROW LEVEL SECURITY;
+
+-- Public Access Policies
+CREATE POLICY "Public read active courses" ON public.courses FOR SELECT USING (TRUE);
+CREATE POLICY "Public read active destinations" ON public.destinations FOR SELECT USING (TRUE);
+CREATE POLICY "Public read testimonials" ON public.testimonials FOR SELECT USING (TRUE);
+CREATE POLICY "Public read site settings" ON public.site_settings FOR SELECT USING (TRUE);
+CREATE POLICY "Public can submit leads" ON public.leads FOR INSERT WITH CHECK (TRUE);
+CREATE POLICY "Public can book appointments" ON public.appointments FOR INSERT WITH CHECK (TRUE);
+CREATE POLICY "Public check slot availability" ON public.appointments FOR SELECT USING (TRUE);
+CREATE POLICY "Full access to site_settings" ON public.site_settings FOR ALL USING (TRUE);
+CREATE POLICY "Full access to courses" ON public.courses FOR ALL USING (TRUE);
+CREATE POLICY "Full access to destinations" ON public.destinations FOR ALL USING (TRUE);
+CREATE POLICY "Full access to testimonials" ON public.testimonials FOR ALL USING (TRUE);
+CREATE POLICY "Full access to leads" ON public.leads FOR ALL USING (TRUE);
+CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING (TRUE);
+`;
+    navigator.clipboard.writeText(sqlText);
+    setCopiedSql(true);
+    setTimeout(() => setCopiedSql(false), 3000);
+    showToast('Complete Supabase SQL schema copied to clipboard!');
   };
 
   const filteredLeads = leads.filter((l) => {
-    if (selectedStatusFilter === 'all') return true;
-    return l.status === selectedStatusFilter;
+    const matchesStatus = leadStatusFilter === 'all' || l.status === leadStatusFilter;
+    const matchesSearch =
+      l.full_name.toLowerCase().includes(leadSearch.toLowerCase()) ||
+      l.phone.includes(leadSearch) ||
+      l.email.toLowerCase().includes(leadSearch.toLowerCase()) ||
+      l.destination.toLowerCase().includes(leadSearch.toLowerCase());
+    return matchesStatus && matchesSearch;
   });
 
   return (
-    <div className="bg-slate-50 min-h-screen py-10">
-      <div className="max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-12 xl:px-16 space-y-8">
-        {/* Top Bar */}
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <div className="flex items-center gap-3">
-              <span className="bg-brand-500 text-white font-bold text-xs px-2.5 py-1 rounded uppercase tracking-wider">
-                Staff CRM
-              </span>
-              <div className="inline-flex items-center gap-1.5 text-xs text-green-700 font-semibold bg-green-50 px-2.5 py-1 rounded-full border border-green-200">
-                <Database className="w-3.5 h-3.5 text-green-600" />
-                <span>Supabase Live Connected</span>
+    <div className="min-h-screen bg-slate-100 flex flex-col">
+      {/* Top Bar Header */}
+      <header className="bg-navy-950 text-white border-b border-navy-800 sticky top-0 z-40">
+        <div className="max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <img src="/logo.png" alt="SR Global" className="w-9 h-9 rounded-full ring-2 ring-brand-500" />
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-serif font-black tracking-wide text-sm sm:text-base">SR GLOBAL</span>
+                <span className="bg-brand-500 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase">
+                  Staff Command Center
+                </span>
               </div>
             </div>
-            <h1 className="text-2xl font-black text-navy-950 mt-1 font-serif">Consultant Administrative Control</h1>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              onClick={handleExportCSV}
-              className="inline-flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow transition-colors"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>Export CSV</span>
-            </button>
-
-            <button
-              onClick={fetchData}
-              disabled={loading}
-              className="inline-flex items-center gap-2 bg-brand-50 hover:bg-brand-100 text-brand-700 text-xs font-bold px-4 py-2.5 rounded-xl border border-brand-200 transition-colors"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-              <span>Sync Cloud</span>
-            </button>
+          <div className="flex items-center gap-3">
+            {/* Supabase status indicator */}
+            <div className={`hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
+              isLiveSupabase || isSupabaseConnected
+                ? 'bg-green-950/80 text-green-300 border border-green-700/60'
+                : 'bg-yellow-950/80 text-yellow-300 border border-yellow-700/60'
+            }`}>
+              <Database className="w-3.5 h-3.5" />
+              <span>{isLiveSupabase || isSupabaseConnected ? 'Live Supabase Connected' : 'Local Fallback Mode'}</span>
+            </div>
 
             <button
               onClick={() => {
-                localStorage.removeItem('sr_admin_auth');
-                navigate('/admin/login');
+                refreshData();
+                showToast('Refreshed data from Supabase!');
               }}
-              className="inline-flex items-center gap-1.5 text-slate-500 hover:text-red-600 text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 hover:border-red-200 transition-colors"
+              className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-slate-200 transition-colors"
+              title="Refresh Live Data"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </button>
+
+            <a
+              href="/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden md:inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
+            >
+              <span>View Public Site</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+
+            <button
+              onClick={handleLogout}
+              className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg bg-red-600/80 hover:bg-red-600 text-white transition-colors"
             >
               <LogOut className="w-3.5 h-3.5" />
-              <span>Exit</span>
+              <span>Sign Out</span>
             </button>
           </div>
         </div>
+      </header>
 
-        {/* KPI Metrics Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center shrink-0">
-              <Users className="w-6 h-6" />
-            </div>
-            <div>
-              <div className="text-2xl font-black text-navy-950">{leads.length}</div>
-              <div className="text-xs uppercase font-bold text-slate-400">Total Inquiries</div>
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-yellow-50 text-yellow-600 flex items-center justify-center shrink-0">
-              <Calendar className="w-6 h-6" />
-            </div>
-            <div>
-              <div className="text-2xl font-black text-navy-950">{appointments.length}</div>
-              <div className="text-xs uppercase font-bold text-slate-400">Scheduled Sessions</div>
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-green-50 text-green-600 flex items-center justify-center shrink-0">
-              <CheckCircle2 className="w-6 h-6" />
-            </div>
-            <div>
-              <div className="text-2xl font-black text-navy-950">
-                {leads.filter((l) => l.status === 'Converted').length}
-              </div>
-              <div className="text-xs uppercase font-bold text-slate-400">Enrolled Students</div>
-            </div>
-          </div>
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 bg-navy-950 text-white px-5 py-3 rounded-2xl shadow-2xl border border-brand-500 flex items-center gap-3 animate-fade-in">
+          <CheckCircle2 className="w-5 h-5 text-green-400 shrink-0" />
+          <span className="text-sm font-semibold">{toastMessage}</span>
         </div>
+      )}
 
-        {/* Tab Selection */}
-        <div className="flex border-b border-slate-200 gap-4">
-          <button
-            onClick={() => setActiveTab('leads')}
-            className={`pb-3 font-bold text-sm border-b-2 transition-all ${
-              activeTab === 'leads' ? 'border-brand-500 text-brand-600' : 'border-transparent text-slate-500'
-            }`}
-          >
-            Leads & Inquiries Pipeline ({leads.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('appointments')}
-            className={`pb-3 font-bold text-sm border-b-2 transition-all ${
-              activeTab === 'appointments' ? 'border-brand-500 text-brand-600' : 'border-transparent text-slate-500'
-            }`}
-          >
-            Appointments & Slot Manager ({appointments.length})
-          </button>
-        </div>
-
-        {/* Tab 1: Leads Pipeline */}
-        {activeTab === 'leads' && (
-          <div className="space-y-6">
-            {/* Filter Bar */}
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-bold text-slate-500 uppercase mr-2">Filter Stage:</span>
-              {['all', 'New', 'Contacted', 'In Progress', 'Converted', 'Closed'].map((st) => (
-                <button
-                  key={st}
-                  onClick={() => setSelectedStatusFilter(st)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                    selectedStatusFilter === st
-                      ? 'bg-navy-950 text-white'
-                      : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-                  }`}
-                >
-                  {st}
-                </button>
-              ))}
+      {/* Main Container with Sidebar + Content */}
+      <div className="max-w-[1536px] mx-auto w-full flex-1 flex flex-col md:flex-row px-4 sm:px-6 lg:px-8 py-6 gap-6">
+        {/* Navigation Sidebar */}
+        <aside className="w-full md:w-64 bg-white rounded-3xl border border-slate-200 p-4 shadow-sm shrink-0 flex flex-col justify-between">
+          <div className="space-y-1">
+            <div className="px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              Core Operations
             </div>
 
-            {/* Leads Table */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm text-slate-600">
-                  <thead className="bg-slate-50 text-slate-700 text-xs uppercase font-bold border-b border-slate-200">
-                    <tr>
-                      <th className="py-3.5 px-4">Applicant</th>
-                      <th className="py-3.5 px-4">Destination & Course</th>
-                      <th className="py-3.5 px-4">Current Pipeline Stage</th>
-                      <th className="py-3.5 px-4">Counselor Notes</th>
-                      <th className="py-3.5 px-4 text-right">Quick Contact</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredLeads.map((lead) => (
-                      <tr key={lead.id} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="py-3.5 px-4">
-                          <div className="font-bold text-navy-950">{lead.full_name}</div>
-                          <div className="text-xs text-slate-400">{lead.phone} • {lead.email}</div>
-                        </td>
-                        <td className="py-3.5 px-4">
-                          <span className="inline-block px-2 py-0.5 rounded text-xs font-bold bg-brand-50 text-brand-700">
-                            {lead.destination}
-                          </span>
-                          <div className="text-xs text-slate-500 mt-0.5">{lead.course_interest || 'General'}</div>
-                        </td>
-                        <td className="py-3.5 px-4">
-                          <select
-                            value={lead.status}
-                            onChange={(e) => handleStatusChange(lead.id, e.target.value as LeadStatus)}
-                            className="text-xs font-bold px-2.5 py-1 rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-1 focus:ring-brand-500"
-                          >
-                            <option value="New">New</option>
-                            <option value="Contacted">Contacted</option>
-                            <option value="In Progress">In Progress</option>
-                            <option value="Converted">Converted</option>
-                            <option value="Closed">Closed</option>
-                          </select>
-                        </td>
-                        <td className="py-3.5 px-4 text-xs max-w-xs truncate text-slate-500">
-                          {lead.notes || 'No notes added'}
-                        </td>
-                        <td className="py-3.5 px-4 text-right space-x-2">
-                          <button
-                            onClick={() => {
-                              setEditingLead(lead);
-                              setNoteInput('');
-                            }}
-                            className="p-1.5 rounded-lg text-slate-500 hover:text-brand-600 hover:bg-brand-50"
-                            title="Add Note"
-                          >
-                            <Edit3 className="w-4 h-4" />
-                          </button>
-                          <a
-                            href={`https://wa.me/${lead.phone.replace(/[^0-9]/g, '')}?text=Hello%20${encodeURIComponent(
-                              lead.full_name
-                            )},%20this%20is%20SR%20Global%20Consultants.`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 bg-[#25D366] hover:bg-[#20ba5a] text-white text-xs font-bold px-2.5 py-1 rounded-lg"
-                          >
-                            <MessageCircle className="w-3.5 h-3.5" />
-                            <span>Chat</span>
-                          </a>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+                activeTab === 'overview'
+                  ? 'bg-brand-50 text-brand-600 font-bold'
+                  : 'text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              <LayoutDashboard className="w-4 h-4 text-brand-500" />
+              <span>Overview</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('leads')}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+                activeTab === 'leads'
+                  ? 'bg-brand-50 text-brand-600 font-bold'
+                  : 'text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Users className="w-4 h-4 text-brand-500" />
+                <span>Leads CRM</span>
               </div>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-brand-100 text-brand-700 font-bold">
+                {leads.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('appointments')}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+                activeTab === 'appointments'
+                  ? 'bg-brand-50 text-brand-600 font-bold'
+                  : 'text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Calendar className="w-4 h-4 text-brand-500" />
+                <span>Appointments</span>
+              </div>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-bold">
+                {appointments.length}
+              </span>
+            </button>
+
+            <div className="pt-4 px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              Content Catalog
             </div>
+
+            <button
+              onClick={() => setActiveTab('destinations')}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+                activeTab === 'destinations'
+                  ? 'bg-brand-50 text-brand-600 font-bold'
+                  : 'text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Globe className="w-4 h-4 text-brand-500" />
+                <span>Destinations</span>
+              </div>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-bold">
+                {destinations.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('courses')}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+                activeTab === 'courses'
+                  ? 'bg-brand-50 text-brand-600 font-bold'
+                  : 'text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <BookOpen className="w-4 h-4 text-brand-500" />
+                <span>Courses & Trade</span>
+              </div>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-bold">
+                {courses.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('testimonials')}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+                activeTab === 'testimonials'
+                  ? 'bg-brand-50 text-brand-600 font-bold'
+                  : 'text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Star className="w-4 h-4 text-yellow-500" />
+                <span>Testimonials</span>
+              </div>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-bold">
+                {testimonials.length}
+              </span>
+            </button>
+
+            <div className="pt-4 px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              Live Customization
+            </div>
+
+            <button
+              onClick={() => setActiveTab('whatsapp')}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+                activeTab === 'whatsapp'
+                  ? 'bg-green-50 text-green-700 font-bold border border-green-200'
+                  : 'text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              <MessageCircle className="w-4 h-4 text-green-500" />
+              <span>WhatsApp Widget</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('header')}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+                activeTab === 'header'
+                  ? 'bg-brand-50 text-brand-600 font-bold'
+                  : 'text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              <Settings className="w-4 h-4 text-brand-500" />
+              <span>Header & Navbar</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('footer')}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+                activeTab === 'footer'
+                  ? 'bg-brand-50 text-brand-600 font-bold'
+                  : 'text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              <Settings className="w-4 h-4 text-brand-500" />
+              <span>Footer & Contacts</span>
+            </button>
           </div>
-        )}
 
-        {/* Tab 2: Appointments */}
-        {activeTab === 'appointments' && (
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm text-slate-600">
-                <thead className="bg-slate-50 text-slate-700 text-xs uppercase font-bold border-b border-slate-200">
-                  <tr>
-                    <th className="py-3.5 px-4">Client Name</th>
-                    <th className="py-3.5 px-4">Scheduled Date & Time</th>
-                    <th className="py-3.5 px-4">Country & Mode</th>
-                    <th className="py-3.5 px-4">Status</th>
-                    <th className="py-3.5 px-4 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {appointments.map((appt) => (
-                    <tr key={appt.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3.5 px-4">
-                        <div className="font-bold text-navy-950">{appt.client_name}</div>
-                        <div className="text-xs text-slate-400">{appt.phone}</div>
-                      </td>
-                      <td className="py-3.5 px-4 font-semibold text-slate-700">
-                        <div>{appt.appointment_date}</div>
-                        <div className="text-xs text-brand-600">{appt.time_slot}</div>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="font-medium">{appt.destination}</span>
-                        <div className="text-xs text-slate-400">{appt.mode} Session</div>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-50 text-green-700 border border-green-200">
-                          {appt.status}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4 text-right">
-                        <a
-                          href={`https://wa.me/${appt.phone.replace(/[^0-9]/g, '')}?text=Hello%20${encodeURIComponent(
-                            appt.client_name
-                          )},%20confirming%20your%20consultation%20with%20SR%20Global%20Consultants%20for%20${appt.appointment_date}%20at%20${appt.time_slot}.`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 bg-[#25D366] text-white text-xs font-bold px-2.5 py-1 rounded-lg"
-                        >
-                          <MessageCircle className="w-3.5 h-3.5" />
-                          <span>Remind</span>
-                        </a>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          <div className="pt-6 border-t border-slate-100 space-y-2">
+            <button
+              onClick={() => setActiveTab('database')}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-colors ${
+                activeTab === 'database'
+                  ? 'bg-navy-950 text-white'
+                  : 'bg-slate-100 text-navy-950 hover:bg-slate-200'
+              }`}
+            >
+              <Database className="w-4 h-4 text-brand-400" />
+              <span>Supabase SQL Setup</span>
+            </button>
           </div>
-        )}
+        </aside>
 
-        {/* Tab 3: Settings & Dynamic Content */}
-        {activeTab === 'settings' && (
-          <div className="space-y-8">
-            {/* Alert banner if saved */}
-            {settingsSavedAlert && (
-              <div className="bg-green-50 border border-green-200 text-green-800 p-4 rounded-xl flex items-center justify-between text-sm font-semibold">
-                <span className="flex items-center gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-green-600" />
-                  {settingsSavedAlert}
-                </span>
-                <button onClick={() => setSettingsSavedAlert(null)} className="text-xs text-green-700 hover:underline">
-                  Dismiss
-                </button>
-              </div>
-            )}
-
-            {/* Section 1: Contact & Social Handles */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8">
-              <div className="flex items-center justify-between mb-6">
+        {/* Content Area Panel */}
+        <main className="flex-1 space-y-6">
+          {/* TAB 1: OVERVIEW */}
+          {activeTab === 'overview' && (
+            <div className="space-y-6">
+              <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                  <h3 className="text-lg font-bold text-navy-950">Company Contact & Social Handles</h3>
-                  <p className="text-xs text-slate-500">Updates live across mobile application, web portal, and WhatsApp triggers</p>
-                </div>
-                <button
-                  onClick={() => {
-                    setSettingsSavedAlert('Company contact & social handles updated successfully!');
-                    setTimeout(() => setSettingsSavedAlert(null), 4000);
-                  }}
-                  className="inline-flex items-center gap-2 bg-navy-950 hover:bg-navy-900 text-white font-bold text-xs px-4 py-2 rounded-xl shadow transition-all"
-                >
-                  <Save className="w-4 h-4 text-brand-400" />
-                  <span>Save Contact Details</span>
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">WhatsApp Number (e.g. 923278321560)</label>
-                  <input
-                    type="text"
-                    value={contactSettings.whatsappNumber}
-                    onChange={(e) => setContactSettings({ ...contactSettings, whatsappNumber: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm"
-                  />
+                  <h1 className="text-2xl sm:text-3xl font-black text-navy-950 font-serif">
+                    Welcome to SR Global Admin
+                  </h1>
+                  <p className="text-sm text-slate-500 mt-1">
+                    Control live leads, consultation slots, WhatsApp hotline, and website navigation.
+                  </p>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Pakistan Helpline</label>
-                  <input
-                    type="text"
-                    value={contactSettings.phonePakistan}
-                    onChange={(e) => setContactSettings({ ...contactSettings, phonePakistan: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Australia Helpline</label>
-                  <input
-                    type="text"
-                    value={contactSettings.phoneAustralia}
-                    onChange={(e) => setContactSettings({ ...contactSettings, phoneAustralia: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Official Email</label>
-                  <input
-                    type="email"
-                    value={contactSettings.email}
-                    onChange={(e) => setContactSettings({ ...contactSettings, email: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Facebook Handle / URL</label>
-                  <input
-                    type="text"
-                    value={contactSettings.facebook}
-                    onChange={(e) => setContactSettings({ ...contactSettings, facebook: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">X (Twitter) Handle / URL</label>
-                  <input
-                    type="text"
-                    value={contactSettings.twitter}
-                    onChange={(e) => setContactSettings({ ...contactSettings, twitter: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">LinkedIn Handle / URL</label>
-                  <input
-                    type="text"
-                    value={contactSettings.linkedin}
-                    onChange={(e) => setContactSettings({ ...contactSettings, linkedin: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm"
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Office Address</label>
-                  <input
-                    type="text"
-                    value={contactSettings.address}
-                    onChange={(e) => setContactSettings({ ...contactSettings, address: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Section 2: Manage Success Stories & Testimonials */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8">
-              <h3 className="text-lg font-bold text-navy-950 mb-1">Success Stories & Testimonials</h3>
-              <p className="text-xs text-slate-500 mb-6">Add or remove verified student visa approvals shown on the home page</p>
-
-              {/* Add form */}
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-6 space-y-4">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">Add New Student Story</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  <input
-                    type="text"
-                    placeholder="Student Name (e.g. Bilal Tahir)"
-                    value={newTestimonial.name}
-                    onChange={(e) => setNewTestimonial({ ...newTestimonial, name: e.target.value })}
-                    className="px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white"
-                  />
-                  <input
-                    type="text"
-                    placeholder="University / College"
-                    value={newTestimonial.university}
-                    onChange={(e) => setNewTestimonial({ ...newTestimonial, university: e.target.value })}
-                    className="px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white"
-                  />
-                  <select
-                    value={newTestimonial.country}
-                    onChange={(e) => setNewTestimonial({ ...newTestimonial, country: e.target.value })}
-                    className="px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white"
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setActiveTab('whatsapp')}
+                    className="inline-flex items-center gap-2 bg-[#25D366] hover:bg-[#20ba5a] text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-md transition-all"
                   >
-                    <option value="Australia">Australia</option>
-                    <option value="United Kingdom">United Kingdom</option>
-                    <option value="Canada">Canada</option>
-                    <option value="United States">United States</option>
-                    <option value="Germany">Germany</option>
-                  </select>
+                    <MessageCircle className="w-4 h-4" />
+                    <span>Change WhatsApp Number</span>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('leads')}
+                    className="inline-flex items-center gap-2 bg-brand-500 hover:bg-brand-600 text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-md transition-all"
+                  >
+                    <Users className="w-4 h-4" />
+                    <span>View Inquiries</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* KPI Cards */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                  <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Leads</div>
+                  <div className="text-3xl font-black text-brand-600 mt-2">{leads.length}</div>
+                  <div className="text-xs text-slate-500 mt-1">Direct website inquiries</div>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                  <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Booked Slots</div>
+                  <div className="text-3xl font-black text-yellow-500 mt-2">{appointments.length}</div>
+                  <div className="text-xs text-slate-500 mt-1">Office & online sessions</div>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                  <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Active Courses</div>
+                  <div className="text-3xl font-black text-green-600 mt-2">{courses.length}</div>
+                  <div className="text-xs text-slate-500 mt-1">Trade & degree programs</div>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                  <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Destinations</div>
+                  <div className="text-3xl font-black text-navy-950 mt-2">{destinations.length}</div>
+                  <div className="text-xs text-slate-500 mt-1">Global study countries</div>
+                </div>
+              </div>
+
+              {/* Homepage Counters Form */}
+              <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="text-lg font-bold text-navy-950">Homepage Key Metric Counters</h3>
+                    <p className="text-xs text-slate-500">Live numbers shown in the hero stats banner on the website</p>
+                  </div>
+                  <button
+                    onClick={handleSaveMetrics}
+                    disabled={isSyncing}
+                    className="inline-flex items-center gap-1.5 bg-brand-500 hover:bg-brand-600 text-white font-bold px-4 py-2 rounded-xl text-xs shadow-sm transition-all"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>Save Counters</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Students Guided</label>
+                    <input
+                      type="number"
+                      value={metricsForm.studentsGuided}
+                      onChange={(e) => setMetricsForm({ ...metricsForm, studentsGuided: Number(e.target.value) })}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-semibold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Partner Institutions</label>
+                    <input
+                      type="number"
+                      value={metricsForm.partnerUniversities}
+                      onChange={(e) => setMetricsForm({ ...metricsForm, partnerUniversities: Number(e.target.value) })}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-semibold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Visa Approval Rate</label>
+                    <input
+                      type="text"
+                      value={metricsForm.visaSuccessRate}
+                      onChange={(e) => setMetricsForm({ ...metricsForm, visaSuccessRate: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-semibold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Industry Experience</label>
+                    <input
+                      type="text"
+                      value={metricsForm.yearsExperience}
+                      onChange={(e) => setMetricsForm({ ...metricsForm, yearsExperience: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-semibold"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: LEADS CRM */}
+          {activeTab === 'leads' && (
+            <div className="space-y-6">
+              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                  <h2 className="text-xl font-bold text-navy-950">Student Leads & Inquiries</h2>
+                  <p className="text-xs text-slate-500">Live profiles submitted via website and consultation forms</p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3">
                   <input
                     type="text"
-                    placeholder="Visa Year (e.g. 2026)"
-                    value={newTestimonial.year}
-                    onChange={(e) => setNewTestimonial({ ...newTestimonial, year: e.target.value })}
-                    className="px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white"
+                    placeholder="Search name, phone, email..."
+                    value={leadSearch}
+                    onChange={(e) => setLeadSearch(e.target.value)}
+                    className="px-3.5 py-2 rounded-xl border border-slate-300 text-xs w-48 sm:w-64"
                   />
+
+                  <select
+                    value={leadStatusFilter}
+                    onChange={(e) => setLeadStatusFilter(e.target.value)}
+                    className="px-3 py-2 rounded-xl border border-slate-300 text-xs bg-white font-medium"
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="New">New</option>
+                    <option value="Contacted">Contacted</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Converted">Converted</option>
+                    <option value="Closed">Closed</option>
+                  </select>
+
+                  <button
+                    onClick={exportLeadsCSV}
+                    className="inline-flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold px-3.5 py-2 rounded-xl text-xs transition-colors"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Export CSV</span>
+                  </button>
                 </div>
-                <textarea
-                  rows={2}
-                  placeholder="Student review quote (e.g. 'Got my Australian subclass 500 visa approved in just 18 days with SR Global...')"
-                  value={newTestimonial.quote}
-                  onChange={(e) => setNewTestimonial({ ...newTestimonial, quote: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white"
-                />
+              </div>
+
+              {/* Leads Table */}
+              <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                        <th className="py-3.5 px-4">Student</th>
+                        <th className="py-3.5 px-4">Phone / WhatsApp</th>
+                        <th className="py-3.5 px-4">Target Country</th>
+                        <th className="py-3.5 px-4">Course Interest</th>
+                        <th className="py-3.5 px-4">Status</th>
+                        <th className="py-3.5 px-4">Counselor Notes</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-sm">
+                      {filteredLeads.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="py-8 text-center text-slate-400 text-xs">
+                            No student inquiries found matching criteria.
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredLeads.map((lead) => (
+                          <tr key={lead.id} className="hover:bg-slate-50/70 transition-colors">
+                            <td className="py-3.5 px-4">
+                              <div className="font-bold text-navy-950">{lead.full_name}</div>
+                              <div className="text-xs text-slate-400">{lead.email}</div>
+                            </td>
+                            <td className="py-3.5 px-4 font-mono text-xs text-slate-700">
+                              <a
+                                href={`https://wa.me/${lead.phone.replace(/[^0-9]/g, '')}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 hover:text-green-600 font-semibold"
+                              >
+                                <MessageCircle className="w-3.5 h-3.5 text-green-500" />
+                                <span>{lead.phone}</span>
+                              </a>
+                            </td>
+                            <td className="py-3.5 px-4">
+                              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200">
+                                {lead.destination}
+                              </span>
+                            </td>
+                            <td className="py-3.5 px-4 text-xs text-slate-600">
+                              {lead.course_interest || 'General Admissions'}
+                            </td>
+                            <td className="py-3.5 px-4">
+                              <select
+                                value={lead.status}
+                                onChange={(e) => {
+                                  updateLeadStatus(lead.id, e.target.value as any);
+                                  showToast(`Status updated to ${e.target.value}`);
+                                }}
+                                className={`text-xs font-bold px-2.5 py-1 rounded-lg border focus:outline-none ${
+                                  lead.status === 'New'
+                                    ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                    : lead.status === 'Contacted'
+                                    ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
+                                    : lead.status === 'In Progress'
+                                    ? 'bg-purple-50 text-purple-700 border-purple-200'
+                                    : lead.status === 'Converted'
+                                    ? 'bg-green-50 text-green-700 border-green-200'
+                                    : 'bg-slate-100 text-slate-600 border-slate-300'
+                                }`}
+                              >
+                                <option value="New">New</option>
+                                <option value="Contacted">Contacted</option>
+                                <option value="In Progress">In Progress</option>
+                                <option value="Converted">Converted</option>
+                                <option value="Closed">Closed</option>
+                              </select>
+                            </td>
+                            <td className="py-3.5 px-4 text-xs text-slate-500 max-w-xs truncate">
+                              {lead.notes || 'No notes added'}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: APPOINTMENTS */}
+          {activeTab === 'appointments' && (
+            <div className="space-y-6">
+              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex justify-between items-center">
+                <div>
+                  <h2 className="text-xl font-bold text-navy-950">Booked Counseling Appointments</h2>
+                  <p className="text-xs text-slate-500">Scheduled office walk-ins and Zoom sessions with students</p>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                        <th className="py-3.5 px-4">Client Name</th>
+                        <th className="py-3.5 px-4">Contact</th>
+                        <th className="py-3.5 px-4">Date & Time</th>
+                        <th className="py-3.5 px-4">Counseling Mode</th>
+                        <th className="py-3.5 px-4">Destination</th>
+                        <th className="py-3.5 px-4">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-sm">
+                      {appointments.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="py-8 text-center text-slate-400 text-xs">
+                            No active appointment bookings yet.
+                          </td>
+                        </tr>
+                      ) : (
+                        appointments.map((appt) => (
+                          <tr key={appt.id} className="hover:bg-slate-50/70 transition-colors">
+                            <td className="py-3.5 px-4 font-bold text-navy-950">{appt.client_name}</td>
+                            <td className="py-3.5 px-4 text-xs font-mono">
+                              <div>{appt.phone}</div>
+                              <div className="text-slate-400">{appt.email}</div>
+                            </td>
+                            <td className="py-3.5 px-4 text-xs">
+                              <div className="font-semibold text-slate-800">{appt.appointment_date}</div>
+                              <div className="text-slate-500">{appt.time_slot}</div>
+                            </td>
+                            <td className="py-3.5 px-4">
+                              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                                appt.mode === 'Office' ? 'bg-orange-50 text-orange-700' : 'bg-blue-50 text-blue-700'
+                              }`}>
+                                {appt.mode}
+                              </span>
+                            </td>
+                            <td className="py-3.5 px-4 text-xs font-medium text-slate-700">{appt.destination}</td>
+                            <td className="py-3.5 px-4">
+                              <select
+                                value={appt.status}
+                                onChange={(e) => {
+                                  updateAppointmentStatus(appt.id, e.target.value as any);
+                                  showToast(`Appointment status updated to ${e.target.value}`);
+                                }}
+                                className="text-xs font-bold px-2.5 py-1 rounded-lg border border-slate-300 bg-white"
+                              >
+                                <option value="Pending">Pending</option>
+                                <option value="Confirmed">Confirmed</option>
+                                <option value="Completed">Completed</option>
+                                <option value="Cancelled">Cancelled</option>
+                              </select>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 4: DESTINATIONS */}
+          {activeTab === 'destinations' && (
+            <div className="space-y-6">
+              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex justify-between items-center">
+                <div>
+                  <h2 className="text-xl font-bold text-navy-950">Study Destinations Management</h2>
+                  <p className="text-xs text-slate-500">Edit visa requirements, living costs, and work rights live</p>
+                </div>
+
                 <button
-                  onClick={() => {
-                    if (!newTestimonial.name || !newTestimonial.quote) return;
-                    const created: Testimonial = {
-                      id: String(Date.now()),
-                      student_name: newTestimonial.name,
-                      name: newTestimonial.name,
-                      university: newTestimonial.university,
-                      country: newTestimonial.country,
-                      quote: newTestimonial.quote,
-                      rating: 5,
-                      year: newTestimonial.year
-                    };
-                    setTestimonialsList([created, ...testimonialsList]);
-                    setNewTestimonial({ name: '', university: '', country: 'Australia', quote: '', year: '2026' });
-                    setSettingsSavedAlert(`Added success story for ${created.student_name}`);
-                  }}
-                  className="inline-flex items-center gap-1.5 bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-sm"
+                  onClick={() => setShowAddDestinationModal(true)}
+                  className="inline-flex items-center gap-1.5 bg-brand-500 hover:bg-brand-600 text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow-md transition-all"
                 >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Publish Success Story</span>
+                  <Plus className="w-4 h-4" />
+                  <span>Add Country</span>
                 </button>
               </div>
 
-              {/* List */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {testimonialsList.map((t) => (
-                  <div key={t.id} className="p-4 rounded-xl border border-slate-200 bg-white flex justify-between items-start gap-3">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-sm text-navy-950">{t.student_name || t.name}</span>
-                        <span className="text-[10px] bg-brand-50 text-brand-700 px-2 py-0.5 rounded-full font-bold">{t.country} ({t.year})</span>
+              {/* Destinations Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {destinations.map((dest) => (
+                  <div key={dest.slug} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+                    <div className="flex justify-between items-start">
+                      <div className="flex items-center gap-3">
+                        <span className="text-3xl">{dest.flag}</span>
+                        <div>
+                          <h4 className="font-bold text-lg text-navy-950">{dest.country_name}</h4>
+                          <span className="text-xs font-bold text-brand-600">{dest.visa_subclass}</span>
+                        </div>
                       </div>
-                      <p className="text-xs text-slate-500 font-medium">{t.university}</p>
+
+                      <button
+                        onClick={() => {
+                          deleteDestination(dest.slug);
+                          showToast(`Deleted ${dest.country_name}`);
+                        }}
+                        className="p-1.5 text-slate-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors"
+                        title="Delete Destination"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div className="space-y-2 text-xs text-slate-600">
+                      <div><span className="font-bold text-slate-800">Living Cost:</span> {dest.avg_living_cost}</div>
+                      <div><span className="font-bold text-slate-800">Work Rights:</span> {dest.work_rights}</div>
+                      <div className="line-clamp-2"><span className="font-bold text-slate-800">Overview:</span> {dest.overview}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Add Destination Modal */}
+              {showAddDestinationModal && (
+                <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+                  <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+                    <div className="flex justify-between items-center border-b pb-3">
+                      <h3 className="font-bold text-lg text-navy-950">Add Study Destination</h3>
+                      <button onClick={() => setShowAddDestinationModal(false)} className="text-slate-400 hover:text-slate-600">✕</button>
+                    </div>
+
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        addDestination({
+                          ...newDestination,
+                          slug: newDestination.country_name.toLowerCase().replace(/\s+/g, '-'),
+                        });
+                        setShowAddDestinationModal(false);
+                        showToast(`${newDestination.country_name} added to study catalog!`);
+                      }}
+                      className="space-y-3"
+                    >
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Country Name</label>
+                        <input
+                          type="text"
+                          required
+                          value={newDestination.country_name}
+                          onChange={(e) => setNewDestination({ ...newDestination, country_name: e.target.value })}
+                          placeholder="e.g. New Zealand"
+                          className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Flag Emoji</label>
+                          <input
+                            type="text"
+                            value={newDestination.flag}
+                            onChange={(e) => setNewDestination({ ...newDestination, flag: e.target.value })}
+                            className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Visa Subclass</label>
+                          <input
+                            type="text"
+                            value={newDestination.visa_subclass}
+                            onChange={(e) => setNewDestination({ ...newDestination, visa_subclass: e.target.value })}
+                            placeholder="e.g. Fee Paying Student"
+                            className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Avg Living Cost</label>
+                        <input
+                          type="text"
+                          value={newDestination.avg_living_cost}
+                          onChange={(e) => setNewDestination({ ...newDestination, avg_living_cost: e.target.value })}
+                          placeholder="NZD 18,000 - 22,000 / year"
+                          className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Overview Description</label>
+                        <textarea
+                          rows={3}
+                          required
+                          value={newDestination.overview}
+                          onChange={(e) => setNewDestination({ ...newDestination, overview: e.target.value })}
+                          placeholder="High quality education and post-study opportunities..."
+                          className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
+                        />
+                      </div>
+
+                      <button
+                        type="submit"
+                        className="w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 rounded-xl shadow-md transition-all"
+                      >
+                        Publish Destination
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 5: COURSES */}
+          {activeTab === 'courses' && (
+            <div className="space-y-6">
+              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex justify-between items-center">
+                <div>
+                  <h2 className="text-xl font-bold text-navy-950">Academic & Trade Courses Catalog</h2>
+                  <p className="text-xs text-slate-500">Live programs listed on the courses page with fee estimates</p>
+                </div>
+
+                <button
+                  onClick={() => setShowAddCourseModal(true)}
+                  className="inline-flex items-center gap-1.5 bg-brand-500 hover:bg-brand-600 text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow-md transition-all"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add Course</span>
+                </button>
+              </div>
+
+              {/* Courses Table */}
+              <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                        <th className="py-3.5 px-4">Program Title</th>
+                        <th className="py-3.5 px-4">Category</th>
+                        <th className="py-3.5 px-4">Country</th>
+                        <th className="py-3.5 px-4">Est. Fees</th>
+                        <th className="py-3.5 px-4">Duration</th>
+                        <th className="py-3.5 px-4 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-sm">
+                      {courses.map((course) => (
+                        <tr key={course.id} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="py-3.5 px-4">
+                            <div className="font-bold text-navy-950">{course.title}</div>
+                            <div className="text-xs text-slate-400 max-w-sm truncate">{course.career_paths}</div>
+                          </td>
+                          <td className="py-3.5 px-4 text-xs font-semibold text-brand-600">{course.category_slug}</td>
+                          <td className="py-3.5 px-4 text-xs font-medium text-slate-700">{course.country}</td>
+                          <td className="py-3.5 px-4 text-xs font-semibold text-green-700">{course.estimated_fees}</td>
+                          <td className="py-3.5 px-4 text-xs text-slate-500">{course.duration}</td>
+                          <td className="py-3.5 px-4 text-right">
+                            <button
+                              onClick={() => {
+                                deleteCourse(course.id);
+                                showToast(`Deleted ${course.title}`);
+                              }}
+                              className="p-1.5 text-slate-400 hover:text-red-500 rounded-lg transition-colors"
+                              title="Delete Course"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Add Course Modal */}
+              {showAddCourseModal && (
+                <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+                  <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+                    <div className="flex justify-between items-center border-b pb-3">
+                      <h3 className="font-bold text-lg text-navy-950">Add New Academic Course</h3>
+                      <button onClick={() => setShowAddCourseModal(false)} className="text-slate-400 hover:text-slate-600">✕</button>
+                    </div>
+
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        addCourse(newCourse);
+                        setShowAddCourseModal(false);
+                        showToast(`${newCourse.title} published live!`);
+                      }}
+                      className="space-y-3"
+                    >
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Course Title</label>
+                        <input
+                          type="text"
+                          required
+                          value={newCourse.title}
+                          onChange={(e) => setNewCourse({ ...newCourse, title: e.target.value })}
+                          placeholder="e.g. Diploma of Hospitality Management"
+                          className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Category</label>
+                          <select
+                            value={newCourse.category_slug}
+                            onChange={(e) => setNewCourse({ ...newCourse, category_slug: e.target.value })}
+                            className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm bg-white"
+                          >
+                            <option value="trade-courses">Trade Courses</option>
+                            <option value="vocational-courses">Vocational Courses</option>
+                            <option value="higher-education">Higher Education</option>
+                            <option value="aqf-australia">AQF Australia</option>
+                            <option value="short-courses">Short Courses</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Country</label>
+                          <input
+                            type="text"
+                            required
+                            value={newCourse.country}
+                            onChange={(e) => setNewCourse({ ...newCourse, country: e.target.value })}
+                            className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Duration</label>
+                          <input
+                            type="text"
+                            required
+                            value={newCourse.duration}
+                            onChange={(e) => setNewCourse({ ...newCourse, duration: e.target.value })}
+                            placeholder="e.g. 2 Years"
+                            className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Estimated Fees</label>
+                          <input
+                            type="text"
+                            required
+                            value={newCourse.estimated_fees}
+                            onChange={(e) => setNewCourse({ ...newCourse, estimated_fees: e.target.value })}
+                            placeholder="AUD 12,000 / yr"
+                            className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Career Pathways</label>
+                        <input
+                          type="text"
+                          value={newCourse.career_paths}
+                          onChange={(e) => setNewCourse({ ...newCourse, career_paths: e.target.value })}
+                          placeholder="e.g. Chef de Partie, Restaurant Manager"
+                          className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Course Overview</label>
+                        <textarea
+                          rows={3}
+                          value={newCourse.description}
+                          onChange={(e) => setNewCourse({ ...newCourse, description: e.target.value })}
+                          placeholder="Comprehensive hands-on training..."
+                          className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
+                        />
+                      </div>
+
+                      <button
+                        type="submit"
+                        className="w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 rounded-xl shadow-md transition-all"
+                      >
+                        Publish Course
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 6: TESTIMONIALS */}
+          {activeTab === 'testimonials' && (
+            <div className="space-y-6">
+              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex justify-between items-center">
+                <div>
+                  <h2 className="text-xl font-bold text-navy-950">Student Success Testimonials</h2>
+                  <p className="text-xs text-slate-500">Student quotes and star ratings displayed on homepage</p>
+                </div>
+
+                <button
+                  onClick={() => setShowAddTestimonialModal(true)}
+                  className="inline-flex items-center gap-1.5 bg-brand-500 hover:bg-brand-600 text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow-md transition-all"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add Review</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {testimonials.map((t) => (
+                  <div key={t.id} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between space-y-4">
+                    <div>
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex gap-1 text-yellow-400">
+                          {[...Array(t.rating || 5)].map((_, i) => (
+                            <Star key={i} className="w-4 h-4 fill-current" />
+                          ))}
+                        </div>
+                        <button
+                          onClick={() => {
+                            deleteTestimonial(t.id);
+                            showToast('Deleted testimonial');
+                          }}
+                          className="p-1 text-slate-400 hover:text-red-500"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                       <p className="text-xs text-slate-600 italic">"{t.quote}"</p>
                     </div>
-                    <button
-                      onClick={() => setTestimonialsList(testimonialsList.filter((item) => item.id !== t.id))}
-                      className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                      title="Delete Story"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
 
-            {/* Section 3: Course Catalog */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8">
-              <h3 className="text-lg font-bold text-navy-950 mb-1">Course Catalog Management</h3>
-              <p className="text-xs text-slate-500 mb-6">Create and publish new vocational, trade, and higher education courses</p>
-
-              {/* Add Course Form */}
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-6 space-y-4">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">Add New Course</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  <input
-                    type="text"
-                    placeholder="Course Title (e.g. Diploma of Carpentry)"
-                    value={newCourse.title}
-                    onChange={(e) => setNewCourse({ ...newCourse, title: e.target.value })}
-                    className="px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white"
-                  />
-                  <select
-                    value={newCourse.category_slug}
-                    onChange={(e) => setNewCourse({ ...newCourse, category_slug: e.target.value })}
-                    className="px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white"
-                  >
-                    <option value="trade-courses">Trade Courses</option>
-                    <option value="vocational-courses">Vocational Courses</option>
-                    <option value="higher-education">Higher Education</option>
-                    <option value="short-courses">Short Courses</option>
-                    <option value="aqf-australia">AQF Australia</option>
-                  </select>
-                  <input
-                    type="text"
-                    placeholder="Country (e.g. Australia)"
-                    value={newCourse.country}
-                    onChange={(e) => setNewCourse({ ...newCourse, country: e.target.value })}
-                    className="px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Duration (e.g. 2 Years)"
-                    value={newCourse.duration}
-                    onChange={(e) => setNewCourse({ ...newCourse, duration: e.target.value })}
-                    className="px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Estimated Fees (e.g. AUD 13,500 / year)"
-                    value={newCourse.estimated_fees}
-                    onChange={(e) => setNewCourse({ ...newCourse, estimated_fees: e.target.value })}
-                    className="px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Intakes (e.g. Feb, July, Oct)"
-                    value={newCourse.intake_months}
-                    onChange={(e) => setNewCourse({ ...newCourse, intake_months: e.target.value })}
-                    className="px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white"
-                  />
-                </div>
-                <textarea
-                  rows={2}
-                  placeholder="Detailed course description & syllabus highlights..."
-                  value={newCourse.description}
-                  onChange={(e) => setNewCourse({ ...newCourse, description: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white"
-                />
-                <button
-                  onClick={() => {
-                    if (!newCourse.title) return;
-                    const created: Course = {
-                      id: String(Date.now()),
-                      title: newCourse.title,
-                      category_slug: newCourse.category_slug,
-                      country: newCourse.country,
-                      duration: newCourse.duration,
-                      estimated_fees: newCourse.estimated_fees,
-                      intake_months: newCourse.intake_months,
-                      description: newCourse.description || 'Program details available via counselor consultation.',
-                      career_paths: newCourse.career_paths || 'Industry Specialist, Licensed Practitioner'
-                    };
-                    setCoursesList([created, ...coursesList]);
-                    setNewCourse({
-                      title: '',
-                      category_slug: 'trade-courses',
-                      country: 'Australia',
-                      duration: '2 Years',
-                      estimated_fees: 'AUD 14,000 / year',
-                      intake_months: 'February, July',
-                      description: '',
-                      career_paths: ''
-                    });
-                    setSettingsSavedAlert(`Added ${created.title} to catalog`);
-                  }}
-                  className="inline-flex items-center gap-1.5 bg-navy-950 hover:bg-navy-900 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-sm"
-                >
-                  <Plus className="w-3.5 h-3.5 text-brand-400" />
-                  <span>Add Course to Catalog</span>
-                </button>
-              </div>
-
-              {/* Course items */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {coursesList.slice(0, 8).map((c) => (
-                  <div key={c.id} className="p-4 rounded-xl border border-slate-200 bg-white flex justify-between items-start gap-3">
-                    <div className="space-y-1">
-                      <div className="font-bold text-sm text-navy-950">{c.title}</div>
-                      <div className="text-xs text-brand-600 font-semibold">{c.country} • {c.duration} • {c.estimated_fees}</div>
-                      <p className="text-xs text-slate-500 line-clamp-2">{c.description}</p>
+                    <div className="pt-3 border-t border-slate-100">
+                      <div className="font-bold text-sm text-navy-950">{t.student_name}</div>
+                      <div className="text-[11px] text-slate-400">{t.university} • {t.country}</div>
                     </div>
-                    <button
-                      onClick={() => setCoursesList(coursesList.filter((item) => item.id !== c.id))}
-                      className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                      title="Delete Course"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
                   </div>
                 ))}
               </div>
-            </div>
 
-            {/* Section 4: Live Backend & Infrastructure Status */}
-            <div className="bg-navy-950 text-white rounded-2xl shadow-sm p-6 sm:p-8">
-              <div className="flex items-center gap-3 mb-4">
-                <Database className="w-6 h-6 text-brand-400" />
-                <h3 className="text-lg font-bold">Supabase PostgreSQL Architecture</h3>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-xs text-slate-300">
-                <div className="bg-navy-900 p-4 rounded-xl border border-navy-800 space-y-1">
-                  <div className="text-slate-400 font-bold uppercase tracking-wider">REST Endpoint</div>
-                  <div className="font-mono text-brand-300 break-all">https://lqggahnqfbihbnydpfre.supabase.co</div>
-                </div>
-                <div className="bg-navy-900 p-4 rounded-xl border border-navy-800 space-y-1">
-                  <div className="text-slate-400 font-bold uppercase tracking-wider">Security Rules</div>
-                  <div className="text-green-400 font-bold">Row Level Security (RLS) Active on 18 Tables</div>
-                </div>
-                <div className="bg-navy-900 p-4 rounded-xl border border-navy-800 space-y-1">
-                  <div className="text-slate-400 font-bold uppercase tracking-wider">Lead & Booking Sync</div>
-                  <div className="text-yellow-400 font-bold">Realtime Direct Sync with Offline Fallback</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+              {/* Add Testimonial Modal */}
+              {showAddTestimonialModal && (
+                <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+                  <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 space-y-4 shadow-2xl">
+                    <div className="flex justify-between items-center border-b pb-3">
+                      <h3 className="font-bold text-lg text-navy-950">Add Student Review</h3>
+                      <button onClick={() => setShowAddTestimonialModal(false)} className="text-slate-400 hover:text-slate-600">✕</button>
+                    </div>
 
-        {/* Note Editor Modal */}
-        {editingLead && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl">
-              <h3 className="font-bold text-lg text-navy-950">Add Counselor Note</h3>
-              <p className="text-xs text-slate-500">Applicant: {editingLead.full_name}</p>
-              <textarea
-                rows={3}
-                value={noteInput}
-                onChange={(e) => setNoteInput(e.target.value)}
-                placeholder="Log call summary, IELTS score, missing documents..."
-                className="w-full p-3 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-              />
-              <div className="flex justify-end gap-3">
-                <button
-                  onClick={() => setEditingLead(null)}
-                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-lg"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleUpdateNote}
-                  className="px-4 py-2 text-xs font-bold bg-brand-500 hover:bg-brand-600 text-white rounded-lg"
-                >
-                  Save Note
-                </button>
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        addTestimonial(newTestimonial);
+                        setShowAddTestimonialModal(false);
+                        showToast('Testimonial published live!');
+                      }}
+                      className="space-y-3"
+                    >
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Student Name</label>
+                        <input
+                          type="text"
+                          required
+                          value={newTestimonial.student_name}
+                          onChange={(e) => setNewTestimonial({ ...newTestimonial, student_name: e.target.value })}
+                          placeholder="e.g. Bilal Hassan"
+                          className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 uppercase mb-1">University</label>
+                          <input
+                            type="text"
+                            required
+                            value={newTestimonial.university}
+                            onChange={(e) => setNewTestimonial({ ...newTestimonial, university: e.target.value })}
+                            placeholder="University of Sydney"
+                            className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Country</label>
+                          <input
+                            type="text"
+                            required
+                            value={newTestimonial.country}
+                            onChange={(e) => setNewTestimonial({ ...newTestimonial, country: e.target.value })}
+                            placeholder="Australia"
+                            className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Student Review / Quote</label>
+                        <textarea
+                          rows={3}
+                          required
+                          value={newTestimonial.quote}
+                          onChange={(e) => setNewTestimonial({ ...newTestimonial, quote: e.target.value })}
+                          placeholder="Got my visa approved in 12 days..."
+                          className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
+                        />
+                      </div>
+
+                      <button
+                        type="submit"
+                        className="w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 rounded-xl shadow-md transition-all"
+                      >
+                        Publish Review
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 7: WHATSAPP WIDGET CONTROL */}
+          {activeTab === 'whatsapp' && (
+            <div className="space-y-6">
+              <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="p-2 rounded-xl bg-green-100 text-green-600">
+                      <MessageCircle className="w-5 h-5" />
+                    </span>
+                    <h2 className="text-xl font-bold text-navy-950">Floating WhatsApp Desk Control</h2>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Change the WhatsApp contact number and pre-filled chat greeting shown on the live website and app.
+                  </p>
+                </div>
+
+                <form onSubmit={handleSaveWhatsApp} className="space-y-5 max-w-2xl">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                      WhatsApp Phone Number (with Country Code)
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={whatsappForm.phone}
+                      onChange={(e) => setWhatsappForm({ ...whatsappForm, phone: e.target.value })}
+                      placeholder="e.g. 923278321560 or +92 327 8321560"
+                      className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-green-500 font-mono text-sm"
+                    />
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      Tip: Can be entered as 923278321560 or with +92. The system automatically formats it for WhatsApp Web & App.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                      Default Pre-Filled Inbound Greeting
+                    </label>
+                    <textarea
+                      rows={3}
+                      required
+                      value={whatsappForm.defaultMessage}
+                      onChange={(e) => setWhatsappForm({ ...whatsappForm, defaultMessage: e.target.value })}
+                      placeholder="Hello SR Global Consultants! I would like to inquire about study options."
+                      className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="waActive"
+                      checked={whatsappForm.isActive}
+                      onChange={(e) => setWhatsappForm({ ...whatsappForm, isActive: e.target.checked })}
+                      className="w-4 h-4 text-green-600 rounded focus:ring-green-500"
+                    />
+                    <label htmlFor="waActive" className="text-sm font-semibold text-slate-700">
+                      Enable floating WhatsApp widget on public website
+                    </label>
+                  </div>
+
+                  <div className="pt-2 flex flex-wrap gap-4">
+                    <button
+                      type="submit"
+                      disabled={isSyncing}
+                      className="inline-flex items-center gap-2 bg-[#25D366] hover:bg-[#20ba5a] text-white font-bold px-6 py-3 rounded-xl shadow-md transition-all text-sm"
+                    >
+                      <Save className="w-4 h-4" />
+                      <span>{isSyncing ? 'Saving to Supabase...' : 'Save & Publish WhatsApp Config'}</span>
+                    </button>
+
+                    <a
+                      href={`https://wa.me/${whatsappForm.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(whatsappForm.defaultMessage)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold px-5 py-3 rounded-xl transition-all text-sm"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      <span>Test WhatsApp Link</span>
+                    </a>
+                  </div>
+                </form>
               </div>
             </div>
-          </div>
-        )}
+          )}
+
+          {/* TAB 8: HEADER & NAVBAR */}
+          {activeTab === 'header' && (
+            <div className="space-y-6">
+              <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+                <div>
+                  <h2 className="text-xl font-bold text-navy-950">Header & Navbar Navigation Control</h2>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Manage the top announcement bar, contact helplines, and page navigation links.
+                  </p>
+                </div>
+
+                <form onSubmit={handleSaveHeader} className="space-y-5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                        Top Announcement / Address
+                      </label>
+                      <input
+                        type="text"
+                        value={headerForm.topAnnouncement}
+                        onChange={(e) => setHeaderForm({ ...headerForm, topAnnouncement: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-medium"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Official Email</label>
+                      <input
+                        type="email"
+                        value={headerForm.email}
+                        onChange={(e) => setHeaderForm({ ...headerForm, email: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                        Pakistan Helpline Phone
+                      </label>
+                      <input
+                        type="text"
+                        value={headerForm.phonePakistan}
+                        onChange={(e) => setHeaderForm({ ...headerForm, phonePakistan: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-medium"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                        Australia Liaison Phone
+                      </label>
+                      <input
+                        type="text"
+                        value={headerForm.phoneAustralia}
+                        onChange={(e) => setHeaderForm({ ...headerForm, phoneAustralia: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Navigation Links Manager */}
+                  <div className="pt-4 border-t border-slate-200">
+                    <h4 className="text-sm font-bold text-navy-950 mb-3">Navbar Page Links</h4>
+                    <div className="space-y-3">
+                      {headerForm.navLinks.map((link, idx) => (
+                        <div key={link.id || idx} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                          <input
+                            type="text"
+                            value={link.name}
+                            onChange={(e) => {
+                              const updated = [...headerForm.navLinks];
+                              updated[idx].name = e.target.value;
+                              setHeaderForm({ ...headerForm, navLinks: updated });
+                            }}
+                            className="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold w-40"
+                          />
+
+                          <input
+                            type="text"
+                            value={link.path}
+                            onChange={(e) => {
+                              const updated = [...headerForm.navLinks];
+                              updated[idx].path = e.target.value;
+                              setHeaderForm({ ...headerForm, navLinks: updated });
+                            }}
+                            className="px-3 py-1.5 rounded-lg border border-slate-300 text-xs flex-1 font-mono"
+                          />
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = [...headerForm.navLinks];
+                              updated[idx].isVisible = !updated[idx].isVisible;
+                              setHeaderForm({ ...headerForm, navLinks: updated });
+                            }}
+                            className={`p-2 rounded-lg text-xs font-bold flex items-center gap-1 ${
+                              link.isVisible ? 'bg-green-100 text-green-700' : 'bg-slate-200 text-slate-500'
+                            }`}
+                          >
+                            {link.isVisible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                            <span>{link.isVisible ? 'Visible' : 'Hidden'}</span>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="pt-3">
+                    <button
+                      type="submit"
+                      disabled={isSyncing}
+                      className="inline-flex items-center gap-2 bg-brand-500 hover:bg-brand-600 text-white font-bold px-6 py-3 rounded-xl shadow-md transition-all text-sm"
+                    >
+                      <Save className="w-4 h-4" />
+                      <span>{isSyncing ? 'Saving...' : 'Save & Publish Header Settings'}</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 9: FOOTER & CONTACTS */}
+          {activeTab === 'footer' && (
+            <div className="space-y-6">
+              <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+                <div>
+                  <h2 className="text-xl font-bold text-navy-950">Footer & Office Details Control</h2>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Update head office address, business timings, copyright notice, and customized footer links.
+                  </p>
+                </div>
+
+                <form onSubmit={handleSaveFooter} className="space-y-5">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Footer Tagline</label>
+                    <textarea
+                      rows={2}
+                      value={footerForm.tagline}
+                      onChange={(e) => setFooterForm({ ...footerForm, tagline: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Head Office Address</label>
+                      <input
+                        type="text"
+                        value={footerForm.address}
+                        onChange={(e) => setFooterForm({ ...footerForm, address: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Office Hours</label>
+                      <input
+                        type="text"
+                        value={footerForm.officeHours}
+                        onChange={(e) => setFooterForm({ ...footerForm, officeHours: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Pakistan Phone</label>
+                      <input
+                        type="text"
+                        value={footerForm.phonePakistan}
+                        onChange={(e) => setFooterForm({ ...footerForm, phonePakistan: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Australia Phone</label>
+                      <input
+                        type="text"
+                        value={footerForm.phoneAustralia}
+                        onChange={(e) => setFooterForm({ ...footerForm, phoneAustralia: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Copyright Line</label>
+                    <input
+                      type="text"
+                      value={footerForm.copyright}
+                      onChange={(e) => setFooterForm({ ...footerForm, copyright: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-medium"
+                    />
+                  </div>
+
+                  <div className="pt-3">
+                    <button
+                      type="submit"
+                      disabled={isSyncing}
+                      className="inline-flex items-center gap-2 bg-brand-500 hover:bg-brand-600 text-white font-bold px-6 py-3 rounded-xl shadow-md transition-all text-sm"
+                    >
+                      <Save className="w-4 h-4" />
+                      <span>{isSyncing ? 'Saving...' : 'Save & Publish Footer Details'}</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 10: SUPABASE SETUP */}
+          {activeTab === 'database' && (
+            <div className="space-y-6">
+              <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="p-2 rounded-xl bg-navy-950 text-brand-400">
+                      <Database className="w-5 h-5" />
+                    </span>
+                    <h2 className="text-xl font-bold text-navy-950">Supabase Database Setup Guide</h2>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Follow these 3 quick steps to initialize your live tables in the Supabase Cloud.
+                  </p>
+                </div>
+
+                {/* Step cards */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-2">
+                    <div className="w-7 h-7 rounded-full bg-brand-500 text-white font-bold text-xs flex items-center justify-center">1</div>
+                    <h4 className="font-bold text-sm text-navy-950">Open Supabase Project</h4>
+                    <p className="text-xs text-slate-500">
+                      Log in to your Supabase project dashboard at <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="text-brand-600 underline font-semibold">supabase.com</a>.
+                    </p>
+                  </div>
+
+                  <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-2">
+                    <div className="w-7 h-7 rounded-full bg-brand-500 text-white font-bold text-xs flex items-center justify-center">2</div>
+                    <h4 className="font-bold text-sm text-navy-950">Click "SQL Editor"</h4>
+                    <p className="text-xs text-slate-500">
+                      Select the SQL Editor icon on the left navigation panel and click <strong>"New query"</strong>.
+                    </p>
+                  </div>
+
+                  <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-2">
+                    <div className="w-7 h-7 rounded-full bg-brand-500 text-white font-bold text-xs flex items-center justify-center">3</div>
+                    <h4 className="font-bold text-sm text-navy-950">Paste & Click "Run"</h4>
+                    <p className="text-xs text-slate-500">
+                      Paste the copied SQL query below and click the green <strong>"Run"</strong> button. All tables and security policies will be created automatically!
+                    </p>
+                  </div>
+                </div>
+
+                {/* 1-Click Copy Box */}
+                <div className="bg-navy-950 text-white p-6 rounded-2xl space-y-4">
+                  <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+                    <div>
+                      <div className="font-bold text-sm text-brand-300">Production SQL Migration Script</div>
+                      <div className="text-xs text-slate-400">Includes leads, appointments, courses, destinations, testimonials, and site_settings tables.</div>
+                    </div>
+
+                    <button
+                      onClick={copySupabaseSql}
+                      className="inline-flex items-center gap-2 bg-brand-500 hover:bg-brand-600 text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow-md transition-all shrink-0"
+                    >
+                      {copiedSql ? <Check className="w-4 h-4 text-green-300" /> : <Copy className="w-4 h-4" />}
+                      <span>{copiedSql ? 'Copied to Clipboard!' : 'Copy SQL Schema Script'}</span>
+                    </button>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-navy-900 border border-navy-800 text-[11px] font-mono text-slate-300 max-h-48 overflow-y-auto">
+                    <code>
+                      {`-- SR Global Consultants Schema
+CREATE TABLE IF NOT EXISTS public.leads (...);
+CREATE TABLE IF NOT EXISTS public.appointments (...);
+CREATE TABLE IF NOT EXISTS public.courses (...);
+CREATE TABLE IF NOT EXISTS public.destinations (...);
+CREATE TABLE IF NOT EXISTS public.testimonials (...);
+CREATE TABLE IF NOT EXISTS public.site_settings (...);
+-- Click the button above to copy full 100+ line script`}
+                    </code>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </main>
       </div>
     </div>
   );

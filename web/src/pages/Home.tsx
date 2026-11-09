@@ -4,11 +4,17 @@ import {
   Calendar, ArrowRight, CheckCircle2, Award, Users, BookOpen, 
   Send, Star, MapPin, Phone, Shield, Globe, Sparkles 
 } from 'lucide-react';
-import { DESTINATIONS, SITE_METRICS, TESTIMONIALS, COMPANY_CONTACT } from '../data/mockData';
+import { COMPANY_CONTACT } from '../data/mockData';
 import { supabase } from '../lib/supabase';
 import { HomeSliderBanner } from '../components/HomeSliderBanner';
+import { useLiveData } from '../context/LiveDataContext';
+import { useSiteSettings } from '../context/SettingsContext';
 
 export const Home: React.FC = () => {
+  const { destinations, testimonials } = useLiveData();
+  const { settings } = useSiteSettings();
+  const metrics = settings.metrics;
+
   const [leadForm, setLeadForm] = useState({
     name: '',
     phone: '',
@@ -246,19 +252,19 @@ export const Home: React.FC = () => {
         <div className="bg-white border border-slate-200 py-10 shadow-lg rounded-2xl">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 px-6 text-center">
             <div>
-              <div className="text-3xl lg:text-4xl font-black text-brand-600">{SITE_METRICS.studentsGuided}+</div>
+              <div className="text-3xl lg:text-4xl font-black text-brand-600">{metrics.studentsGuided}+</div>
               <div className="text-xs uppercase tracking-wider font-bold text-slate-500 mt-1">Students Guided</div>
             </div>
             <div>
-              <div className="text-3xl lg:text-4xl font-black text-yellow-500">{SITE_METRICS.partnerUniversities}+</div>
+              <div className="text-3xl lg:text-4xl font-black text-yellow-500">{metrics.partnerUniversities}+</div>
               <div className="text-xs uppercase tracking-wider font-bold text-slate-500 mt-1">Partner Institutions</div>
             </div>
             <div>
-              <div className="text-3xl lg:text-4xl font-black text-green-600">{SITE_METRICS.visaSuccessRate}</div>
+              <div className="text-3xl lg:text-4xl font-black text-green-600">{metrics.visaSuccessRate}</div>
               <div className="text-xs uppercase tracking-wider font-bold text-slate-500 mt-1">Visa Success Ratio</div>
             </div>
             <div>
-              <div className="text-3xl lg:text-4xl font-black text-navy-950">{SITE_METRICS.yearsExperience} Yrs</div>
+              <div className="text-3xl lg:text-4xl font-black text-navy-950">{metrics.yearsExperience} Yrs</div>
               <div className="text-xs uppercase tracking-wider font-bold text-slate-500 mt-1">Industry Experience</div>
             </div>
           </div>
@@ -277,7 +283,7 @@ export const Home: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {DESTINATIONS.map((dest) => (
+            {destinations.map((dest) => (
               <div key={dest.slug} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-xl transition-all group">
                 <div className="p-6">
                   <div className="flex justify-between items-start mb-4">
@@ -405,7 +411,7 @@ export const Home: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {TESTIMONIALS.map((item) => (
+            {testimonials.map((item) => (
               <div key={item.id} className="bg-white p-7 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between">
                 <div>
                   <div className="flex gap-1 text-yellow-400 mb-4">

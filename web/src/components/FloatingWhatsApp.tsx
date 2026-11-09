@@ -1,10 +1,19 @@
 import React from 'react';
 import { MessageCircle } from 'lucide-react';
-import { COMPANY_CONTACT } from '../data/mockData';
+import { useSiteSettings } from '../context/SettingsContext';
 
 export const FloatingWhatsApp: React.FC = () => {
-  const whatsappUrl = `https://wa.me/${COMPANY_CONTACT.whatsappNumber}?text=${encodeURIComponent(
-    'Hello SR Global Consultants! I am visiting your website and would like to inquire about study options and visa guidance.'
+  const { settings } = useSiteSettings();
+  const whatsappConfig = settings.whatsapp;
+
+  if (!whatsappConfig.isActive) return null;
+
+  // Clean phone number (strip spaces, +, dashes)
+  const cleanPhone = whatsappConfig.phone.replace(/[^0-9]/g, '');
+  const targetPhone = cleanPhone.startsWith('0') ? '92' + cleanPhone.slice(1) : cleanPhone;
+
+  const whatsappUrl = `https://wa.me/${targetPhone}?text=${encodeURIComponent(
+    whatsappConfig.defaultMessage || 'Hello SR Global Consultants! I would like to inquire about study options.'
   )}`;
 
   return (

@@ -1,0 +1,309 @@
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
+import { Course, Destination, Testimonial, Lead, Appointment } from '../types';
+import { COURSES, DESTINATIONS, TESTIMONIALS } from '../data/mockData';
+
+interface LiveDataContextType {
+  courses: Course[];
+  destinations: Destination[];
+  testimonials: Testimonial[];
+  leads: Lead[];
+  appointments: Appointment[];
+  loading: boolean;
+  isSupabaseConnected: boolean;
+  refreshData: () => Promise<void>;
+  
+  // Courses CRUD
+  addCourse: (course: Omit<Course, 'id'>) => Promise<boolean>;
+  updateCourse: (id: string, course: Partial<Course>) => Promise<boolean>;
+  deleteCourse: (id: string) => Promise<boolean>;
+
+  // Destinations CRUD
+  addDestination: (dest: Destination) => Promise<boolean>;
+  updateDestination: (slug: string, dest: Partial<Destination>) => Promise<boolean>;
+  deleteDestination: (slug: string) => Promise<boolean>;
+
+  // Testimonials CRUD
+  addTestimonial: (item: Omit<Testimonial, 'id'>) => Promise<boolean>;
+  updateTestimonial: (id: string, item: Partial<Testimonial>) => Promise<boolean>;
+  deleteTestimonial: (id: string) => Promise<boolean>;
+
+  // Leads & Appointments status update
+  updateLeadStatus: (id: string, status: Lead['status'], notes?: string) => Promise<boolean>;
+  updateAppointmentStatus: (id: string, status: Appointment['status']) => Promise<boolean>;
+}
+
+const LiveDataContext = createContext<LiveDataContextType | undefined>(undefined);
+
+export const LiveDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [courses, setCourses] = useState<Course[]>(COURSES);
+  const [destinations, setDestinations] = useState<Destination[]>(DESTINATIONS);
+  const [testimonials, setTestimonials] = useState<Testimonial[]>(TESTIMONIALS);
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isSupabaseConnected, setIsSupabaseConnected] = useState(false);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      // 1. Fetch Courses
+      const { data: coursesData, error: coursesError } = await supabase
+        .from('courses')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!coursesError && coursesData && coursesData.length > 0) {
+        setCourses(coursesData);
+        setIsSupabaseConnected(true);
+      }
+
+      // 2. Fetch Destinations
+      const { data: destData, error: destError } = await supabase
+        .from('destinations')
+        .select('*');
+
+      if (!destError && destData && destData.length > 0) {
+        // Map string array format if needed
+        const mappedDest: Destination[] = destData.map((d: any) => ({
+          country_name: d.country_name,
+          slug: d.slug,
+          capital: d.capital || 'Capital',
+          currency: d.currency || 'USD',
+          avg_living_cost: d.avg_living_cost || 'Moderate',
+          work_rights: d.work_rights || 'Standard',
+          visa_subclass: d.visa_subclass || 'Student Visa',
+          overview: d.overview || '',
+          visa_process: Array.isArray(d.visa_process) ? d.visa_process : (d.visa_process ? d.visa_process.split('\n') : []),
+          admission_requirements: d.admission_requirements || '',
+          top_universities: Array.isArray(d.top_universities) ? d.top_universities : (d.top_universities ? d.top_universities.split('\n') : ['Top Universities']),
+          flag: d.flag || '🌏',
+        }));
+        setDestinations(mappedDest);
+        setIsSupabaseConnected(true);
+      }
+
+      // 3. Fetch Testimonials
+      const { data: testData, error: testError } = await supabase
+        .from('testimonials')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!testError && testData && testData.length > 0) {
+        setTestimonials(testData);
+        setIsSupabaseConnected(true);
+      }
+
+      // 4. Fetch Leads
+      const { data: leadsData, error: leadsError } = await supabase
+        .from('leads')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!leadsError && leadsData) {
+        setLeads(leadsData);
+        setIsSupabaseConnected(true);
+      }
+
+      // 5. Fetch Appointments
+      const { data: apptData, error: apptError } = await supabase
+        .from('appointments')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!apptError && apptData) {
+        setAppointments(apptData);
+        setIsSupabaseConnected(true);
+      }
+    } catch (err) {
+      console.info('Live data fetch notice (fallback active):', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  // Course operations
+  const addCourse = async (newCourse: Omit<Course, 'id'>) => {
+    const tempId = `temp-${Date.now()}`;
+    const courseWithId = { ...newCourse, id: tempId };
+    setCourses((prev) => [courseWithId, ...prev]);
+
+    try {
+      const { data, error } = await supabase.from('courses').insert([newCourse]).select().single();
+      if (!error && data) {
+        setCourses((prev) => prev.map((c) => (c.id === tempId ? data : c)));
+        return true;
+      }
+    } catch (e) {
+      console.warn('Sync notice for addCourse:', e);
+    }
+    return true;
+  };
+
+  const updateCourse = async (id: string, updated: Partial<Course>) => {
+    setCourses((prev) => prev.map((c) => (c.id === id ? { ...c, ...updated } : c)));
+    try {
+      await supabase.from('courses').update(updated).eq('id', id);
+    } catch (e) {
+      console.warn('Sync notice for updateCourse:', e);
+    }
+    return true;
+  };
+
+  const deleteCourse = async (id: string) => {
+    setCourses((prev) => prev.filter((c) => c.id !== id));
+    try {
+      await supabase.from('courses').delete().eq('id', id);
+    } catch (e) {
+      console.warn('Sync notice for deleteCourse:', e);
+    }
+    return true;
+  };
+
+  // Destination operations
+  const addDestination = async (newDest: Destination) => {
+    setDestinations((prev) => [...prev, newDest]);
+    try {
+      await supabase.from('destinations').insert([
+        {
+          country_name: newDest.country_name,
+          slug: newDest.slug,
+          capital: newDest.capital,
+          currency: newDest.currency,
+          avg_living_cost: newDest.avg_living_cost,
+          work_rights: newDest.work_rights,
+          visa_subclass: newDest.visa_subclass,
+          overview: newDest.overview,
+          visa_process: newDest.visa_process.join('\n'),
+          admission_requirements: newDest.admission_requirements,
+        }
+      ]);
+    } catch (e) {
+      console.warn('Sync notice for addDestination:', e);
+    }
+    return true;
+  };
+
+  const updateDestination = async (slug: string, updated: Partial<Destination>) => {
+    setDestinations((prev) => prev.map((d) => (d.slug === slug ? { ...d, ...updated } : d)));
+    try {
+      await supabase.from('destinations').update(updated).eq('slug', slug);
+    } catch (e) {
+      console.warn('Sync notice for updateDestination:', e);
+    }
+    return true;
+  };
+
+  const deleteDestination = async (slug: string) => {
+    setDestinations((prev) => prev.filter((d) => d.slug !== slug));
+    try {
+      await supabase.from('destinations').delete().eq('slug', slug);
+    } catch (e) {
+      console.warn('Sync notice for deleteDestination:', e);
+    }
+    return true;
+  };
+
+  // Testimonial operations
+  const addTestimonial = async (newItem: Omit<Testimonial, 'id'>) => {
+    const tempId = `temp-${Date.now()}`;
+    const itemWithId = { ...newItem, id: tempId, student_name: newItem.student_name };
+    setTestimonials((prev) => [itemWithId, ...prev]);
+
+    try {
+      const { data, error } = await supabase.from('testimonials').insert([newItem]).select().single();
+      if (!error && data) {
+        setTestimonials((prev) => prev.map((t) => (t.id === tempId ? data : t)));
+      }
+    } catch (e) {
+      console.warn('Sync notice for addTestimonial:', e);
+    }
+    return true;
+  };
+
+  const updateTestimonial = async (id: string, updated: Partial<Testimonial>) => {
+    setTestimonials((prev) => prev.map((t) => (t.id === id ? { ...t, ...updated } : t)));
+    try {
+      await supabase.from('testimonials').update(updated).eq('id', id);
+    } catch (e) {
+      console.warn('Sync notice for updateTestimonial:', e);
+    }
+    return true;
+  };
+
+  const deleteTestimonial = async (id: string) => {
+    setTestimonials((prev) => prev.filter((t) => t.id !== id));
+    try {
+      await supabase.from('testimonials').delete().eq('id', id);
+    } catch (e) {
+      console.warn('Sync notice for deleteTestimonial:', e);
+    }
+    return true;
+  };
+
+  // Lead status update
+  const updateLeadStatus = async (id: string, status: Lead['status'], notes?: string) => {
+    setLeads((prev) =>
+      prev.map((l) => (l.id === id ? { ...l, status, notes: notes !== undefined ? notes : l.notes } : l))
+    );
+    try {
+      await supabase.from('leads').update({ status, ...(notes !== undefined ? { notes } : {}) }).eq('id', id);
+    } catch (e) {
+      console.warn('Sync notice for updateLeadStatus:', e);
+    }
+    return true;
+  };
+
+  // Appointment status update
+  const updateAppointmentStatus = async (id: string, status: Appointment['status']) => {
+    setAppointments((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, status } : a))
+    );
+    try {
+      await supabase.from('appointments').update({ status }).eq('id', id);
+    } catch (e) {
+      console.warn('Sync notice for updateAppointmentStatus:', e);
+    }
+    return true;
+  };
+
+  return (
+    <LiveDataContext.Provider
+      value={{
+        courses,
+        destinations,
+        testimonials,
+        leads,
+        appointments,
+        loading,
+        isSupabaseConnected,
+        refreshData: fetchData,
+        addCourse,
+        updateCourse,
+        deleteCourse,
+        addDestination,
+        updateDestination,
+        deleteDestination,
+        addTestimonial,
+        updateTestimonial,
+        deleteTestimonial,
+        updateLeadStatus,
+        updateAppointmentStatus,
+      }}
+    >
+      {children}
+    </LiveDataContext.Provider>
+  );
+};
+
+export const useLiveData = () => {
+  const context = useContext(LiveDataContext);
+  if (!context) {
+    throw new Error('useLiveData must be used within a LiveDataProvider');
+  }
+  return context;
+};

@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Globe, ArrowRight, CheckCircle2, DollarSign, Briefcase, GraduationCap, Calendar, ChevronRight } from 'lucide-react';
-import { DESTINATIONS } from '../data/mockData';
 import { Destination } from '../types';
+import { useLiveData } from '../context/LiveDataContext';
 
 export const Destinations: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<string>(DESTINATIONS[0].slug);
+  const { destinations } = useLiveData();
+  const [activeTab, setActiveTab] = useState<string>(destinations[0]?.slug || 'australia');
 
-  const activeDestination: Destination = DESTINATIONS.find((d) => d.slug === activeTab) || DESTINATIONS[0];
+  const activeDestination: Destination =
+    destinations.find((d) => d.slug === activeTab) || destinations[0] || ({} as Destination);
 
   return (
     <div className="py-16 bg-slate-50 min-h-screen">
@@ -23,7 +25,7 @@ export const Destinations: React.FC = () => {
 
         {/* Destination Country Tabs */}
         <div className="flex flex-wrap justify-center gap-3 mb-12">
-          {DESTINATIONS.map((dest) => (
+          {destinations.map((dest) => (
             <button
               key={dest.slug}
               onClick={() => setActiveTab(dest.slug)}

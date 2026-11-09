@@ -72,5 +72,59 @@ export interface Testimonial {
   country: string;
   quote: string;
   rating: number;
-  year: string;
+  year?: string;
+}
+
+export interface WhatsAppConfig {
+  phone: string;
+  defaultMessage: string;
+  isActive: boolean;
+}
+
+export interface NavLinkItem {
+  id: string;
+  name: string;
+  path: string;
+  isVisible: boolean;
+}
+
+export interface HeaderConfig {
+  topAnnouncement: string;
+  phonePakistan: string;
+  phoneAustralia: string;
+  email: string;
+  address: string;
+  navLinks: NavLinkItem[];
+}
+
+export interface FooterLinkItem {
+  id: string;
+  label: string;
+  path: string;
+}
+
+export interface FooterConfig {
+  tagline: string;
+  address: string;
+  phonePakistan: string;
+  phoneAustralia: string;
+  email: string;
+  officeHours: string;
+  destinationLinks: FooterLinkItem[];
+  quickLinks: FooterLinkItem[];
+  copyright: string;
+}
+
+export interface CompanyMetrics {
+  studentsGuided: number;
+  partnerUniversities: number;
+  visaSuccessRate: string;
+  yearsExperience: string;
+}
+
+export interface SiteSettings {
+  whatsapp: WhatsAppConfig;
+  header: HeaderConfig;
+  footer: FooterConfig;
+  metrics: CompanyMetrics;
 }

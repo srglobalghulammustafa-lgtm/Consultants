@@ -1,16 +1,18 @@
 import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Filter, BookOpen, Clock, DollarSign, Calendar, ArrowRight, X, CheckCircle } from 'lucide-react';
-import { COURSES, COURSE_CATEGORIES } from '../data/mockData';
+import { COURSE_CATEGORIES } from '../data/mockData';
 import { Course } from '../types';
+import { useLiveData } from '../context/LiveDataContext';
 
 export const Courses: React.FC = () => {
+  const { courses } = useLiveData();
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeModalCourse, setActiveModalCourse] = useState<Course | null>(null);
 
   const filteredCourses = useMemo(() => {
-    return COURSES.filter((course) => {
+    return courses.filter((course) => {
       const matchesCategory = selectedCategory === 'all' || course.category_slug === selectedCategory;
       const matchesSearch =
         course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -19,7 +21,7 @@ export const Courses: React.FC = () => {
         course.career_paths.toLowerCase().includes(searchQuery.toLowerCase());
       return matchesCategory && matchesSearch;
     });
-  }, [selectedCategory, searchQuery]);
+  }, [courses, selectedCategory, searchQuery]);
 
   return (
     <div className="py-16 bg-slate-50 min-h-screen">
@@ -56,7 +58,7 @@ export const Courses: React.FC = () => {
                   : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
               }`}
             >
-              All Categories ({COURSES.length})
+              All Categories ({courses.length})
             </button>
             {COURSE_CATEGORIES.map((cat) => (
               <button

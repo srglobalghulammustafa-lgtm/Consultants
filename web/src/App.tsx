@@ -13,6 +13,8 @@ import { PrivacyPolicy, Terms } from './pages/PrivacyPolicy';
 import { AdminLogin } from './pages/AdminLogin';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { NotFound } from './pages/NotFound';
+import { SettingsProvider } from './context/SettingsContext';
+import { LiveDataProvider } from './context/LiveDataContext';
 
 const AppLayout: React.FC = () => {
   const location = useLocation();
@@ -46,7 +48,11 @@ const AppLayout: React.FC = () => {
 export const App: React.FC = () => {
   return (
     <BrowserRouter>
-      <AppLayout />
+      <SettingsProvider>
+        <LiveDataProvider>
+          <AppLayout />
+        </LiveDataProvider>
+      </SettingsProvider>
     </BrowserRouter>
   );
 };

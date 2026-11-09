@@ -1,19 +1,23 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Phone, Mail, MapPin, Calendar, Menu, X, Shield, ExternalLink } from 'lucide-react';
-import { COMPANY_CONTACT } from '../data/mockData';
+import { Phone, Mail, MapPin, Calendar, Menu, X } from 'lucide-react';
+import { useSiteSettings } from '../context/SettingsContext';
 
 export const Navbar: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
+  const { settings } = useSiteSettings();
+  const header = settings.header;
 
-  const navLinks = [
-    { name: 'Home', path: '/' },
-    { name: 'About Us', path: '/about' },
-    { name: 'Courses & Programs', path: '/courses' },
-    { name: 'Study Destinations', path: '/destinations' },
-    { name: 'Contact Office', path: '/contact' }
-  ];
+  const navLinks = header.navLinks && header.navLinks.length > 0 
+    ? header.navLinks.filter((l) => l.isVisible)
+    : [
+        { name: 'Home', path: '/' },
+        { name: 'About Us', path: '/about' },
+        { name: 'Courses & Programs', path: '/courses' },
+        { name: 'Study Destinations', path: '/destinations' },
+        { name: 'Contact Office', path: '/contact' }
+      ];
 
   return (
     <header className="sticky top-0 z-50 w-full shadow-md bg-white">
@@ -23,23 +27,23 @@ export const Navbar: React.FC = () => {
           <div className="flex flex-wrap items-center gap-4 text-slate-300">
             <span className="flex items-center gap-1">
               <MapPin className="w-3.5 h-3.5 text-brand-400" />
-              1st Floor, 239A Civic Center, Gujranwala
+              {header.topAnnouncement || header.address}
             </span>
             <span className="hidden md:flex items-center gap-1">
               <Mail className="w-3.5 h-3.5 text-brand-400" />
-              {COMPANY_CONTACT.email}
+              {header.email}
             </span>
           </div>
 
           <div className="flex items-center gap-4">
-            <a href={`tel:${COMPANY_CONTACT.phonePakistan}`} className="flex items-center gap-1 hover:text-brand-300 transition-colors">
+            <a href={`tel:${header.phonePakistan}`} className="flex items-center gap-1 hover:text-brand-300 transition-colors">
               <Phone className="w-3.5 h-3.5 text-green-400" />
-              PK: {COMPANY_CONTACT.phonePakistan}
+              PK: {header.phonePakistan}
             </a>
             <span className="text-slate-600">|</span>
-            <a href={`tel:${COMPANY_CONTACT.phoneAustralia}`} className="hidden sm:flex items-center gap-1 hover:text-brand-300 transition-colors">
+            <a href={`tel:${header.phoneAustralia}`} className="hidden sm:flex items-center gap-1 hover:text-brand-300 transition-colors">
               <Phone className="w-3.5 h-3.5 text-brand-400" />
-              AU: {COMPANY_CONTACT.phoneAustralia}
+              AU: {header.phoneAustralia}
             </a>
           </div>
         </div>
