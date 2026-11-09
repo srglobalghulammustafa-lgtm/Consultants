@@ -1462,17 +1462,17 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                         />
                       </div>
 
-                        <div>
-                          <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Custom Image URL</label>
-                          <input
-                            type="url"
-                            value={newDestination.imageUrl || ''}
-                            onChange={(e) => setNewDestination({ ...newDestination, imageUrl: e.target.value })}
-                            placeholder="https://example.com/flag.png"
-                            className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
-                          />
-                        </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Custom Image URL</label>
+                        <input
+                          type="url"
+                          value={newDestination.imageUrl || ''}
+                          onChange={(e) => setNewDestination({ ...newDestination, imageUrl: e.target.value })}
+                          placeholder="https://example.com/flag.png"
+                          className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
+                        />
                       </div>
+
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Flag Emoji</label>
