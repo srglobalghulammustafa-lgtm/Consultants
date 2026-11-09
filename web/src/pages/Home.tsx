@@ -69,7 +69,7 @@ export const Home: React.FC = () => {
       <section className="relative bg-gradient-to-br from-brand-500 via-brand-600 to-navy-950 text-white overflow-hidden py-20 lg:py-28">
         <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]" />
         
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+        <div className="max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-12 xl:px-16 relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
             {/* Left Content */}
             <div className="lg:col-span-7 space-y-6">
@@ -242,30 +242,32 @@ export const Home: React.FC = () => {
       <HomeSliderBanner />
 
       {/* 2. STATS & KEY METRICS (Elevated Bar) */}
-      <section className="bg-white border-b border-slate-200 py-10 shadow-sm relative z-20 -mt-6 max-w-6xl mx-auto rounded-2xl">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 px-6 text-center">
-          <div>
-            <div className="text-3xl lg:text-4xl font-black text-brand-600">{SITE_METRICS.studentsGuided}+</div>
-            <div className="text-xs uppercase tracking-wider font-bold text-slate-500 mt-1">Students Guided</div>
-          </div>
-          <div>
-            <div className="text-3xl lg:text-4xl font-black text-yellow-500">{SITE_METRICS.partnerUniversities}+</div>
-            <div className="text-xs uppercase tracking-wider font-bold text-slate-500 mt-1">Partner Institutions</div>
-          </div>
-          <div>
-            <div className="text-3xl lg:text-4xl font-black text-green-600">{SITE_METRICS.visaSuccessRate}</div>
-            <div className="text-xs uppercase tracking-wider font-bold text-slate-500 mt-1">Visa Success Ratio</div>
-          </div>
-          <div>
-            <div className="text-3xl lg:text-4xl font-black text-navy-950">{SITE_METRICS.yearsExperience} Yrs</div>
-            <div className="text-xs uppercase tracking-wider font-bold text-slate-500 mt-1">Industry Experience</div>
+      <section className="relative z-20 -mt-6 max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-12 xl:px-16">
+        <div className="bg-white border border-slate-200 py-10 shadow-lg rounded-2xl">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 px-6 text-center">
+            <div>
+              <div className="text-3xl lg:text-4xl font-black text-brand-600">{SITE_METRICS.studentsGuided}+</div>
+              <div className="text-xs uppercase tracking-wider font-bold text-slate-500 mt-1">Students Guided</div>
+            </div>
+            <div>
+              <div className="text-3xl lg:text-4xl font-black text-yellow-500">{SITE_METRICS.partnerUniversities}+</div>
+              <div className="text-xs uppercase tracking-wider font-bold text-slate-500 mt-1">Partner Institutions</div>
+            </div>
+            <div>
+              <div className="text-3xl lg:text-4xl font-black text-green-600">{SITE_METRICS.visaSuccessRate}</div>
+              <div className="text-xs uppercase tracking-wider font-bold text-slate-500 mt-1">Visa Success Ratio</div>
+            </div>
+            <div>
+              <div className="text-3xl lg:text-4xl font-black text-navy-950">{SITE_METRICS.yearsExperience} Yrs</div>
+              <div className="text-xs uppercase tracking-wider font-bold text-slate-500 mt-1">Industry Experience</div>
+            </div>
           </div>
         </div>
       </section>
 
       {/* 3. STUDY DESTINATIONS CARDS */}
       <section className="py-20 bg-slate-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-12 xl:px-16">
           <div className="text-center max-w-3xl mx-auto mb-14">
             <span className="text-xs font-bold tracking-widest text-brand-600 uppercase bg-brand-50 px-3 py-1 rounded-full">Global Opportunities</span>
             <h2 className="text-3xl sm:text-4xl font-bold text-navy-950 mt-3">Popular Study Destinations</h2>
@@ -322,7 +324,7 @@ export const Home: React.FC = () => {
 
       {/* 4. CORE SERVICES SECTION */}
       <section className="py-20 bg-white border-t border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-12 xl:px-16">
           <div className="text-center max-w-3xl mx-auto mb-14">
             <span className="text-xs font-bold tracking-widest text-brand-600 uppercase bg-brand-50 px-3 py-1 rounded-full">Our Expertise</span>
             <h2 className="text-3xl sm:text-4xl font-bold text-navy-950 mt-3">Complete Education & Visa Solutions</h2>
@@ -395,7 +397,7 @@ export const Home: React.FC = () => {
 
       {/* 5. TESTIMONIALS */}
       <section className="py-20 bg-slate-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-12 xl:px-16">
           <div className="text-center max-w-3xl mx-auto mb-14">
             <span className="text-xs font-bold tracking-widest text-brand-600 uppercase bg-brand-50 px-3 py-1 rounded-full">Success Stories</span>
             <h2 className="text-3xl sm:text-4xl font-bold text-navy-950 mt-3">What Our Students Say</h2>
@@ -432,7 +434,7 @@ export const Home: React.FC = () => {
 
       {/* 6. OFFICE EMBED & MAP SECTION */}
       <section className="py-16 bg-white border-t border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-12 xl:px-16">
           <div className="bg-navy-950 text-white rounded-3xl overflow-hidden shadow-2xl grid grid-cols-1 lg:grid-cols-12">
             <div className="p-8 sm:p-12 lg:col-span-6 flex flex-col justify-between space-y-6">
               <div>

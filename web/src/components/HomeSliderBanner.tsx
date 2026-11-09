@@ -72,7 +72,7 @@ export const HomeSliderBanner: React.FC = () => {
 
   return (
     <div 
-      className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 mb-12 relative z-20"
+      className="max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-12 xl:px-16 -mt-8 mb-12 relative z-20"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >

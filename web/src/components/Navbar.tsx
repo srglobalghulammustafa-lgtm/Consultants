@@ -19,7 +19,7 @@ export const Navbar: React.FC = () => {
     <header className="sticky top-0 z-50 w-full shadow-md bg-white">
       {/* Top Notification Bar */}
       <div className="bg-navy-950 text-white text-xs py-2 px-4 border-b border-navy-800">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-2">
+        <div className="max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-12 xl:px-16 flex flex-col sm:flex-row justify-between items-center gap-2">
           <div className="flex flex-wrap items-center gap-4 text-slate-300">
             <span className="flex items-center gap-1">
               <MapPin className="w-3.5 h-3.5 text-brand-400" />
@@ -46,7 +46,7 @@ export const Navbar: React.FC = () => {
       </div>
 
       {/* Main Navbar */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-12 xl:px-16">
         <div className="flex justify-between items-center h-20">
           {/* Official Logo Brand */}
           <Link to="/" className="flex items-center gap-3 group">
