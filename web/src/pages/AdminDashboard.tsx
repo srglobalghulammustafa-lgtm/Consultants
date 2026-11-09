@@ -424,22 +424,55 @@ ALTER TABLE public.broadcasts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.site_settings ENABLE ROW LEVEL SECURITY;
 
 -- Public Access Policies
+DROP POLICY IF EXISTS "Public read active courses" ON public.courses;
 CREATE POLICY "Public read active courses" ON public.courses FOR SELECT USING (TRUE);
+
+DROP POLICY IF EXISTS "Public read active destinations" ON public.destinations;
 CREATE POLICY "Public read active destinations" ON public.destinations FOR SELECT USING (TRUE);
+
+DROP POLICY IF EXISTS "Public read testimonials" ON public.testimonials;
 CREATE POLICY "Public read testimonials" ON public.testimonials FOR SELECT USING (TRUE);
+
+DROP POLICY IF EXISTS "Public read banners" ON public.banners;
 CREATE POLICY "Public read banners" ON public.banners FOR SELECT USING (TRUE);
+
+DROP POLICY IF EXISTS "Public read broadcasts" ON public.broadcasts;
 CREATE POLICY "Public read broadcasts" ON public.broadcasts FOR SELECT USING (TRUE);
+
+DROP POLICY IF EXISTS "Public read site settings" ON public.site_settings;
 CREATE POLICY "Public read site settings" ON public.site_settings FOR SELECT USING (TRUE);
+
+DROP POLICY IF EXISTS "Public can submit leads" ON public.leads;
 CREATE POLICY "Public can submit leads" ON public.leads FOR INSERT WITH CHECK (TRUE);
+
+DROP POLICY IF EXISTS "Public can book appointments" ON public.appointments;
 CREATE POLICY "Public can book appointments" ON public.appointments FOR INSERT WITH CHECK (TRUE);
+
+DROP POLICY IF EXISTS "Public check slot availability" ON public.appointments;
 CREATE POLICY "Public check slot availability" ON public.appointments FOR SELECT USING (TRUE);
+
+DROP POLICY IF EXISTS "Full access to site_settings" ON public.site_settings;
 CREATE POLICY "Full access to site_settings" ON public.site_settings FOR ALL USING (TRUE);
+
+DROP POLICY IF EXISTS "Full access to courses" ON public.courses;
 CREATE POLICY "Full access to courses" ON public.courses FOR ALL USING (TRUE);
+
+DROP POLICY IF EXISTS "Full access to destinations" ON public.destinations;
 CREATE POLICY "Full access to destinations" ON public.destinations FOR ALL USING (TRUE);
+
+DROP POLICY IF EXISTS "Full access to testimonials" ON public.testimonials;
 CREATE POLICY "Full access to testimonials" ON public.testimonials FOR ALL USING (TRUE);
+
+DROP POLICY IF EXISTS "Full access to banners" ON public.banners;
 CREATE POLICY "Full access to banners" ON public.banners FOR ALL USING (TRUE);
+
+DROP POLICY IF EXISTS "Full access to broadcasts" ON public.broadcasts;
 CREATE POLICY "Full access to broadcasts" ON public.broadcasts FOR ALL USING (TRUE);
+
+DROP POLICY IF EXISTS "Full access to leads" ON public.leads;
 CREATE POLICY "Full access to leads" ON public.leads FOR ALL USING (TRUE);
+
+DROP POLICY IF EXISTS "Full access to appointments" ON public.appointments;
 CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING (TRUE);
 `;
     navigator.clipboard.writeText(sqlText);
