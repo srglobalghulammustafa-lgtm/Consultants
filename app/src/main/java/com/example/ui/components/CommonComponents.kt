@@ -38,100 +38,217 @@ import com.example.ui.viewmodel.NavTab
 fun SRGlobalTopBar(
     isAdminMode: Boolean,
     onAdminToggleClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    officePhone: String = "+923278321560"
 ) {
-    Surface(
-        color = NavyDark,
-        tonalElevation = 6.dp,
-        modifier = modifier.fillMaxWidth()
+    val context = LocalContext.current
+    var tapCount by remember { mutableIntStateOf(0) }
+    var lastTapTime by remember { mutableLongStateOf(0L) }
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .shadow(elevation = 8.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .statusBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+        Surface(
+            color = NavyDeep,
+            modifier = Modifier.fillMaxWidth()
         ) {
-            var tapCount by remember { mutableStateOf(0) }
-            var lastTapTime by remember { mutableLongStateOf(0L) }
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
+            Box(
                 modifier = Modifier
-                    .weight(1f)
-                    .clickable {
-                        val now = System.currentTimeMillis()
-                        if (now - lastTapTime < 2000) {
-                            tapCount++
-                        } else {
-                            tapCount = 1
-                        }
-                        lastTapTime = now
-                        if (tapCount >= 5) {
-                            tapCount = 0
-                            onAdminToggleClick()
-                        }
-                    }
-            ) {
-                Surface(
-                    shape = CircleShape,
-                    color = Color.White,
-                    shadowElevation = 3.dp,
-                    modifier = Modifier.size(46.dp)
-                ) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier.padding(3.dp)
-                    ) {
-                        androidx.compose.foundation.Image(
-                            painter = androidx.compose.ui.res.painterResource(id = com.example.R.drawable.sr_global_icon),
-                            contentDescription = "SR Global Official Logo",
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clip(CircleShape)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = "SR GLOBAL",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.ExtraBold,
-                                letterSpacing = 1.sp,
-                                color = Color.White
+                    .fillMaxWidth()
+                    .background(
+                        Brush.horizontalGradient(
+                            colors = listOf(
+                                Color(0xFF071426),
+                                Color(0xFF0A2242),
+                                Color(0xFF0D2D56)
                             )
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            color = AccentCyan
-                        ) {
-                            Text(
-                                text = "CONSULTANTS",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 9.sp,
-                                    color = Color.White
-                                ),
-                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
-                            )
-                        }
-                    }
-                    Text(
-                        text = "Gujranwala • Australia • Global Education",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = Color.White.copy(alpha = 0.82f),
-                            fontSize = 11.sp
                         )
                     )
+                    .statusBarsPadding()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    // Left: Logo & Branding with 5-tap secret staff trigger
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable {
+                                val now = System.currentTimeMillis()
+                                if (now - lastTapTime < 2000) {
+                                    tapCount++
+                                } else {
+                                    tapCount = 1
+                                }
+                                lastTapTime = now
+                                if (tapCount >= 5) {
+                                    tapCount = 0
+                                    onAdminToggleClick()
+                                }
+                            }
+                            .padding(vertical = 4.dp, horizontal = 2.dp)
+                    ) {
+                        // Official Emblem with Gold and Cyan double ring
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(48.dp)
+                                .shadow(elevation = 4.dp, shape = CircleShape)
+                                .background(
+                                    Brush.sweepGradient(
+                                        listOf(
+                                            AmberGold,
+                                            AegeanCyan,
+                                            AmberLight,
+                                            AegeanCyan,
+                                            AmberGold
+                                        )
+                                    ),
+                                    shape = CircleShape
+                                )
+                                .padding(2.dp)
+                        ) {
+                            Surface(
+                                shape = CircleShape,
+                                color = Color.White,
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                androidx.compose.foundation.Image(
+                                    painter = androidx.compose.ui.res.painterResource(id = com.example.R.drawable.sr_global_icon),
+                                    contentDescription = "SR Global Official Logo",
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .clip(CircleShape)
+                                        .padding(2.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.width(10.dp))
+
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "SR GLOBAL",
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.Black,
+                                        letterSpacing = 1.2.sp,
+                                        color = Color.White,
+                                        fontSize = 17.sp
+                                    )
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = AegeanCyan,
+                                    shadowElevation = 2.dp
+                                ) {
+                                    Text(
+                                        text = "CONSULTANTS",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontWeight = FontWeight.ExtraBold,
+                                            fontSize = 8.5.sp,
+                                            letterSpacing = 0.6.sp,
+                                            color = Color.White
+                                        ),
+                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Filled.Verified,
+                                    contentDescription = "Verified Firm",
+                                    tint = AmberGold,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "Gujranwala • Melbourne • Global Visa",
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        color = Color.White.copy(alpha = 0.85f),
+                                        fontSize = 10.5.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    // Right: Quick Action Controls (Helpline Dial + Staff Portal)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        // Quick Phone Call button
+                        IconButton(
+                            onClick = { launchPhoneCall(context, officePhone) },
+                            modifier = Modifier
+                                .size(42.dp)
+                                .shadow(2.dp, CircleShape)
+                                .background(Color(0xFF0F3B20), CircleShape)
+                                .padding(1.dp)
+                                .testTag("header_call_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Phone,
+                                contentDescription = "Call Gujranwala Head Office",
+                                tint = Color(0xFF4ADE80),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+
+                        // Staff Portal Access Button (Explicit + Accessible)
+                        IconButton(
+                            onClick = onAdminToggleClick,
+                            modifier = Modifier
+                                .size(42.dp)
+                                .shadow(2.dp, CircleShape)
+                                .background(
+                                    if (isAdminMode) AmberGold else Color(0xFF1E3A5F),
+                                    CircleShape
+                                )
+                                .padding(1.dp)
+                                .testTag("header_admin_portal_button")
+                        ) {
+                            Icon(
+                                imageVector = if (isAdminMode) Icons.Filled.AdminPanelSettings else Icons.Filled.Lock,
+                                contentDescription = "Staff Admin Portal Access",
+                                tint = if (isAdminMode) NavyDeep else Color.White,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
                 }
             }
         }
+
+        // Sleek Aegean Cyan to Amber Gold accent border line
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(2.5.dp)
+                .background(
+                    Brush.horizontalGradient(
+                        colors = listOf(
+                            AegeanCyan,
+                            AmberGold,
+                            AegeanCyan
+                        )
+                    )
+                )
+        )
     }
 }
 

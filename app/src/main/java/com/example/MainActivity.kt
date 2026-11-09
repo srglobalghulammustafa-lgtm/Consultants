@@ -74,7 +74,8 @@ class MainActivity : ComponentActivity() {
                                     enteredPin = ""
                                     pinError = false
                                     showPinDialog = true
-                                }
+                                },
+                                officePhone = contact.phonePakistan
                             )
                         }
                     },

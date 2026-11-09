@@ -114,6 +114,9 @@ export const Navbar: React.FC = () => {
         </div>
       </div>
 
+      {/* Signature Aegean Cyan & Amber gradient accent strip */}
+      <div className="h-[2px] w-full bg-gradient-to-r from-brand-500 via-amber-400 to-brand-500 shadow-sm" />
+
       {/* Mobile Drawer */}
       {isOpen && (
         <div className="lg:hidden bg-white border-b border-slate-200 px-4 pt-2 pb-6 space-y-2 shadow-xl">
