@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { useSiteSettings } from '../context/SettingsContext';
 import { useLiveData } from '../context/LiveDataContext';
-import { Lead, Appointment, Destination, Course, Testimonial } from '../types';
+import { Lead, Appointment, Destination, Course, Testimonial, Banner } from '../types';
 import { fetchUserLocationWithQuota } from '../lib/ipstack';
 
 const fixGoogleDriveLink = (url: string): string => {
