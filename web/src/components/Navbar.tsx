@@ -168,7 +168,6 @@ export const Navbar: React.FC = () => {
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => {
-                  if (!showBellDropdown) clearBroadcastHistory();
                   setShowBellDropdown(!showBellDropdown);
                   playPremiumChime();
                 }}

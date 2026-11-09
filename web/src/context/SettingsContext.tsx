@@ -140,10 +140,19 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               liveMerged.adminPin = row.setting_value.pin || row.setting_value;
             } else if (row.setting_key === 'active_broadcast' && row.setting_value) {
               liveMerged.activeBroadcast = row.setting_value;
-            } else if (row.setting_key === 'broadcast_history' && row.setting_value) {
-              liveMerged.broadcastHistory = row.setting_value;
-            }
           });
+
+          // Fetch Latest Broadcasts from dedicated table
+          const { data: broadcastData, error: broadcastError } = await supabase
+            .from('broadcasts')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(20);
+
+          if (!broadcastError && broadcastData) {
+            liveMerged.broadcastHistory = broadcastData;
+            liveMerged.activeBroadcast = broadcastData.find(b => b.is_active);
+          }
 
           setSettings(liveMerged);
           localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(liveMerged));
@@ -247,43 +256,68 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const sendBroadcastNotification = async (notifData: Omit<BroadcastNotification, 'id' | 'created_at'>) => {
-    const newNotif: BroadcastNotification = {
-      ...notifData,
-      id: 'notif-' + Date.now(),
-      created_at: new Date().toISOString(),
-      is_active: true,
-    };
-    const history = [newNotif, ...(settings.broadcastHistory || [])].slice(0, 20);
-    const next = {
-      ...settings,
-      activeBroadcast: newNotif,
-      broadcastHistory: history,
-    };
-    setSettings(next);
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(next));
-    await saveToSupabase('active_broadcast', newNotif);
-    await saveToSupabase('broadcast_history', history);
-    return true;
+    try {
+      // First, deactivate all other broadcasts if this one is intended to be active
+      if (notifData.is_active) {
+        await supabase.from('broadcasts').update({ is_active: false }).eq('is_active', true);
+      }
+
+      const { data, error } = await supabase
+        .from('broadcasts')
+        .insert([{
+          title: notifData.title,
+          message: notifData.message,
+          priority: notifData.priority,
+          link: notifData.link,
+          play_sound: notifData.playSound,
+          is_active: notifData.is_active
+        }])
+        .select()
+        .single();
+
+      if (!error && data) {
+        const history = [data, ...(settings.broadcastHistory || [])].slice(0, 20);
+        setSettings(prev => ({
+          ...prev,
+          activeBroadcast: data.is_active ? data : prev.activeBroadcast,
+          broadcastHistory: history
+        }));
+        return true;
+      }
+    } catch (e) {
+      console.warn('Sync notice for broadcast:', e);
+    }
+    return false;
   };
 
   const deleteBroadcast = async (id: string) => {
-    const nextHistory = (settings.broadcastHistory || []).filter(h => h.id !== id);
-    const nextActive = settings.activeBroadcast?.id === id ? undefined : settings.activeBroadcast;
-    
-    const next = { ...settings, broadcastHistory: nextHistory, activeBroadcast: nextActive };
-    setSettings(next);
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(next));
-    await saveToSupabase('broadcast_history', nextHistory);
-    await saveToSupabase('active_broadcast', nextActive);
-    return true;
+    try {
+      const { error } = await supabase.from('broadcasts').delete().eq('id', id);
+      if (!error) {
+        setSettings(prev => {
+          const nextHistory = (prev.broadcastHistory || []).filter(h => h.id !== id);
+          const nextActive = prev.activeBroadcast?.id === id ? undefined : prev.activeBroadcast;
+          return { ...prev, broadcastHistory: nextHistory, activeBroadcast: nextActive };
+        });
+        return true;
+      }
+    } catch (e) {
+      console.warn('Sync notice for delete broadcast:', e);
+    }
+    return false;
   };
 
   const clearBroadcastHistory = async () => {
-    const next = { ...settings, broadcastHistory: [] };
-    setSettings(next);
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(next));
-    await saveToSupabase('broadcast_history', []);
-    return true;
+    try {
+      const { error } = await supabase.from('broadcasts').delete().neq('id', 'placeholder'); // Delete all
+      if (!error) {
+        setSettings(prev => ({ ...prev, broadcastHistory: [], activeBroadcast: undefined }));
+        return true;
+      }
+    } catch (e) {
+      console.warn('Sync notice for clear history:', e);
+    }
+    return false;
   };
 
   const resetIpstackQuota = async () => {

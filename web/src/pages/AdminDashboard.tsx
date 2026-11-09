@@ -13,6 +13,40 @@ import { useLiveData } from '../context/LiveDataContext';
 import { Lead, Appointment, Destination, Course, Testimonial } from '../types';
 import { fetchUserLocationWithQuota } from '../lib/ipstack';
 
+const fixGoogleDriveLink = (url: string): string => {
+  if (!url) return '';
+  if (url.includes('drive.google.com') && (url.includes('/file/d/') || url.includes('id='))) {
+    let id = '';
+    if (url.includes('/file/d/')) {
+      id = url.split('/file/d/')[1].split('/')[0];
+    } else if (url.includes('id=')) {
+      id = url.split('id=')[1].split('&')[0];
+    }
+    if (id) return `https://drive.google.com/uc?id=${id}`;
+  }
+  return url;
+};
+
+const WORLD_FLAGS = [
+  { emoji: '🇦🇺', name: 'Australia' },
+  { emoji: '🇬🇧', name: 'United Kingdom' },
+  { emoji: '🇨🇦', name: 'Canada' },
+  { emoji: '🇺🇸', name: 'USA' },
+  { emoji: '🇪🇺', name: 'Europe' },
+  { emoji: '🇮🇪', name: 'Ireland' },
+  { emoji: '🇩🇪', name: 'Germany' },
+  { emoji: '🇮🇹', name: 'Italy' },
+  { emoji: '🇳🇿', name: 'New Zealand' },
+  { emoji: '🇲🇾', name: 'Malaysia' },
+  { emoji: '🇹🇷', name: 'Turkey' },
+  { emoji: '🇰🇷', name: 'South Korea' },
+  { emoji: '🇯🇵', name: 'Japan' },
+  { emoji: '🇭🇺', name: 'Hungary' },
+  { emoji: '🇵🇱', name: 'Poland' },
+  { emoji: '🇨🇾', name: 'Cyprus' },
+  { emoji: '🌏', name: 'Global' },
+];
+
 export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { 
@@ -274,6 +308,18 @@ export const AdminDashboard: React.FC = () => {
 -- ========================================================================
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
+-- 0. Broadcasts Table (New Dedicated Table)
+CREATE TABLE IF NOT EXISTS public.broadcasts (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    priority TEXT NOT NULL DEFAULT 'Normal',
+    link TEXT,
+    play_sound BOOLEAN DEFAULT FALSE,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS public.leads (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     full_name TEXT NOT NULL,
@@ -374,6 +420,7 @@ ALTER TABLE public.courses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.destinations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.testimonials ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.banners ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.broadcasts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.site_settings ENABLE ROW LEVEL SECURITY;
 
 -- Public Access Policies
@@ -381,6 +428,7 @@ CREATE POLICY "Public read active courses" ON public.courses FOR SELECT USING (T
 CREATE POLICY "Public read active destinations" ON public.destinations FOR SELECT USING (TRUE);
 CREATE POLICY "Public read testimonials" ON public.testimonials FOR SELECT USING (TRUE);
 CREATE POLICY "Public read banners" ON public.banners FOR SELECT USING (TRUE);
+CREATE POLICY "Public read broadcasts" ON public.broadcasts FOR SELECT USING (TRUE);
 CREATE POLICY "Public read site settings" ON public.site_settings FOR SELECT USING (TRUE);
 CREATE POLICY "Public can submit leads" ON public.leads FOR INSERT WITH CHECK (TRUE);
 CREATE POLICY "Public can book appointments" ON public.appointments FOR INSERT WITH CHECK (TRUE);
@@ -390,6 +438,7 @@ CREATE POLICY "Full access to courses" ON public.courses FOR ALL USING (TRUE);
 CREATE POLICY "Full access to destinations" ON public.destinations FOR ALL USING (TRUE);
 CREATE POLICY "Full access to testimonials" ON public.testimonials FOR ALL USING (TRUE);
 CREATE POLICY "Full access to banners" ON public.banners FOR ALL USING (TRUE);
+CREATE POLICY "Full access to broadcasts" ON public.broadcasts FOR ALL USING (TRUE);
 CREATE POLICY "Full access to leads" ON public.leads FOR ALL USING (TRUE);
 CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING (TRUE);
 `;
@@ -1419,7 +1468,16 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                   <div key={dest.slug} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
                     <div className="flex justify-between items-start">
                       <div className="flex items-center gap-3">
-                        <span className="text-3xl">{dest.flag}</span>
+                        <div className="relative">
+                          <span className="text-3xl">{dest.flag}</span>
+                          {dest.imageUrl && (
+                            <img 
+                              src={dest.imageUrl} 
+                              alt="" 
+                              className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full border-2 border-white object-cover shadow-sm" 
+                            />
+                          )}
+                        </div>
                         <div>
                           <h4 className="font-bold text-lg text-navy-950">{dest.country_name}</h4>
                           <span className="text-xs font-bold text-brand-600">{dest.visa_subclass}</span>
@@ -1494,21 +1552,26 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                         <input
                           type="url"
                           value={newDestination.imageUrl || ''}
-                          onChange={(e) => setNewDestination({ ...newDestination, imageUrl: e.target.value })}
-                          placeholder="https://example.com/flag.png"
+                          onChange={(e) => setNewDestination({ ...newDestination, imageUrl: fixGoogleDriveLink(e.target.value) })}
+                          placeholder="https://example.com/image.png"
                           className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
                         />
                       </div>
 
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Flag Emoji</label>
-                          <input
-                            type="text"
+                          <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Select Flag</label>
+                          <select
                             value={newDestination.flag}
                             onChange={(e) => setNewDestination({ ...newDestination, flag: e.target.value })}
-                            className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
-                          />
+                            className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm bg-white"
+                          >
+                            {WORLD_FLAGS.map((f) => (
+                              <option key={f.emoji} value={f.emoji}>
+                                {f.emoji} {f.name}
+                              </option>
+                            ))}
+                          </select>
                         </div>
                         <div>
                           <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Visa Subclass</label>
@@ -1797,9 +1860,18 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                       <p className="text-xs text-slate-600 italic">"{t.quote}"</p>
                     </div>
 
-                    <div className="pt-3 border-t border-slate-100">
-                      <div className="font-bold text-sm text-navy-950">{t.student_name}</div>
-                      <div className="text-[11px] text-slate-400">{t.university} • {t.country}</div>
+                    <div className="pt-3 border-t border-slate-100 flex items-center gap-2">
+                      {t.imageUrl ? (
+                        <img src={t.imageUrl} alt={t.student_name} className="w-8 h-8 rounded-full object-cover border border-slate-100" />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-400 uppercase">
+                          {t.student_name[0]}
+                        </div>
+                      )}
+                      <div>
+                        <div className="font-bold text-sm text-navy-950">{t.student_name}</div>
+                        <div className="text-[11px] text-slate-400">{t.university} • {t.country}</div>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -1841,7 +1913,7 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                           type="url"
                           required
                           value={newTestimonial.imageUrl || ''}
-                          onChange={(e) => setNewTestimonial({ ...newTestimonial, imageUrl: e.target.value })}
+                          onChange={(e) => setNewTestimonial({ ...newTestimonial, imageUrl: fixGoogleDriveLink(e.target.value) })}
                           placeholder="https://drive.google.com/..."
                           className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
                         />
@@ -2703,11 +2775,11 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                       type="url"
                       required
                       value={newBanner.imageUrl}
-                      onChange={(e) => setNewBanner({ ...newBanner, imageUrl: e.target.value })}
+                      onChange={(e) => setNewBanner({ ...newBanner, imageUrl: fixGoogleDriveLink(e.target.value) })}
                       placeholder="https://drive.google.com/uc?id=..."
                       className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm"
                     />
-                    <p className="text-[10px] text-slate-500 mt-1">Use a direct image link or Google Drive direct link.</p>
+                    <p className="text-[10px] text-slate-500 mt-1">Direct link or Google Drive link (automatically fixed).</p>
                   </div>
 
                   <div>
@@ -3204,14 +3276,30 @@ CREATE TABLE IF NOT EXISTS public.leads (
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Flag Emoji</label>
-                  <input
-                    type="text"
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Select Flag</label>
+                  <select
                     value={editingDestination.flag}
                     onChange={(e) => setEditingDestination({ ...editingDestination, flag: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
-                  />
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm bg-white"
+                  >
+                    {WORLD_FLAGS.map((f) => (
+                      <option key={f.emoji} value={f.emoji}>
+                        {f.emoji} {f.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Custom Image URL</label>
+                <input
+                  type="url"
+                  value={editingDestination.imageUrl || ''}
+                  onChange={(e) => setEditingDestination({ ...editingDestination, imageUrl: fixGoogleDriveLink(e.target.value) })}
+                  placeholder="https://example.com/image.png"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -3423,6 +3511,17 @@ CREATE TABLE IF NOT EXISTS public.leads (
                   value={editingTestimonial.quote}
                   onChange={(e) => setEditingTestimonial({ ...editingTestimonial, quote: e.target.value })}
                   className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Student Photo URL (Optional)</label>
+                <input
+                  type="url"
+                  value={editingTestimonial.imageUrl || ''}
+                  onChange={(e) => setEditingTestimonial({ ...editingTestimonial, imageUrl: fixGoogleDriveLink(e.target.value) })}
+                  placeholder="https://drive.google.com/uc?id=..."
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
                 />
               </div>
 

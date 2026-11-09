@@ -1,37 +1,51 @@
-# Implementation Plan - Navbar Link Management, Admin Logo Control & SQL Schema Automation
+# Implementation Plan - Broadcast Table & Admin Enhancements
 
-Enhancing the platform to support fully dynamic navbar links (including 'Track Status'), Admin-controllable website branding (logo), and an automated Supabase database validation and schema generation script.
+The user wants to fix the broadcast deletion logic by moving it to a dedicated Supabase table and add several quality-of-life improvements to the Admin panel.
 
----
+## 1. Supabase SQL Migration
+I will provide the following SQL to the user to create the `broadcasts` table. This ensures that deleting a broadcast actually removes the record from the database.
 
-## 1. Dynamic 'Track Status' Link in Navbar Settings
-- **SettingsContext.tsx**: Ensure 'Track Status' is properly registered as a manageable link in the `header.navLinks` config, allowing toggling visibility in Admin Dashboard.
-- **Navbar.tsx**: Use `settings.header.navLinks` to render the navbar, ensuring the link is visible if marked `isVisible: true` in Admin Settings.
+```sql
+-- 1. Create Broadcasts Table
+CREATE TABLE IF NOT EXISTS public.broadcasts (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    priority TEXT NOT NULL DEFAULT 'Normal',
+    link TEXT,
+    play_sound BOOLEAN DEFAULT FALSE,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
 
-## 2. Admin Website Logo Control
-- **Logo Configuration (`types.ts` & `SettingsContext.tsx`)**:
-  - Add `logoUrl` to `HeaderConfig`.
-- **Admin Dashboard (`AdminDashboard.tsx`)**:
-  - Add an image URL input field to the "Header & Navbar Settings" tab to allow updating the website logo.
-- **Logo Display (`Navbar.tsx` & `Footer.tsx`)**:
-  - Update `<img>` tags to use `settings.header.logoUrl || '/logo.png'`.
-  - Remove logo borders/rings as requested.
+-- 2. Enable RLS
+ALTER TABLE public.broadcasts ENABLE ROW LEVEL SECURITY;
 
-## 3. Comprehensive Database Schema Automation (SQL Script)
-- **Supabase Auto-Generator Script**:
-  - Create a robust SQL script that checks for the existence of all required tables (`leads`, `appointments`, `courses`, `destinations`, `testimonials`, `site_settings`, `broadcast_notifications`) and creates them if missing.
-  - Implement RLS policy checks and verification.
+-- 3. Public Read Access
+CREATE POLICY "Public read broadcasts" 
+ON public.broadcasts FOR SELECT 
+USING (TRUE);
 
----
+-- 4. Full Admin Access (Using existing rules pattern)
+CREATE POLICY "Full access to broadcasts" 
+ON public.broadcasts FOR ALL 
+USING (TRUE);
+```
 
-## Verification Plan
+## 2. SettingsContext.tsx Refactoring
+- Modify `fetchLiveSettings` to also fetch the latest broadcasts from the `broadcasts` table.
+- Update `sendBroadcastNotification` to `insert` into the `broadcasts` table.
+- Update `deleteBroadcast` to perform a real `delete()` call on the `broadcasts` table.
+- Update `clearBroadcastHistory` to delete all records.
 
-### Automated Verification
-- Run `npm run build` in `/web` to verify 0 TypeScript/Vite compilation errors.
-- Run `compile_applet` for Android.
+## 3. AdminDashboard.tsx Enhancements
+- **Google Drive Link Fixer**: Add a helper function `fixGoogleDriveLink(url: string): string` that converts share links to direct download links.
+- **Flag Picker**: Add a `FLAGS` constant with common country emojis and a dropdown in the "Add Destination" modal.
+- **Auto-Fix Integration**: Hook the Google Drive fixer into the `onChange` or `onBlur` events of image URL fields for Banners, Testimonials, and Destinations.
 
-### Interactive Verification
-1. Open Admin Dashboard $\rightarrow$ Header Settings, verify 'Track Status' is visible and manageable.
-2. In the Header Settings tab, update the logo URL; verify the logo changes on the live website.
-3. Remove logo borders in the CSS/Tailwind classes in `Navbar.tsx` and `Footer.tsx`.
-4. Run the comprehensive SQL schema auto-generation script in Supabase SQL editor to ensure all data tables are present and secure.
+## 4. Components Update
+- **Navbar.tsx**: Update how it fetches notifications to ensure it pulls from the live `broadcasts` table (via the updated Context).
+- **Destinations.tsx**: Ensure it correctly handles the flag/image priority.
+
+## 5. Verification
+- Run `npm run build` to ensure no type mismatches or syntax errors.

@@ -1,6 +1,6 @@
 {
-  "summary":  "Implementation plan for: (1) Integrating 'Track Status' page into Navbar settings management, (2) Adding Admin-configurable website logo upload/URL, (3) Creating a comprehensive database schema check and auto-generation SQL script for Supabase.",
-  "updatedAt":  "2026-11-09T07:25:12.748357146Z",
+  "summary":  "### Implementation Plan - Broadcast Table & Admin Enhancements\n\n1. **Supabase Schema Update**: \n   - Create a dedicated `broadcasts` table for reliable CRUD operations.\n   - Add RLS policies for public read and admin write.\n2. **Settings Logic Update**:\n   - Refactor `SettingsContext.tsx` to fetch the active broadcast and history from the new `broadcasts` table instead of JSON blobs in `site_settings`.\n   - Implement real `DELETE` and `UPDATE` calls to Supabase for broadcasts.\n3. **Admin Dashboard Enhancements**:\n   - **Google Drive Auto-Fix**: Implement a utility to automatically convert Google Drive sharing links into direct image URLs (`/uc?id=...`).\n   - **Flag Picker**: Add a predefined list of country flags (emojis) for easy selection when adding destinations.\n   - **Refined Broadcaster**: Update the dispatch logic to work with the new table structure.\n4. **Data Synchronization**:\n   - Ensure the `activeBroadcast` logic correctly picks the most recent active record from the table.\n",
+  "updatedAt":  "2026-11-09T08:48:12.081198768Z",
   "requestFeedback":  true,
   "userFacing":  true
 }
