@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { MapPin, Phone, Mail, Clock, Send, CheckCircle2, MessageCircle } from 'lucide-react';
 import { COMPANY_CONTACT } from '../data/mockData';
 import { supabase } from '../lib/supabase';
+import { fetchUserLocationWithQuota } from '../lib/ipstack';
 
 export const Contact: React.FC = () => {
   const [form, setForm] = useState({
@@ -19,6 +20,13 @@ export const Contact: React.FC = () => {
     setSubmitting(true);
 
     try {
+      let locationData = null;
+      try {
+        locationData = await fetchUserLocationWithQuota();
+      } catch (locErr) {
+        console.warn('Geolocation capture skipped:', locErr);
+      }
+
       await supabase.from('leads').insert([
         {
           full_name: form.name,
@@ -27,7 +35,14 @@ export const Contact: React.FC = () => {
           destination: 'General',
           course_interest: form.subject,
           notes: form.message,
-          source: 'Website Contact Page'
+          source: 'Website Contact Page',
+          city: locationData?.city || undefined,
+          region_name: locationData?.region_name || undefined,
+          country_name: locationData?.country_name || undefined,
+          ip_address: locationData?.ip || undefined,
+          latitude: locationData?.latitude || undefined,
+          longitude: locationData?.longitude || undefined,
+          location_data: locationData || undefined
         }
       ]);
       setSubmitted(true);

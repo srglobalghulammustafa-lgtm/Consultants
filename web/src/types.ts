@@ -3,6 +3,16 @@ export type LeadStatus = 'New' | 'Contacted' | 'In Progress' | 'Converted' | 'Cl
 export type AppointmentMode = 'Office' | 'Online';
 export type AppointmentStatus = 'Pending' | 'Confirmed' | 'Rescheduled' | 'Cancelled' | 'Completed';
 
+export interface LeadLocation {
+  ip?: string;
+  city?: string;
+  region_name?: string;
+  country_name?: string;
+  country_code?: string;
+  latitude?: number;
+  longitude?: number;
+}
+
 export interface Lead {
   id: string;
   full_name: string;
@@ -13,6 +23,13 @@ export interface Lead {
   status: LeadStatus;
   source?: string;
   notes?: string;
+  city?: string;
+  region_name?: string;
+  country_name?: string;
+  ip_address?: string;
+  latitude?: number;
+  longitude?: number;
+  location_data?: LeadLocation;
   created_at?: string;
 }
 
@@ -122,9 +139,19 @@ export interface CompanyMetrics {
   yearsExperience: string;
 }
 
+export interface IpstackConfig {
+  apiKey: string;
+  isEnabled: boolean;
+  requestCount: number;
+  maxMonthlyLimit: number;
+  currentMonth: string;
+  lastUpdated?: string;
+}
+
 export interface SiteSettings {
   whatsapp: WhatsAppConfig;
   header: HeaderConfig;
   footer: FooterConfig;
   metrics: CompanyMetrics;
+  ipstack: IpstackConfig;
 }

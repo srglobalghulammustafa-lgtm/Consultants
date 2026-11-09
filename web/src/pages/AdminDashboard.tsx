@@ -5,15 +5,21 @@ import {
   MessageCircle, Edit3, Trash2, LogOut, RefreshCw, Database, 
   ShieldCheck, ArrowRight, Filter, Save, Plus, Globe, Sparkles,
   LayoutDashboard, BookOpen, Star, Settings, ExternalLink, Copy, Check,
-  ChevronRight, MapPin, Mail, AlertCircle, Eye, EyeOff
+  ChevronRight, MapPin, Mail, AlertCircle, Eye, EyeOff, Activity,
+  Navigation, ShieldAlert, X, Send
 } from 'lucide-react';
 import { useSiteSettings } from '../context/SettingsContext';
 import { useLiveData } from '../context/LiveDataContext';
 import { Lead, Appointment, Destination, Course, Testimonial } from '../types';
+import { fetchUserLocationWithQuota } from '../lib/ipstack';
 
 export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { settings, updateWhatsApp, updateHeader, updateFooter, updateMetrics, isSyncing, isLiveSupabase } = useSiteSettings();
+  const { 
+    settings, updateWhatsApp, updateHeader, updateFooter, 
+    updateMetrics, updateIpstack, resetIpstackQuota, isSyncing, isLiveSupabase 
+  } = useSiteSettings();
+
   const { 
     courses, destinations, testimonials, leads, appointments, 
     addCourse, updateCourse, deleteCourse, 
@@ -23,14 +29,20 @@ export const AdminDashboard: React.FC = () => {
   } = useLiveData();
 
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'leads' | 'appointments' | 'destinations' | 'courses' | 'testimonials' | 'whatsapp' | 'header' | 'footer' | 'database'
+    'overview' | 'leads' | 'appointments' | 'destinations' | 'courses' | 'testimonials' | 'whatsapp' | 'header' | 'footer' | 'ipstack' | 'database'
   >('overview');
 
-  // Filter states
+  // Filter & Selected Lead Modal State
   const [leadStatusFilter, setLeadStatusFilter] = useState<string>('all');
   const [leadSearch, setLeadSearch] = useState('');
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [modalNotes, setModalNotes] = useState('');
+  const [modalStatus, setModalStatus] = useState<Lead['status']>('New');
+
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [copiedSql, setCopiedSql] = useState(false);
+  const [testingIpstack, setTestingIpstack] = useState(false);
+  const [testIpResult, setTestIpResult] = useState<any | null>(null);
 
   // Form states for adding items
   const [showAddCourseModal, setShowAddCourseModal] = useState(false);
@@ -75,6 +87,7 @@ export const AdminDashboard: React.FC = () => {
   const [headerForm, setHeaderForm] = useState({ ...settings.header });
   const [footerForm, setFooterForm] = useState({ ...settings.footer });
   const [metricsForm, setMetricsForm] = useState({ ...settings.metrics });
+  const [ipstackForm, setIpstackForm] = useState({ ...settings.ipstack });
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -114,15 +127,41 @@ export const AdminDashboard: React.FC = () => {
     showToast('Homepage counters and metrics updated successfully!');
   };
 
+  // IPstack form submit
+  const handleSaveIpstack = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await updateIpstack(ipstackForm);
+    showToast('IPstack API configuration & quota ceiling saved!');
+  };
+
+  // Test live IPstack Lookup
+  const handleTestIpLookup = async () => {
+    setTestingIpstack(true);
+    setTestIpResult(null);
+    try {
+      const res = await fetchUserLocationWithQuota(ipstackForm.apiKey);
+      setTestIpResult(res || { message: 'Bypassed or limit reached (Quota check active)' });
+      showToast('Live IP lookup test completed!');
+    } catch (err: any) {
+      setTestIpResult({ error: err.message || 'Lookup error' });
+    } finally {
+      setTestingIpstack(false);
+    }
+  };
+
   // Export leads to CSV
   const exportLeadsCSV = () => {
-    const headers = ['Full Name', 'Phone', 'Email', 'Target Country', 'Course Interest', 'Status', 'Notes', 'Date'];
+    const headers = ['Full Name', 'Phone', 'Email', 'Target Country', 'Course Interest', 'City', 'Region', 'Country', 'IP', 'Status', 'Notes', 'Date'];
     const rows = leads.map((l) => [
       `"${l.full_name}"`,
       `"${l.phone}"`,
       `"${l.email}"`,
       `"${l.destination}"`,
       `"${l.course_interest || ''}"`,
+      `"${l.city || l.location_data?.city || ''}"`,
+      `"${l.region_name || l.location_data?.region_name || ''}"`,
+      `"${l.country_name || l.location_data?.country_name || ''}"`,
+      `"${l.ip_address || l.location_data?.ip || ''}"`,
       `"${l.status}"`,
       `"${(l.notes || '').replace(/"/g, '""')}"`,
       `"${l.created_at || ''}"`,
@@ -156,6 +195,13 @@ CREATE TABLE IF NOT EXISTS public.leads (
     status TEXT NOT NULL DEFAULT 'New',
     source TEXT DEFAULT 'Website Quick Form',
     notes TEXT,
+    city TEXT,
+    region_name TEXT,
+    country_name TEXT,
+    ip_address TEXT,
+    latitude DOUBLE PRECISION,
+    longitude DOUBLE PRECISION,
+    location_data JSONB,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -256,9 +302,14 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
       l.full_name.toLowerCase().includes(leadSearch.toLowerCase()) ||
       l.phone.includes(leadSearch) ||
       l.email.toLowerCase().includes(leadSearch.toLowerCase()) ||
-      l.destination.toLowerCase().includes(leadSearch.toLowerCase());
+      l.destination.toLowerCase().includes(leadSearch.toLowerCase()) ||
+      (l.city && l.city.toLowerCase().includes(leadSearch.toLowerCase()));
     return matchesStatus && matchesSearch;
   });
+
+  const ipstackUsed = settings.ipstack?.requestCount || 0;
+  const ipstackLimit = settings.ipstack?.maxMonthlyLimit || 99;
+  const ipstackPercent = Math.min(100, Math.round((ipstackUsed / ipstackLimit) * 100));
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col">
@@ -455,6 +506,25 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
             </button>
 
             <button
+              onClick={() => setActiveTab('ipstack')}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+                activeTab === 'ipstack'
+                  ? 'bg-blue-50 text-blue-700 font-bold border border-blue-200'
+                  : 'text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Navigation className="w-4 h-4 text-blue-500" />
+                <span>IPstack Location</span>
+              </div>
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                ipstackUsed >= 99 ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
+              }`}>
+                {ipstackUsed}/99
+              </span>
+            </button>
+
+            <button
               onClick={() => setActiveTab('header')}
               className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
                 activeTab === 'header'
@@ -505,17 +575,17 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                     Welcome to SR Global Admin
                   </h1>
                   <p className="text-sm text-slate-500 mt-1">
-                    Control live leads, consultation slots, WhatsApp hotline, and website navigation.
+                    Control live leads, consultation slots, IPstack geolocation, and website content.
                   </p>
                 </div>
 
-                <div className="flex gap-3">
+                <div className="flex flex-wrap gap-3">
                   <button
-                    onClick={() => setActiveTab('whatsapp')}
-                    className="inline-flex items-center gap-2 bg-[#25D366] hover:bg-[#20ba5a] text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-md transition-all"
+                    onClick={() => setActiveTab('ipstack')}
+                    className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-md transition-all"
                   >
-                    <MessageCircle className="w-4 h-4" />
-                    <span>Change WhatsApp Number</span>
+                    <Navigation className="w-4 h-4" />
+                    <span>IPstack Quota ({ipstackUsed}/99)</span>
                   </button>
 
                   <button
@@ -523,7 +593,7 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                     className="inline-flex items-center gap-2 bg-brand-500 hover:bg-brand-600 text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-md transition-all"
                   >
                     <Users className="w-4 h-4" />
-                    <span>View Inquiries</span>
+                    <span>View Inquiries ({leads.length})</span>
                   </button>
                 </div>
               </div>
@@ -543,9 +613,9 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                 </div>
 
                 <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                  <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Active Courses</div>
-                  <div className="text-3xl font-black text-green-600 mt-2">{courses.length}</div>
-                  <div className="text-xs text-slate-500 mt-1">Trade & degree programs</div>
+                  <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">IP Geolocation</div>
+                  <div className="text-3xl font-black text-blue-600 mt-2">{ipstackUsed} / 99</div>
+                  <div className="text-xs text-slate-500 mt-1">Monthly free quota used</div>
                 </div>
 
                 <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
@@ -620,13 +690,15 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
               <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                   <h2 className="text-xl font-bold text-navy-950">Student Leads & Inquiries</h2>
-                  <p className="text-xs text-slate-500">Live profiles submitted via website and consultation forms</p>
+                  <p className="text-xs text-slate-500">
+                    Click any student row to view complete details, IP location, and direct actions.
+                  </p>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3">
                   <input
                     type="text"
-                    placeholder="Search name, phone, email..."
+                    placeholder="Search name, phone, city..."
                     value={leadSearch}
                     onChange={(e) => setLeadSearch(e.target.value)}
                     className="px-3.5 py-2 rounded-xl border border-slate-300 text-xs w-48 sm:w-64"
@@ -662,81 +734,287 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                     <thead>
                       <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                         <th className="py-3.5 px-4">Student</th>
+                        <th className="py-3.5 px-4">Location (IPstack)</th>
                         <th className="py-3.5 px-4">Phone / WhatsApp</th>
                         <th className="py-3.5 px-4">Target Country</th>
                         <th className="py-3.5 px-4">Course Interest</th>
                         <th className="py-3.5 px-4">Status</th>
-                        <th className="py-3.5 px-4">Counselor Notes</th>
+                        <th className="py-3.5 px-4">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-sm">
                       {filteredLeads.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="py-8 text-center text-slate-400 text-xs">
+                          <td colSpan={7} className="py-8 text-center text-slate-400 text-xs">
                             No student inquiries found matching criteria.
                           </td>
                         </tr>
                       ) : (
-                        filteredLeads.map((lead) => (
-                          <tr key={lead.id} className="hover:bg-slate-50/70 transition-colors">
-                            <td className="py-3.5 px-4">
-                              <div className="font-bold text-navy-950">{lead.full_name}</div>
-                              <div className="text-xs text-slate-400">{lead.email}</div>
-                            </td>
-                            <td className="py-3.5 px-4 font-mono text-xs text-slate-700">
-                              <a
-                                href={`https://wa.me/${lead.phone.replace(/[^0-9]/g, '')}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 hover:text-green-600 font-semibold"
-                              >
-                                <MessageCircle className="w-3.5 h-3.5 text-green-500" />
-                                <span>{lead.phone}</span>
-                              </a>
-                            </td>
-                            <td className="py-3.5 px-4">
-                              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200">
-                                {lead.destination}
-                              </span>
-                            </td>
-                            <td className="py-3.5 px-4 text-xs text-slate-600">
-                              {lead.course_interest || 'General Admissions'}
-                            </td>
-                            <td className="py-3.5 px-4">
-                              <select
-                                value={lead.status}
-                                onChange={(e) => {
-                                  updateLeadStatus(lead.id, e.target.value as any);
-                                  showToast(`Status updated to ${e.target.value}`);
-                                }}
-                                className={`text-xs font-bold px-2.5 py-1 rounded-lg border focus:outline-none ${
-                                  lead.status === 'New'
-                                    ? 'bg-blue-50 text-blue-700 border-blue-200'
-                                    : lead.status === 'Contacted'
-                                    ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
-                                    : lead.status === 'In Progress'
-                                    ? 'bg-purple-50 text-purple-700 border-purple-200'
-                                    : lead.status === 'Converted'
-                                    ? 'bg-green-50 text-green-700 border-green-200'
-                                    : 'bg-slate-100 text-slate-600 border-slate-300'
-                                }`}
-                              >
-                                <option value="New">New</option>
-                                <option value="Contacted">Contacted</option>
-                                <option value="In Progress">In Progress</option>
-                                <option value="Converted">Converted</option>
-                                <option value="Closed">Closed</option>
-                              </select>
-                            </td>
-                            <td className="py-3.5 px-4 text-xs text-slate-500 max-w-xs truncate">
-                              {lead.notes || 'No notes added'}
-                            </td>
-                          </tr>
-                        ))
+                        filteredLeads.map((lead) => {
+                          const displayCity = lead.city || lead.location_data?.city;
+                          const displayCountry = lead.country_name || lead.location_data?.country_name;
+
+                          return (
+                            <tr 
+                              key={lead.id} 
+                              onClick={() => {
+                                setSelectedLead(lead);
+                                setModalNotes(lead.notes || '');
+                                setModalStatus(lead.status);
+                              }}
+                              className="hover:bg-brand-50/40 cursor-pointer transition-colors group"
+                            >
+                              <td className="py-3.5 px-4">
+                                <div className="font-bold text-navy-950 group-hover:text-brand-600 transition-colors">
+                                  {lead.full_name}
+                                </div>
+                                <div className="text-xs text-slate-400">{lead.email}</div>
+                              </td>
+
+                              <td className="py-3.5 px-4 text-xs">
+                                {displayCity ? (
+                                  <div className="inline-flex items-center gap-1 font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md">
+                                    <MapPin className="w-3 h-3 text-red-500" />
+                                    <span>{displayCity}{displayCountry ? `, ${displayCountry}` : ''}</span>
+                                  </div>
+                                ) : (
+                                  <span className="text-slate-400 italic text-[11px]">Direct / Local</span>
+                                )}
+                              </td>
+
+                              <td className="py-3.5 px-4 font-mono text-xs text-slate-700">
+                                <a
+                                  href={`https://wa.me/${lead.phone.replace(/[^0-9]/g, '')}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="inline-flex items-center gap-1 hover:text-green-600 font-semibold"
+                                >
+                                  <MessageCircle className="w-3.5 h-3.5 text-green-500" />
+                                  <span>{lead.phone}</span>
+                                </a>
+                              </td>
+
+                              <td className="py-3.5 px-4">
+                                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200">
+                                  {lead.destination}
+                                </span>
+                              </td>
+
+                              <td className="py-3.5 px-4 text-xs text-slate-600 max-w-[180px] truncate">
+                                {lead.course_interest || 'General Admissions'}
+                              </td>
+
+                              <td className="py-3.5 px-4" onClick={(e) => e.stopPropagation()}>
+                                <select
+                                  value={lead.status}
+                                  onChange={(e) => {
+                                    updateLeadStatus(lead.id, e.target.value as any);
+                                    showToast(`Status updated to ${e.target.value}`);
+                                  }}
+                                  className={`text-xs font-bold px-2.5 py-1 rounded-lg border focus:outline-none ${
+                                    lead.status === 'New'
+                                      ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                      : lead.status === 'Contacted'
+                                      ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
+                                      : lead.status === 'In Progress'
+                                      ? 'bg-purple-50 text-purple-700 border-purple-200'
+                                      : lead.status === 'Converted'
+                                      ? 'bg-green-50 text-green-700 border-green-200'
+                                      : 'bg-slate-100 text-slate-600 border-slate-300'
+                                  }`}
+                                >
+                                  <option value="New">New</option>
+                                  <option value="Contacted">Contacted</option>
+                                  <option value="In Progress">In Progress</option>
+                                  <option value="Converted">Converted</option>
+                                  <option value="Closed">Closed</option>
+                                </select>
+                              </td>
+
+                              <td className="py-3.5 px-4">
+                                <button
+                                  onClick={() => {
+                                    setSelectedLead(lead);
+                                    setModalNotes(lead.notes || '');
+                                    setModalStatus(lead.status);
+                                  }}
+                                  className="inline-flex items-center gap-1 text-xs font-bold text-brand-600 bg-brand-50 hover:bg-brand-100 px-2.5 py-1 rounded-lg transition-colors"
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                  <span>View</span>
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })
                       )}
                     </tbody>
                   </table>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB: IPSTACK & GEOLOCATION SETTINGS */}
+          {activeTab === 'ipstack' && (
+            <div className="space-y-6">
+              <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="p-2 rounded-xl bg-blue-100 text-blue-600">
+                      <Navigation className="w-5 h-5" />
+                    </span>
+                    <h2 className="text-xl font-bold text-navy-950">IPstack Geolocation & Quota Limiter</h2>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Free plan offers 100 requests/month. The safety guard automatically halts calls at 99 requests and resets on the 1st of every month.
+                  </p>
+                </div>
+
+                {/* Quota Gauge Card */}
+                <div className="p-6 rounded-2xl bg-gradient-to-br from-slate-900 to-navy-950 text-white space-y-4">
+                  <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
+                    <div>
+                      <span className="text-xs font-bold uppercase tracking-wider text-brand-400">Monthly Usage Quota</span>
+                      <h3 className="text-2xl font-black mt-1">
+                        {ipstackUsed} <span className="text-slate-400 text-base font-normal">/ {ipstackLimit} Requests Used</span>
+                      </h3>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                        ipstackUsed >= 99 
+                          ? 'bg-red-500/20 text-red-300 border border-red-500/40'
+                          : 'bg-green-500/20 text-green-300 border border-green-500/40'
+                      }`}>
+                        {ipstackUsed >= 99 ? '● Quota Ceil Reached (Safe Paused)' : '● Active & Capturing'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Progress bar */}
+                  <div className="w-full bg-white/10 rounded-full h-3 overflow-hidden">
+                    <div 
+                      className={`h-full rounded-full transition-all duration-500 ${
+                        ipstackPercent >= 95 ? 'bg-red-500' : ipstackPercent >= 75 ? 'bg-yellow-400' : 'bg-brand-400'
+                      }`}
+                      style={{ width: `${ipstackPercent}%` }}
+                    />
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row justify-between text-xs text-slate-400 gap-2 pt-1">
+                    <div>Remaining Requests: <strong className="text-white">{Math.max(0, ipstackLimit - ipstackUsed)}</strong></div>
+                    <div>Billing Cycle: <strong className="text-white">{ipstackForm.currentMonth}</strong> (Resets 1st of next month)</div>
+                  </div>
+                </div>
+
+                {/* Settings Form */}
+                <form onSubmit={handleSaveIpstack} className="space-y-5 max-w-2xl">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                      APILayer IPstack API Access Key
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={ipstackForm.apiKey}
+                      onChange={(e) => setIpstackForm({ ...ipstackForm, apiKey: e.target.value })}
+                      placeholder="e.g. ebe42933fab1deddffa7e20d5186e6e3"
+                      className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                    />
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      Endpoint: <code>https://api.apilayer.net/ipstack/check?access_key=...</code>
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                        Monthly Safety Cutoff Limit
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={ipstackForm.maxMonthlyLimit}
+                        onChange={(e) => setIpstackForm({ ...ipstackForm, maxMonthlyLimit: Number(e.target.value) })}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-semibold"
+                      />
+                      <span className="text-[11px] text-slate-400">Strictly set to 99 to prevent free quota exhaustion</span>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                        Current Request Count
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={ipstackForm.requestCount}
+                        onChange={(e) => setIpstackForm({ ...ipstackForm, requestCount: Number(e.target.value) })}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-semibold"
+                      />
+                      <span className="text-[11px] text-slate-400">Manually adjustable or click Reset below</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="ipstackEnabled"
+                      checked={ipstackForm.isEnabled}
+                      onChange={(e) => setIpstackForm({ ...ipstackForm, isEnabled: e.target.checked })}
+                      className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                    />
+                    <label htmlFor="ipstackEnabled" className="text-sm font-semibold text-slate-700">
+                      Enable automatic IP location capture on inquiry submissions
+                    </label>
+                  </div>
+
+                  <div className="pt-2 flex flex-wrap gap-4">
+                    <button
+                      type="submit"
+                      disabled={isSyncing}
+                      className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-3 rounded-xl shadow-md transition-all text-sm"
+                    >
+                      <Save className="w-4 h-4" />
+                      <span>{isSyncing ? 'Saving...' : 'Save Configuration'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await resetIpstackQuota();
+                        setIpstackForm({ ...ipstackForm, requestCount: 0 });
+                        showToast('Monthly quota counter reset to 0!');
+                      }}
+                      className="inline-flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold px-5 py-3 rounded-xl transition-all text-sm"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      <span>Reset Counter to 0</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={testingIpstack}
+                      onClick={handleTestIpLookup}
+                      className="inline-flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white font-semibold px-5 py-3 rounded-xl transition-all text-sm"
+                    >
+                      <Activity className="w-4 h-4 text-yellow-400" />
+                      <span>{testingIpstack ? 'Testing IP...' : 'Test IPstack Lookup'}</span>
+                    </button>
+                  </div>
+
+                  {testIpResult && (
+                    <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl text-xs space-y-1 font-mono">
+                      <div className="font-bold text-slate-700 uppercase">Live Test Result:</div>
+                      <pre className="text-slate-600 overflow-x-auto whitespace-pre-wrap">
+                        {JSON.stringify(testIpResult, null, 2)}
+                      </pre>
+                    </div>
+                  )}
+                </form>
               </div>
             </div>
           )}
@@ -930,7 +1208,7 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                           value={newDestination.avg_living_cost}
                           onChange={(e) => setNewDestination({ ...newDestination, avg_living_cost: e.target.value })}
                           placeholder="NZD 18,000 - 22,000 / year"
-                          className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
+                          className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm"
                         />
                       </div>
 
@@ -1631,13 +1909,21 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                   <div className="p-3 rounded-xl bg-navy-900 border border-navy-800 text-[11px] font-mono text-slate-300 max-h-48 overflow-y-auto">
                     <code>
                       {`-- SR Global Consultants Schema
-CREATE TABLE IF NOT EXISTS public.leads (...);
-CREATE TABLE IF NOT EXISTS public.appointments (...);
-CREATE TABLE IF NOT EXISTS public.courses (...);
-CREATE TABLE IF NOT EXISTS public.destinations (...);
-CREATE TABLE IF NOT EXISTS public.testimonials (...);
-CREATE TABLE IF NOT EXISTS public.site_settings (...);
--- Click the button above to copy full 100+ line script`}
+CREATE TABLE IF NOT EXISTS public.leads (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    full_name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    destination TEXT NOT NULL,
+    course_interest TEXT,
+    status TEXT NOT NULL DEFAULT 'New',
+    city TEXT,
+    region_name TEXT,
+    country_name TEXT,
+    ip_address TEXT,
+    ...
+);
+-- Click the button above to copy full script`}
                     </code>
                   </div>
                 </div>
@@ -1646,6 +1932,207 @@ CREATE TABLE IF NOT EXISTS public.site_settings (...);
           )}
         </main>
       </div>
+
+      {/* POPUP / MODAL: STUDENT LEAD FULL DETAILS */}
+      {selectedLead && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="bg-navy-950 text-white p-6 flex justify-between items-start">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-brand-400 bg-brand-950/60 border border-brand-500/30 px-2.5 py-0.5 rounded-full">
+                    Student Profile Details
+                  </span>
+                  <span className="text-xs text-slate-400">
+                    Source: {selectedLead.source || 'Website'}
+                  </span>
+                </div>
+                <h3 className="text-2xl font-black mt-2 font-serif">{selectedLead.full_name}</h3>
+                <p className="text-xs text-slate-300 mt-0.5">{selectedLead.email} • {selectedLead.phone}</p>
+              </div>
+
+              <button
+                onClick={() => setSelectedLead(null)}
+                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Scrollable Body */}
+            <div className="p-6 space-y-6 overflow-y-auto flex-1 text-slate-800">
+              {/* Geolocation Audit Box */}
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-bold text-navy-950 uppercase tracking-wider">
+                    <Navigation className="w-4 h-4 text-blue-500" />
+                    <span>IPstack Geolocation & Network Audit</span>
+                  </div>
+                  <span className="text-[11px] font-semibold text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200">
+                    Captured on submission
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div className="p-3 bg-white rounded-xl border border-slate-200">
+                    <div className="text-[10px] uppercase font-bold text-slate-400">Detected Location</div>
+                    <div className="font-bold text-navy-950 text-sm mt-0.5 flex items-center gap-1.5">
+                      <MapPin className="w-4 h-4 text-red-500 shrink-0" />
+                      <span>
+                        {selectedLead.city || selectedLead.location_data?.city || 'Unknown City'}
+                        {selectedLead.region_name || selectedLead.location_data?.region_name ? `, ${selectedLead.region_name || selectedLead.location_data?.region_name}` : ''}
+                      </span>
+                    </div>
+                    <div className="text-slate-500 mt-0.5">
+                      Country: <strong className="text-slate-700">{selectedLead.country_name || selectedLead.location_data?.country_name || 'Pakistan'}</strong>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-white rounded-xl border border-slate-200">
+                    <div className="text-[10px] uppercase font-bold text-slate-400">IP & Network</div>
+                    <div className="font-mono font-bold text-navy-950 text-sm mt-0.5">
+                      {selectedLead.ip_address || selectedLead.location_data?.ip || 'Direct Connection'}
+                    </div>
+                    {selectedLead.latitude && (
+                      <div className="text-slate-500 mt-0.5">
+                        Coordinates: <strong className="text-slate-700">{selectedLead.latitude.toFixed(4)}, {selectedLead.longitude?.toFixed(4)}</strong>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Academic Inquiry Info */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200">
+                  <div className="text-[10px] uppercase font-bold text-slate-400">Target Study Destination</div>
+                  <div className="font-bold text-base text-brand-600 mt-1 flex items-center gap-1.5">
+                    <Globe className="w-4 h-4 text-brand-500" />
+                    <span>{selectedLead.destination}</span>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200">
+                  <div className="text-[10px] uppercase font-bold text-slate-400">Course Sector</div>
+                  <div className="font-bold text-base text-navy-950 mt-1 flex items-center gap-1.5">
+                    <BookOpen className="w-4 h-4 text-navy-950" />
+                    <span>{selectedLead.course_interest || 'General Admissions'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Student Message / Background */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                  Academic Background & Student Inquiry
+                </label>
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 text-sm leading-relaxed text-slate-700">
+                  {selectedLead.notes || 'No academic message was attached.'}
+                </div>
+              </div>
+
+              {/* Status & Counselor Follow-up Notes */}
+              <div className="space-y-3 pt-2 border-t border-slate-100">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                      Lead Pipeline Status
+                    </label>
+                    <select
+                      value={modalStatus}
+                      onChange={(e) => setModalStatus(e.target.value as any)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-bold bg-white"
+                    >
+                      <option value="New">New</option>
+                      <option value="Contacted">Contacted</option>
+                      <option value="In Progress">In Progress</option>
+                      <option value="Converted">Converted</option>
+                      <option value="Closed">Closed</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                      Inquiry Received Date
+                    </label>
+                    <div className="px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-600 font-medium">
+                      {selectedLead.created_at || 'Recently'}
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    Counselor Private Follow-up Notes
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={modalNotes}
+                    onChange={(e) => setModalNotes(e.target.value)}
+                    placeholder="Record notes on student IELTS score, budget, visa timeline..."
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-brand-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer with Direct Actions */}
+            <div className="p-6 bg-slate-50 border-t border-slate-200 flex flex-wrap justify-between items-center gap-3">
+              <div className="flex gap-2">
+                <a
+                  href={`https://wa.me/${selectedLead.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+                    `Hello ${selectedLead.full_name}! This is SR Global Consultants regarding your ${selectedLead.destination} study inquiry.`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 bg-[#25D366] hover:bg-[#20ba5a] text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow-sm transition-all"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  <span>Chat on WhatsApp</span>
+                </a>
+
+                <a
+                  href={`tel:${selectedLead.phone}`}
+                  className="inline-flex items-center gap-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold px-4 py-2.5 rounded-xl text-xs transition-all"
+                >
+                  <Phone className="w-3.5 h-3.5" />
+                  <span>Call</span>
+                </a>
+
+                <a
+                  href={`mailto:${selectedLead.email}?subject=SR Global Consultation Follow-up`}
+                  className="inline-flex items-center gap-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold px-4 py-2.5 rounded-xl text-xs transition-all"
+                >
+                  <Mail className="w-3.5 h-3.5" />
+                  <span>Email</span>
+                </a>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setSelectedLead(null)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 text-xs font-semibold hover:bg-slate-100 transition-colors"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  onClick={async () => {
+                    await updateLeadStatus(selectedLead.id, modalStatus, modalNotes);
+                    showToast('Student lead profile updated successfully!');
+                    setSelectedLead(null);
+                  }}
+                  className="inline-flex items-center gap-2 bg-brand-500 hover:bg-brand-600 text-white font-bold px-5 py-2.5 rounded-xl text-xs shadow-md transition-all"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>Save Changes</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

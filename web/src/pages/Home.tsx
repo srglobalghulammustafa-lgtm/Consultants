@@ -9,6 +9,7 @@ import { supabase } from '../lib/supabase';
 import { HomeSliderBanner } from '../components/HomeSliderBanner';
 import { useLiveData } from '../context/LiveDataContext';
 import { useSiteSettings } from '../context/SettingsContext';
+import { fetchUserLocationWithQuota } from '../lib/ipstack';
 
 export const Home: React.FC = () => {
   const { destinations, testimonials } = useLiveData();
@@ -34,6 +35,14 @@ export const Home: React.FC = () => {
     setSubmitError(null);
 
     try {
+      // Safely capture IPstack location if within 99-request limit
+      let locationData = null;
+      try {
+        locationData = await fetchUserLocationWithQuota();
+      } catch (locErr) {
+        console.warn('Geolocation capture skipped:', locErr);
+      }
+
       // Sync to live Supabase Postgres
       const { error } = await supabase.from('leads').insert([
         {
@@ -44,7 +53,14 @@ export const Home: React.FC = () => {
           course_interest: leadForm.course,
           notes: leadForm.notes,
           status: 'New',
-          source: 'Website Quick Form'
+          source: 'Website Quick Form',
+          city: locationData?.city || undefined,
+          region_name: locationData?.region_name || undefined,
+          country_name: locationData?.country_name || undefined,
+          ip_address: locationData?.ip || undefined,
+          latitude: locationData?.latitude || undefined,
+          longitude: locationData?.longitude || undefined,
+          location_data: locationData || undefined
         }
       ]);
 

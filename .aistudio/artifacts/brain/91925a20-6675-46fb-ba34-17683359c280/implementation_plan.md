@@ -1,97 +1,91 @@
-# SR Global Consultants - Complete Admin Control Dashboard & Live Supabase Data Architecture
+# IPstack Geolocation Integration, Quota Management & Lead Profile Details Modal
 
-A comprehensive management system and live data architecture for **SR Global Consultants** giving administrators complete real-time control over website content, header navigation, footer links, floating WhatsApp parameters, study destinations, course catalogs, and client inquiries via Supabase PostgreSQL with verified offline fallbacks.
+An intelligent lead enrichment and CRM expansion for **SR Global Consultants** that captures submitter city/country location using APILayer IPstack API (`ebe42933fab1deddffa7e20d5186e6e3`), enforces a strict 99-request monthly ceiling with automatic 1st-of-month reset, and provides an interactive Student Profile modal in the Admin CRM.
 
 ---
 
 ### User Review & Critical Decisions
 
 > [!IMPORTANT]
-> The following architectural decisions have been aligned with your preferences from Phase 1:
-> - **Dashboard Interface Layout**: Modern responsive sidebar with dedicated tabs for Overview/KPIs, Leads Pipeline, Appointments Calendar, Content Management (Destinations, Courses, Testimonials), and Global Site Settings.
-> - **Centralized Configuration Storage**: All site-wide customizations (Floating WhatsApp phone number, pre-filled greeting message, top-bar contact details, header navigation items, and footer columns) will be stored in the Supabase `site_settings` table as structured JSON documents.
-> - **Live-First with Verified Fallback**: Public web views and mobile interfaces query Supabase in real time; if tables are empty or network is disrupted, the system seamlessly displays verified default content with zero layout jumps or crashes.
-> - **Supabase Database Setup Workflow**: Clear single-click SQL execution script (`supabase/schema.sql`) provided for the Supabase SQL Editor to establish all tables, RLS security policies, and initial seed records.
+> The following decisions have been confirmed with your answers:
+> - **Quota & Safety Cutoff**: Monthly IPstack usage is tracked centrally in Supabase `site_settings`. When the count reaches **99 requests** in a calendar month, IP lookup automatically halts to guarantee the free tier (100 requests) is never exceeded or charged.
+> - **Automated Monthly Reset**: The counter checks the current billing month/year; upon entering a new month (e.g. 1st of every month), the request counter automatically resets back to 0.
+> - **Dashboard Key Management & Live Meter**: The API key (`ebe42933fab1deddffa7e20d5186e6e3`) and usage progress bar (e.g., `12 / 100 used`) are editable directly from **Site Settings > API & Geolocation** in the Admin Dashboard.
+> - **Lead Details Pop-up Modal**: Clicking any student row in the Leads CRM table opens a comprehensive modal displaying personal info, academic notes, captured location (city, region, country, IP address, coordinates), status changer, and direct WhatsApp/Email action buttons.
 
 ---
 
 ### 1. Overview & Core Concept
 
 - **What It Does**:
-  Empowers SR Global Consultants staff and administrators to manage their entire digital presence from a single, password-protected CRM dashboard without touching code:
-  1. **Floating WhatsApp Widget**: Instantly change the destination WhatsApp number (e.g., switch between Pakistan branch and Australian counselor) and customize the pre-filled inquiry text.
-  2. **Header & Navigation Control**: Add, edit, reorder, or toggle visibility of top navigation links, announce new service badges, and update emergency helpline numbers.
-  3. **Footer Customization**: Edit head office address, telephone numbers, working hours, and customized resource links in the footer columns.
-  4. **Dynamic Academic Catalogs**: Add new destination countries, upload new trade/vocational courses, and publish verified student visa testimonials.
-  5. **Lead & Appointment CRM**: Track student inquiries in real time, transition lead statuses (New, Contacted, In Progress, Converted), and confirm or reschedule counseling appointments.
+  1. **Automatic Geolocation on Form Submission**:
+     When a student submits the inquiry form (`Home.tsx`, `Contact.tsx`, or `BookAppointment.tsx`), the app requests requester IP details from `https://api.apilayer.net/ipstack/check?access_key=...` (or standard endpoint with header `apikey`).
+     The captured `city`, `region_name`, `country_name`, and `ip` are seamlessly bundled into the lead payload and stored in Supabase.
+  2. **100-Request Free Tier Protection**:
+     Before calling IPstack, the application verifies the monthly count. If count >= 99, the API call is skipped and the form submits normally without blocking the user.
+  3. **Interactive Student Details Modal**:
+     In the Admin CRM (`/admin`), counselors can click on any lead to see all submitted details in an organized drawer/modal with clickable WhatsApp link, location tags, and counselor notes.
 
 - **Target Audience / Persona**:
-  - **Consultancy Administrator & Managing Director**: Needs full administrative governance over marketing copy, phone numbers, and lead assignment.
-  - **Education Counselors & Visa Officers**: Need rapid access to student inquiries, appointment schedules, and course fee details during consultations.
-  - **Prospective Pakistani & International Students**: Receive immediate, accurate contact details and up-to-date admission requirements.
-
-- **Key Value**:
-  Eliminates dependency on developers for daily business adjustments (such as updating staff contact numbers, launching new intake courses, or publishing fresh visa approval success stories).
+  - **SR Global Counselors**: Gain instant geographic context (e.g., student from Gujranwala vs Lahore vs London) to provide personalized counseling.
+  - **Administrator**: Monitors API consumption via a visual quota gauge without risking unexpected charges.
 
 ---
 
 ### 2. User Experience & Visual Design
 
-#### Modern Sidebar Architecture
+#### Admin CRM Modal & Quota Gauge Layout
 ```
-┌───────────────────────────────┬────────────────────────────────────────────────────────┐
-│  SR GLOBAL CONSULTANTS        │  Staff Portal • Live Supabase Connected (●)            │
-│  [Logo] Administration        │                                                        │
-├───────────────────────────────┼────────────────────────────────────────────────────────┤
-│  NAV ITEMS                    │  ACTIVE VIEW PANEL                                     │
-│  📊 Dashboard Overview        │  ┌──────────────────────────────────────────────────┐  │
-│  👥 Leads Inquiries (CRM)     │  │  Metric Cards: Total Leads | Bookings | Courses  │  │
-│  📅 Booked Appointments       │  └──────────────────────────────────────────────────┘  │
-│  🌍 Study Destinations        │                                                        │
-│  🎓 Courses & Programs        │  ┌──────────────────────────────────────────────────┐  │
-│  💬 Student Testimonials      │  │  Interactive Data Table / Edit Form             │  │
-│  ⚙️ Site Settings             │  │  [Search...]  [Filter...]  [+ Add New Item]      │  │
-│     ├─ WhatsApp Widget        │  └──────────────────────────────────────────────────┘  │
-│     ├─ Header & Navbar        │                                                        │
-│     └─ Footer & Contacts      │  ┌──────────────────────────────────────────────────┐  │
-│                               │  │  Live Preview Strip (Instant changes feedback)   │  │
-│  🚪 Logout (Lock Portal)      │  └──────────────────────────────────────────────────┘  │
-└───────────────────────────────┴────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────┐
+│  LEAD DETAILS MODAL                                              [ ✕ ] │
+├────────────────────────────────────────────────────────────────────────┤
+│  ┌─────────────────────────────────┐  ┌─────────────────────────────┐  │
+│  │  Muhammad Hamza                 │  │  Status: [ New          ▼ ] │  │
+│  │  hamza@gmail.com • +92 300 1234 │  │  Created: Today, 10:30 AM   │  │
+│  └─────────────────────────────────┘  └─────────────────────────────┘  │
+│                                                                        │
+│  📍 GEOLOCATION & NETWORK AUDIT                                        │
+│  ┌──────────────────────────────────────────────────────────────────┐  │
+│  │  • City & Region: Gujranwala, Punjab, Pakistan 🇵🇰                 │  │
+│  │  • IP Address:    182.185.120.45                                  │  │
+│  │  • Coordinates:   32.1877° N, 74.1945° E                          │  │
+│  └──────────────────────────────────────────────────────────────────┘  │
+│                                                                        │
+│  🎓 ACADEMIC INTERESTS & INQUIRY                                       │
+│  ┌──────────────────────────────────────────────────────────────────┐  │
+│  │  • Target Destination: Australia (Subclass 500)                  │  │
+│  │  • Course Sector:     Trade & Vocational (Commercial Cookery)    │  │
+│  │  • Student Message:   Completed FSC Pre-Eng with 72%.            │  │
+│  └──────────────────────────────────────────────────────────────────┘  │
+│                                                                        │
+│  📝 COUNSELOR NOTES & ACTIONS                                          │
+│  [ Enter private consultation follow-up notes... ]                     │
+│                                                                        │
+│  [ 💬 Open WhatsApp Chat ]   [ ✉️ Send Email ]   [ 💾 Save Changes ]   │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
-#### Key User Flows:
-1. **WhatsApp Control Flow**:
-   Admin navigates to **Site Settings > WhatsApp** -> Inputs new phone number (e.g., `+92 327 8321560`) and pre-filled message -> Clicks **"Save & Publish"** -> Floating button on public website immediately routes clicks to the new WhatsApp number.
-2. **Course & Destination Management Flow**:
-   Admin clicks **Courses & Programs > Add New Course** -> Fills course title, country, fee range, and career outcomes -> Saves to Supabase -> Instantly appears in the public course catalog with search and filters active.
-3. **Leads & Consultation Pipeline**:
-   When a student submits the inquiry form on the homepage, a new record appears with a "New" badge in the admin CRM -> Counselor clicks "Contacted" or "Converted" -> Status updates live with timestamp.
-
-#### Visual Identity & Theme:
-- **Palette**: Sovereign Navy (`#0A192F`), Aegean Cyan (`#009FE3`), Crisp Slate (`#F8FAFC`), and Success Emerald (`#10B981`).
-- **Typography**: Clean high-density sans-serif (`Inter` / system-ui) for data tables and form controls; elegant serif (`Cinzel` / `Playfair`) for official branding accents.
-- **Feedback & Motion**: Instant toast notifications on save, loading spinners during Supabase sync, inline validation warnings, and confirmation modals before deletions.
+#### Quota Meter in Admin Settings:
+```
+IPstack API Quota: [████████░░░░░░░░░░░░] 34 / 99 Used (65 Remaining)
+Status: Healthy • Monthly Auto-Reset Active (Next Reset: 1st of next month)
+```
 
 ---
 
 ### 3. Key Product Decisions & Trade-Offs
 
-#### Decision 1: JSON Schema in `site_settings` vs Multiple Flat Tables
-- **Chosen Approach**: Store global settings in `site_settings` with dedicated setting keys:
-  - `whatsapp_config`: `{ phone, default_message, is_active }`
-  - `header_config`: `{ top_announcement, phone_pk, phone_au, nav_links }`
-  - `footer_config`: `{ address, email, hours, columns, copyright }`
-  - `company_profile`: `{ name, tagline, social_links, metrics }`
-- **Why**: Allows instant atomic updates and avoids having to run multiple database migrations whenever new UI toggles are added in the future.
-- **Alternatives Considered**: Creating 5 separate SQL tables for each component, which would add unnecessary migration overhead and complexity.
+#### Decision 1: Requester IP Endpoint & APILayer Header Structure
+- **Chosen Approach**: Query `https://api.apilayer.net/ipstack/check` passing both `?access_key=` and header `{ apikey: API_KEY }` to ensure maximum compatibility across APILayer gateway revisions.
+- **Why**: APILayer supports both query parameter and header authentication; supporting both guarantees zero authorization failure.
 
-#### Decision 2: Fallback Hydration Layer
-- **Chosen Approach**: Create a unified Data Provider hook (`useSiteSettings`, `useCourses`, `useDestinations`) that attempts to fetch from Supabase, but if the table is empty or returns an error, transparently hydrates from verified default mock constants.
-- **Why**: Zero downtime and zero white-screen risk if Supabase tables haven't been migrated yet or during transient network disconnects.
+#### Decision 2: Fail-Safe Submission (Non-Blocking)
+- **Chosen Approach**: If IPstack request fails (e.g. ad-blocker, network timeout, or quota exhausted at >= 99), the lead form still submits successfully with `location: 'Unknown / Direct'`.
+- **Why**: Student lead generation must never be hindered by a third-party geolocation service.
 
-#### Decision 3: Supabase Migration Execution
-- **Chosen Approach**: Provide the exact `supabase/schema.sql` code in the workspace and display a 1-click copy section directly inside the Admin Dashboard under **"Database Health & Setup"**.
-- **Why**: Supabase client tokens cannot execute DDL commands (`CREATE TABLE`) for security reasons; providing the copyable SQL script inside the dashboard gives the admin a foolproof 30-second setup.
+#### Decision 3: Atomic Monthly Counter in `site_settings`
+- **Chosen Approach**: Store `{ currentMonth: '2026-11', count: 12, maxLimit: 99 }` in Supabase `site_settings`. When a form is submitted, the counter increments. If the current date's month differs from `currentMonth`, it resets `count = 0`.
+- **Why**: Shared across all client devices and visible in real time on the Admin Dashboard.
 
 ---
 
@@ -99,54 +93,32 @@ A comprehensive management system and live data architecture for **SR Global Con
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│                          REACT PWA FRONTEND                            │
-├────────────────────────────────────────────────────────────────────────┤
-│   Public App Context (useSiteSettings / useLiveCatalog)                │
-│   ├── FloatingWhatsApp  ──► Reads settings.whatsapp_config             │
-│   ├── Navbar & TopBar   ──► Reads settings.header_config               │
-│   ├── Footer Component  ──► Reads settings.footer_config               │
-│   ├── Destinations Page ──► Reads destinations table (or fallback)     │
-│   └── Courses Page      ──► Reads courses table (or fallback)          │
+│                        FORM SUBMISSION FLOW                            │
 └───────────────────────────────────┬────────────────────────────────────┘
                                     │
-                  Realtime Subscriptions / REST Query
+                        Check Quota (Count < 99)
+                                    │
+                  ┌─────────────────┴─────────────────┐
+                  ▼                                   ▼
+          [ Count < 99 ]                       [ Count >= 99 ]
+                  │                                   │
+      Fetch api.apilayer.net/ipstack/check     Bypass IP Lookup
+                  │                                   │
+      Increment Monthly Counter                       │
+                  │                                   │
+                  └─────────────────┬─────────────────┘
                                     │
                                     ▼
 ┌────────────────────────────────────────────────────────────────────────┐
-│                        SUPABASE POSTGRESQL                             │
-├────────────────────────────────────────────────────────────────────────┤
-│   Tables:                                                              │
-│   • site_settings    (JSON configs for WhatsApp, Header, Footer)       │
-│   • leads            (CRM Inquiries from Quick Form & Modals)          │
-│   • appointments     (Consultations with double-booking prevention)   │
-│   • destinations     (Study country guides & requirements)             │
-│   • courses          (Academic & trade course catalog)                 │
-│   • testimonials     (Approved student visa success stories)           │
-└───────────────────────────────────▲────────────────────────────────────┘
+│                      SAVE LEAD TO SUPABASE POSTGRES                    │
+│  • full_name, email, phone, destination, course_interest, notes        │
+│  • city, region_name, country_name, ip_address, latitude, longitude    │
+└───────────────────────────────────┬────────────────────────────────────┘
                                     │
-                        Admin Writes / Mutations
-                                    │
-┌───────────────────────────────────┴────────────────────────────────────┐
-│                    ADMIN CRM DASHBOARD (/admin)                        │
-├────────────────────────────────────────────────────────────────────────┤
-│   • Leads Tab: Filter, search, status change, export CSV               │
-│   • Appointments Tab: Calendar view, slot confirmation, status         │
-│   • Content Tab: Add/Edit/Delete Courses, Destinations, Testimonials   │
-│   • Settings Tab: Edit WhatsApp, Navbar, Footer, Address, Phones       │
-│   • DB Setup Tab: 1-click copy of schema.sql with status indicators    │
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│                      ADMIN LEADS CRM DASHBOARD                         │
+│  • Lead Row Click ──► Opens Full Student Details Modal                 │
+│  • Settings Tab   ──► View/Edit IPstack Key & Quota Meter              │
 └────────────────────────────────────────────────────────────────────────┘
 ```
-
-#### Data Entities & State Strategy:
-- **`site_settings`**:
-  - `setting_key` (TEXT PRIMARY KEY)
-  - `setting_value` (JSONB)
-  - `updated_at` (TIMESTAMPTZ)
-- **`leads`**:
-  - `id`, `full_name`, `email`, `phone`, `destination`, `course_interest`, `status`, `notes`, `created_at`
-- **`appointments`**:
-  - `id`, `client_name`, `email`, `phone`, `destination`, `appointment_date`, `time_slot`, `mode`, `status`
-- **`courses`**:
-  - `id`, `title`, `category_slug`, `country`, `duration`, `estimated_fees`, `intake_months`, `description`, `career_paths`
-- **`destinations`**:
-  - `id`, `country_name`, `slug`, `avg_living_cost`, `work_rights`, `visa_subclass`, `overview`, `visa_process`, `admission_requirements`

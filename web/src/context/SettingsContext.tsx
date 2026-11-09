@@ -51,6 +51,13 @@ const DEFAULT_SETTINGS: SiteSettings = {
     visaSuccessRate: SITE_METRICS.visaSuccessRate || '98.4%',
     yearsExperience: SITE_METRICS.yearsExperience || '12+',
   },
+  ipstack: {
+    apiKey: 'ebe42933fab1deddffa7e20d5186e6e3',
+    isEnabled: true,
+    requestCount: 0,
+    maxMonthlyLimit: 99,
+    currentMonth: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`,
+  },
 };
 
 const LOCAL_STORAGE_KEY = 'sr_global_site_settings_v1';
@@ -61,6 +68,8 @@ interface SettingsContextType {
   updateHeader: (config: SiteSettings['header']) => Promise<boolean>;
   updateFooter: (config: SiteSettings['footer']) => Promise<boolean>;
   updateMetrics: (config: SiteSettings['metrics']) => Promise<boolean>;
+  updateIpstack: (config: SiteSettings['ipstack']) => Promise<boolean>;
+  resetIpstackQuota: () => Promise<boolean>;
   resetToDefaults: () => Promise<boolean>;
   isSyncing: boolean;
   isLiveSupabase: boolean;
@@ -108,6 +117,8 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               liveMerged.footer = { ...liveMerged.footer, ...row.setting_value };
             } else if (row.setting_key === 'metrics_config' && row.setting_value) {
               liveMerged.metrics = { ...liveMerged.metrics, ...row.setting_value };
+            } else if (row.setting_key === 'ipstack_config' && row.setting_value) {
+              liveMerged.ipstack = { ...liveMerged.ipstack, ...row.setting_value };
             }
           });
 
@@ -188,6 +199,29 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return true;
   };
 
+  const updateIpstack = async (config: SiteSettings['ipstack']) => {
+    const next = { ...settings, ipstack: config };
+    setSettings(next);
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(next));
+    await saveToSupabase('ipstack_config', config);
+    return true;
+  };
+
+  const resetIpstackQuota = async () => {
+    const next = {
+      ...settings,
+      ipstack: {
+        ...settings.ipstack,
+        requestCount: 0,
+        lastUpdated: new Date().toISOString(),
+      },
+    };
+    setSettings(next);
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(next));
+    await saveToSupabase('ipstack_config', next.ipstack);
+    return true;
+  };
+
   const resetToDefaults = async () => {
     setSettings(DEFAULT_SETTINGS);
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(DEFAULT_SETTINGS));
@@ -206,6 +240,8 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         updateHeader,
         updateFooter,
         updateMetrics,
+        updateIpstack,
+        resetIpstackQuota,
         resetToDefaults,
         isSyncing,
         isLiveSupabase,
