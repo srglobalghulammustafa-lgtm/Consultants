@@ -51,27 +51,30 @@ export const TrackAppointment: React.FC = () => {
         </div>
 
         {/* Search Bar Card */}
-        <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-xl">
-          <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-3">
+        <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-2xl shadow-brand-500/10">
+          <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1">
-              <Search className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+              <Search className="w-5 h-5 text-brand-500 absolute left-4 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 required
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Enter SRG-APT-XXXX or Phone (+923001234567)"
-                className="w-full pl-12 pr-4 py-3.5 rounded-2xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm font-semibold tracking-wide"
+                placeholder="Enter SRG-APT-XXXX Reference ID"
+                className="w-full pl-12 pr-4 py-4 rounded-2xl border-2 border-slate-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none text-sm font-semibold tracking-wide transition-all"
               />
             </div>
             <button
               type="submit"
-              className="bg-brand-500 hover:bg-brand-600 text-white font-bold px-6 py-3.5 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 text-sm shrink-0"
+              className="bg-navy-950 hover:bg-navy-900 text-white font-bold px-8 py-4 rounded-2xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 text-sm shrink-0"
             >
-              <span>Search Status</span>
+              <span>Track Application</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>
+          <p className="text-slate-400 text-[11px] mt-4 text-center">
+            Need help? Contact us via the WhatsApp button at the bottom right.
+          </p>
         </div>
 
         {/* Search Results Display */}
