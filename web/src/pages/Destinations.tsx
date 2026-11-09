@@ -44,8 +44,11 @@ export const Destinations: React.FC = () => {
         {/* Active Destination Detail Pane */}
         <div className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
           {/* Top Banner */}
-          <div className="bg-navy-950 text-white p-8 sm:p-12 border-b-4 border-brand-500">
-            <div className="flex flex-wrap justify-between items-center gap-6">
+          <div className={`p-8 sm:p-12 border-b-4 border-brand-500 relative ${!activeDestination.imageUrl ? 'bg-navy-950 text-white' : ''}`}>
+            {activeDestination.imageUrl && (
+              <img src={activeDestination.imageUrl} alt={activeDestination.country_name} className="absolute inset-0 w-full h-full object-cover brightness-50" />
+            )}
+            <div className="flex flex-wrap justify-between items-center gap-6 relative z-10">
               <div className="flex items-center gap-4">
                 <span className="text-6xl">{activeDestination.flag}</span>
                 <div>
@@ -53,7 +56,7 @@ export const Destinations: React.FC = () => {
                     {activeDestination.visa_subclass}
                   </div>
                   <h2 className="text-3xl sm:text-4xl font-black">{activeDestination.country_name}</h2>
-                  <p className="text-slate-300 text-sm mt-1">Capital: {activeDestination.capital} • Currency: {activeDestination.currency}</p>
+                  <p className="text-slate-200 text-sm mt-1">Capital: {activeDestination.capital} • Currency: {activeDestination.currency}</p>
                 </div>
               </div>
 

@@ -68,6 +68,14 @@ export interface CourseCategory {
   count: number;
 }
 
+export interface Banner {
+  id: string;
+  imageUrl: string;
+  title: string;
+  description: string;
+  link: string;
+}
+
 export interface Destination {
   country_name: string;
   slug: string;
@@ -81,6 +89,7 @@ export interface Destination {
   admission_requirements: string;
   top_universities: string[];
   flag: string;
+  imageUrl?: string;
 }
 
 export interface Testimonial {
@@ -92,6 +101,7 @@ export interface Testimonial {
   quote: string;
   rating: number;
   year?: string;
+  imageUrl?: string;
 }
 
 export interface WhatsAppConfig {
@@ -180,4 +190,5 @@ export interface SiteSettings {
   adminPin?: string;
   activeBroadcast?: BroadcastNotification;
   broadcastHistory?: BroadcastNotification[];
+  banners?: Banner[];
 }

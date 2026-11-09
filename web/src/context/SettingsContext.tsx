@@ -82,6 +82,7 @@ interface SettingsContextType {
   updateAppointmentConfig: (config: { maxPerDay: number }) => Promise<boolean>;
   updateAdminPin: (newPin: string) => Promise<boolean>;
   sendBroadcastNotification: (notif: Omit<BroadcastNotification, 'id' | 'created_at'>) => Promise<boolean>;
+  deleteBroadcast: (id: string) => Promise<boolean>;
   clearBroadcastHistory: () => Promise<boolean>;
   resetIpstackQuota: () => Promise<boolean>;
   resetToDefaults: () => Promise<boolean>;
@@ -265,6 +266,18 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return true;
   };
 
+  const deleteBroadcast = async (id: string) => {
+    const nextHistory = (settings.broadcastHistory || []).filter(h => h.id !== id);
+    const nextActive = settings.activeBroadcast?.id === id ? undefined : settings.activeBroadcast;
+    
+    const next = { ...settings, broadcastHistory: nextHistory, activeBroadcast: nextActive };
+    setSettings(next);
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(next));
+    await saveToSupabase('broadcast_history', nextHistory);
+    await saveToSupabase('active_broadcast', nextActive);
+    return true;
+  };
+
   const clearBroadcastHistory = async () => {
     const next = { ...settings, broadcastHistory: [] };
     setSettings(next);
@@ -310,6 +323,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         updateAppointmentConfig,
         updateAdminPin,
         sendBroadcastNotification,
+        deleteBroadcast,
         clearBroadcastHistory,
         resetIpstackQuota,
         resetToDefaults,

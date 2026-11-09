@@ -29,7 +29,7 @@ export const AdminDashboard: React.FC = () => {
   } = useLiveData();
 
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'leads' | 'appointments' | 'destinations' | 'courses' | 'testimonials' | 'whatsapp' | 'broadcast' | 'header' | 'footer' | 'ipstack' | 'security' | 'database'
+    'overview' | 'leads' | 'appointments' | 'destinations' | 'courses' | 'testimonials' | 'whatsapp' | 'broadcast' | 'header' | 'footer' | 'banners' | 'ipstack' | 'security' | 'database'
   >('overview');
 
   // Filter & Selected Lead Modal State
@@ -639,6 +639,18 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
             >
               <Settings className="w-4 h-4 text-brand-500" />
               <span>Footer & Contacts</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('banners')}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+                activeTab === 'banners'
+                  ? 'bg-brand-50 text-brand-600 font-bold'
+                  : 'text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              <LayoutDashboard className="w-4 h-4 text-brand-500" />
+              <span>Homepage Banners</span>
             </button>
 
             <button
@@ -1450,6 +1462,17 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                         />
                       </div>
 
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Custom Image URL</label>
+                          <input
+                            type="url"
+                            value={newDestination.imageUrl || ''}
+                            onChange={(e) => setNewDestination({ ...newDestination, imageUrl: e.target.value })}
+                            placeholder="https://example.com/flag.png"
+                            className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
+                          />
+                        </div>
+                      </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Flag Emoji</label>
@@ -1781,6 +1804,18 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                           value={newTestimonial.student_name}
                           onChange={(e) => setNewTestimonial({ ...newTestimonial, student_name: e.target.value })}
                           placeholder="e.g. Bilal Hassan"
+                          className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Student Photo URL (Google Drive Link)</label>
+                        <input
+                          type="url"
+                          required
+                          value={newTestimonial.imageUrl || ''}
+                          onChange={(e) => setNewTestimonial({ ...newTestimonial, imageUrl: e.target.value })}
+                          placeholder="https://drive.google.com/..."
                           className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
                         />
                       </div>
@@ -2458,6 +2493,37 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                     </button>
                   </div>
                 </form>
+              </div>
+            </div>
+          )}
+
+          {/* TAB: BANNERS */}
+          {activeTab === 'banners' && (
+            <div className="space-y-6">
+              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex justify-between items-center">
+                <div>
+                  <h2 className="text-xl font-bold text-navy-950">Homepage Banner Management</h2>
+                  <p className="text-xs text-slate-500">Add or manage hero banners displayed on the homepage.</p>
+                </div>
+              </div>
+              <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
+                 {/* Simplified Banner List */}
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {banners.map((banner) => (
+                    <div key={banner.id} className="p-4 border rounded-2xl bg-slate-50 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                         <img src={banner.imageUrl} alt={banner.title} className="w-16 h-10 object-cover rounded" />
+                         <div>
+                           <p className="font-bold text-sm text-navy-950">{banner.title}</p>
+                           <p className="text-xs text-slate-500 truncate max-w-xs">{banner.description}</p>
+                         </div>
+                      </div>
+                      <button onClick={() => { deleteBanner(banner.id); showToast('Banner deleted'); }} className="text-red-500 hover:text-red-700">
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </div>
+                  ))}
+                 </div>
               </div>
             </div>
           )}
