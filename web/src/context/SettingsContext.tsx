@@ -138,8 +138,8 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               liveMerged.appointmentConfig = { ...liveMerged.appointmentConfig, ...row.setting_value };
             } else if (row.setting_key === 'admin_security' && row.setting_value) {
               liveMerged.adminPin = row.setting_value.pin || row.setting_value;
-            } else if (row.setting_key === 'active_broadcast' && row.setting_value) {
               liveMerged.activeBroadcast = row.setting_value;
+            }
           });
 
           // Fetch Latest Broadcasts from dedicated table
