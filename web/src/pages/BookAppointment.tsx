@@ -33,6 +33,9 @@ export const BookAppointment: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [copiedCode, setCopiedCode] = useState(false);
 
+  const maxDailyLimit = settings.appointmentConfig?.maxPerDay || 10;
+  const isDailyLimitReached = bookedSlots.length >= maxDailyLimit;
+
   // Check double-booking availability on date change
   useEffect(() => {
     const fetchBookedSlots = async () => {
@@ -63,6 +66,10 @@ export const BookAppointment: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isDailyLimitReached) {
+      setErrorMessage(`Daily booking limit reached for ${selectedDate} (Maximum ${maxDailyLimit} appointments/day allowed). Please choose a different date.`);
+      return;
+    }
     if (!selectedSlot) {
       setErrorMessage('Please select an available consultation time slot.');
       return;
@@ -245,7 +252,14 @@ export const BookAppointment: React.FC = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-2">Appointment Date</label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-xs font-bold text-slate-700 uppercase">Appointment Date</label>
+                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                      isDailyLimitReached ? 'bg-red-100 text-red-700' : 'bg-brand-50 text-brand-700'
+                    }`}>
+                      {bookedSlots.length}/{maxDailyLimit} Booked for Date
+                    </span>
+                  </div>
                   <input
                     type="date"
                     required
@@ -254,7 +268,14 @@ export const BookAppointment: React.FC = () => {
                     onChange={(e) => setSelectedDate(e.target.value)}
                     className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm font-semibold"
                   />
-                  <p className="text-xs text-slate-400 mt-1">Appointments available Monday to Saturday.</p>
+                  {isDailyLimitReached ? (
+                    <p className="text-xs font-bold text-red-600 mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      Daily quota reached for this date. Please pick another date.
+                    </p>
+                  ) : (
+                    <p className="text-xs text-slate-400 mt-1">Appointments available Monday to Saturday.</p>
+                  )}
                 </div>
 
                 <div>

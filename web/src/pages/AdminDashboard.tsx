@@ -17,7 +17,7 @@ export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { 
     settings, updateWhatsApp, updateHeader, updateFooter, 
-    updateMetrics, updateIpstack, updateAdminPin, sendBroadcastNotification, resetIpstackQuota, isSyncing, isLiveSupabase 
+    updateMetrics, updateIpstack, updateAppointmentConfig, updateAdminPin, sendBroadcastNotification, resetIpstackQuota, isSyncing, isLiveSupabase 
   } = useSiteSettings();
 
   const { 
@@ -104,6 +104,17 @@ export const AdminDashboard: React.FC = () => {
   const [footerForm, setFooterForm] = useState({ ...settings.footer });
   const [metricsForm, setMetricsForm] = useState({ ...settings.metrics });
   const [ipstackForm, setIpstackForm] = useState({ ...settings.ipstack });
+  const [maxPerDayInput, setMaxPerDayInput] = useState<number>(settings.appointmentConfig?.maxPerDay || 10);
+
+  const handleSaveMaxPerDay = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (maxPerDayInput < 1) {
+      showToast('Daily appointment limit must be at least 1 per day');
+      return;
+    }
+    await updateAppointmentConfig({ maxPerDay: maxPerDayInput });
+    showToast(`Daily appointment booking limit updated to ${maxPerDayInput} per day!`);
+  };
   const [broadcastForm, setBroadcastForm] = useState({
     title: '',
     message: '',
@@ -1200,11 +1211,34 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
           {/* TAB 3: APPOINTMENTS */}
           {activeTab === 'appointments' && (
             <div className="space-y-6">
-              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex justify-between items-center">
+              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                   <h2 className="text-xl font-bold text-navy-950">Booked Counseling Appointments</h2>
                   <p className="text-xs text-slate-500">Scheduled office walk-ins and Zoom sessions with students</p>
                 </div>
+
+                {/* Daily Quota Configuration Control */}
+                <form onSubmit={handleSaveMaxPerDay} className="flex items-center gap-2.5 bg-slate-50 p-2.5 rounded-2xl border border-slate-200">
+                  <div className="text-xs font-bold text-slate-700 whitespace-nowrap">
+                    Max / Day:
+                  </div>
+                  <input
+                    type="number"
+                    min={1}
+                    max={50}
+                    value={maxPerDayInput}
+                    onChange={(e) => setMaxPerDayInput(Number(e.target.value))}
+                    className="w-16 px-2.5 py-1.5 rounded-xl border border-slate-300 font-bold text-xs text-center"
+                  />
+                  <button
+                    type="submit"
+                    disabled={isSyncing}
+                    className="inline-flex items-center gap-1 bg-brand-500 hover:bg-brand-600 text-white font-bold px-3 py-1.5 rounded-xl text-xs shadow-sm transition-all"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>Save Limit</span>
+                  </button>
+                </form>
               </div>
 
               <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
@@ -2088,8 +2122,35 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                             {link.isVisible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
                             <span>{link.isVisible ? 'Visible' : 'Hidden'}</span>
                           </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = headerForm.navLinks.filter((_, i) => i !== idx);
+                              setHeaderForm({ ...headerForm, navLinks: updated });
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-red-500"
+                            title="Delete Link"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
                       ))}
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updated = [
+                            ...headerForm.navLinks,
+                            { id: `nav-${Date.now()}`, name: 'New Page', path: '/', isVisible: true }
+                          ];
+                          setHeaderForm({ ...headerForm, navLinks: updated });
+                        }}
+                        className="inline-flex items-center gap-1.5 text-xs font-bold text-brand-600 bg-brand-50 hover:bg-brand-100 px-3.5 py-2 rounded-lg transition-colors mt-2"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Add New Navbar Link</span>
+                      </button>
                     </div>
                   </div>
 

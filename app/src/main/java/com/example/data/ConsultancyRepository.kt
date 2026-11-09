@@ -560,9 +560,9 @@ class ConsultancyRepository(
         _courses.update { list -> list.filter { it.id != courseId } }
     }
 
-    fun verifyAdminPin(enteredPin: String): Boolean {
-        // Standard admin access code
-        return enteredPin == "1234" || enteredPin == "0000"
+    fun verifyAdminPin(enteredPin: String, customPin: String? = null): Boolean {
+        val activePin = customPin?.takeIf { it.isNotBlank() }
+        return enteredPin == "1234" || enteredPin == "0000" || (activePin != null && enteredPin == activePin)
     }
 
     fun exportLeadsCsv(): String {

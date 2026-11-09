@@ -1,119 +1,64 @@
-# Broadcast Notification Center, Premium Audio & Editable Footer Year Plan
+# Implementation Plan - Instant Appointment Sync, Header Track Status Link & Footer Copyright Control
 
-Comprehensive architectural and implementation plan for **SR Global Consultants** introducing a real-time Admin Broadcast Notification Dispatcher, Web Audio API chime sound generator, interactive Navbar Notification Bell dropdown, Android system status bar notifications, and an editable Footer Copyright Year manager.
-
----
-
-## User Review & Critical Decisions
-
-> [!IMPORTANT]
-> The following product choices were confirmed by the user:
-> - **Web Notification Display**: Top Announcement Banner at the header level plus an interactive Notification Bell dropdown menu in `Navbar.tsx` with badge counter.
-> - **Web Premium Audio Chime**: Synthetic two-tone glass chime generated via Web Audio API (`AudioContext`), playing when notifications arrive or are inspected without requiring external MP3 file downloads.
-> - **Android App Notifications**: Real Android system status bar notification (via `NotificationManager` / `NotificationCompat.Builder`) with sound/vibration plus an animated top header banner when the app is active.
-> - **Footer Copyright Year**: Editable `copyrightYear` field in Admin Settings -> Footer tab with dynamic string formatting (`© {copyrightYear} SR Global Consultants. All rights reserved. Gujranwala • Australia.`).
+Aligning appointment booking persistence, customizable header navigation for Track Appointment Status, and live dynamic footer copyright year updates across Web and Android platforms.
 
 ---
 
-## 1. Overview & Core Concept
+## 1. Instant Real-Time Appointment Booking Sync
 
-```text
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                 ADMIN BROADCAST NOTIFICATION PIPELINE                       │
-└─────────────────────────────────────────────────────────────────────────────┘
+### User Problem & Objective
+- Newly submitted appointments (whether fee paid or pending fee verification) must immediately appear in the **Admin Dashboard** under the Appointments tab without manual database delays or filtering issues.
 
-  [Admin Dashboard: Dispatch Center]
-         │
-         ├──► Pushes to Supabase (`broadcast_notifications` & `site_settings`)
-         │
-         ├──► WEB CLIENT
-         │     ├── Top Announcement Banner
-         │     ├── Navbar Bell Icon & Dropdown Menu
-         │     └── Web Audio API Glass Chime Sound Effect
-         │
-         └──► ANDROID CLIENT
-               ├── System Status Bar Notification (`NotificationCompat`)
-               ├── In-App Animated Top Header Banner
-               └── System Audio Ping & Vibration
-```
-
-1. **Admin Broadcast Dispatcher**:
-   - Located in `AdminDashboard.tsx` under a dedicated "Notifications" tab.
-   - Form fields: Title, Message, Priority (`Normal`, `Urgent`), Target Page Link (`/courses`, `/book-appointment`), Play Sound Toggle.
-   - Saves broadcast records to Supabase table `broadcast_notifications` and updates `site_settings` key `active_broadcast`.
-
-2. **Web Portal Notification System**:
-   - **Header Announcement Banner**: Positioned at the top of `Navbar.tsx`, displaying urgent admissions or visa policy updates.
-   - **Navbar Notification Bell**: Bell button with badge counter (`1`, `2`) displaying recent broadcasts in a glassmorphic dropdown list with timestamps and direct action links.
-   - **Synthesized Glass Chime Sound**: A custom pure-tone Web Audio API sound generator (`playPremiumChime()`) that plays a pleasant 2-step harmonic chime (`523.25Hz` C5 → `659.25Hz` E5).
-
-3. **Android App System Notifications**:
-   - **Android Status Bar Notification**: Dispatches real system notifications using `NotificationManager` and `NotificationCompat.Builder` (Channel: `SR_GLOBAL_BROADCASTS`, Importance: `HIGH`).
-   - **In-App Top Banner**: Smoothly animated top bar with sound feedback when the app is foregrounded.
-
-4. **Footer Copyright & Year Manager**:
-   - `copyrightYear` state added to `SiteSettings['footer']` (default: `'2026'`).
-   - Dynamically renders `© {footer.copyrightYear || '2026'} SR Global Consultants. All rights reserved. Gujranwala • Australia.` across all footer instances.
+### Architecture & Solution
+- **Web Data Layer (`LiveDataContext.tsx`)**:
+  - Verify `addAppointment` persists to Supabase `appointments` table while synchronously appending to local `appointments` state.
+  - Set default status to `Pending` (Pending Fee Verification) so admin can inspect, record fee payment, add counselor notes, and toggle status to `Confirmed`.
+- **Booking Form (`BookAppointment.tsx`)**:
+  - Connect booking submission to `addAppointment()`, auto-generating `appointment_code` (`SRG-APT-XXXX`) and triggering immediate confirmation modal with WhatsApp fee verification link.
+- **Android Data Layer (`ConsultancyRepository.kt` & `AppointmentScreen.kt`)**:
+  - Ensure Kotlin repository inserts new appointment entries directly into Supabase `appointments` table with `SRG-APT-XXXX` ID and updates `MainViewModel` state.
+- **Admin Dashboard (`AdminDashboard.tsx`)**:
+  - Render all appointments in table view with filter toggles (`All`, `Pending Fee Verification`, `Confirmed`, `Completed`, `Cancelled`) and CRM popup modal.
 
 ---
 
-## 2. Technical Architecture & Data Strategy
+## 2. Admin Header Control for "Track Status" Link
 
-### 1. Web Files & Data Layer
-- **`web/src/types.ts`**:
-  - Add `BroadcastNotification` interface (`id`, `title`, `message`, `priority`, `link`, `created_at`, `is_active`).
-  - Add `copyrightYear?: string` to `FooterConfig`.
-  - Add `activeBroadcast?: BroadcastNotification` to `SiteSettings`.
-- **`web/src/lib/audio.ts`** (New File):
-  - `playPremiumChime()`: Web Audio API oscillator synthesizing a soft 2-tone harmonic chime.
-- **`web/src/context/SettingsContext.tsx`**:
-  - Add `sendBroadcastNotification(notification: BroadcastNotification): Promise<boolean>`.
-  - Persist `activeBroadcast` in `site_settings`.
-- **`web/src/components/Navbar.tsx`**:
-  - Render top Announcement Banner.
-  - Render Notification Bell with badge counter and interactive dropdown menu.
-- **`web/src/components/Footer.tsx`**:
-  - Render dynamic year `© {footer.copyrightYear || new Date().getFullYear().toString()}...`.
+### User Problem & Objective
+- The Track Appointment Status page link (`/track-appointment`) should be fully editable and manageable from the Admin Dashboard Header Settings tab (custom title, path, and visibility toggle).
 
-### 2. Android App Architecture
-- **`app/src/main/java/com/example/util/NotificationHelper.kt`** (New File):
-  - Creates Android `NotificationChannel` (`sr_global_broadcast_channel`).
-  - Dispatches `NotificationCompat.Builder` system status bar notifications with sound, vibration, and small icon (`R.drawable.sr_global_icon`).
-- **`app/src/main/java/com/example/ui/components/CommonComponents.kt`**:
-  - Add `BroadcastTopBanner` composable rendered inside `MainActivity.kt`.
+### Architecture & Solution
+- **Header Settings Schema (`SettingsContext.tsx`)**:
+  - Include `{ id: '6', name: 'Track Status', path: '/track-appointment', isVisible: true }` in `header.navLinks`.
+- **Admin Dashboard Header Editor (`AdminDashboard.tsx`)**:
+  - Expose "Track Status" in the Header & Navbar tab for editing label, path, and visibility toggle.
+- **Public Navigation (`Navbar.tsx` & Android App)**:
+  - Dynamically render all visible `navLinks` in desktop top navbar and mobile drawer.
 
 ---
 
-## 3. Execution Sequence & Sub-Tasks
+## 3. Dynamic Footer Copyright Year Management
 
-1. **Types & Audio Engine Setup**:
-   - Update `web/src/types.ts` with `BroadcastNotification` and `copyrightYear`.
-   - Create `web/src/lib/audio.ts` with Web Audio API chime synthesizer.
-2. **Settings Context Integration**:
-   - Add `sendBroadcastNotification` and `updateFooterYear` in `SettingsContext.tsx`.
-3. **Navbar & Bell Dropdown Component**:
-   - Update `Navbar.tsx` with top announcement bar and Notification Bell menu.
-4. **Footer Year Update**:
-   - Update `Footer.tsx` to use dynamic `copyrightYear`.
-5. **Admin Dashboard Broadcast Manager**:
-   - Add Broadcast Notification Dispatcher tab and Footer Year Editor input in `AdminDashboard.tsx`.
-6. **Android Notification Helper & Top Banner**:
-   - Create `NotificationHelper.kt` and integrate status bar dispatch in `MainActivity.kt`.
-7. **Compilation & Verification**:
-   - Run `npm run build` in `/web`.
-   - Run `compile_applet` for Android.
+### User Problem & Objective
+- Admin must be able to manually edit and update the Footer Copyright Year (e.g. `2026`), with instant live updates on both the public website and Android app.
+
+### Architecture & Solution
+- **Footer Component (`Footer.tsx`)**:
+  - Render `© {footer.copyrightYear || new Date().getFullYear()} {footer.copyright}`.
+- **Admin Footer Control (`AdminDashboard.tsx`)**:
+  - Connect `copyrightYear` input field to `footerForm` and save to Supabase `site_settings` under key `footer_config`.
 
 ---
 
-## 4. Verification Plan
+## Verification Plan
 
-1. **Admin Broadcast Dispatch Verification**:
-   - Go to Admin Dashboard -> Notifications tab, type "Special July Intake Discount!", choose `High` priority, and click "Send Broadcast Notification".
-2. **Web Portal Verification**:
-   - Observe top announcement banner appear on website.
-   - Click Notification Bell in Navbar, verify dropdown shows message and badge count.
-   - Verify premium chime sound plays via Web Audio API.
-3. **Footer Year Verification**:
-   - Update `copyrightYear` in Admin Settings -> Footer tab from `2026` to `2027`; verify public footer displays `© 2027 SR Global Consultants...`.
-4. **Android App Verification**:
-   - Launch app, verify top notification banner appears, and check status bar notification dispatch logic.
+### Automated & Build Validation
+- **Web Build**: Execute `npm run build` in `/web` to verify 0 TypeScript/JSX compilation errors.
+- **Android Build**: Execute `compile_applet` to confirm Kotlin and Compose UI compilation success.
+
+### Interactive CUJ Test
+1. Book an appointment on public web site / app.
+2. Verify reference ID `SRG-APT-XXXX` is generated.
+3. Open `/admin` (PIN `1234`) -> Appointments tab, verify the new appointment displays immediately with status `Pending Fee Verification`.
+4. Edit Header settings to rename "Track Status" to custom text; verify navbar updates live.
+5. Edit Footer copyright year to `2026`; verify footer updates instantly across Web and App.

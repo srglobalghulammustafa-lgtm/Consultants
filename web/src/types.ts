@@ -164,12 +164,17 @@ export interface IpstackConfig {
   lastUpdated?: string;
 }
 
+export interface AppointmentConfig {
+  maxPerDay: number;
+}
+
 export interface SiteSettings {
   whatsapp: WhatsAppConfig;
   header: HeaderConfig;
   footer: FooterConfig;
   metrics: CompanyMetrics;
   ipstack: IpstackConfig;
+  appointmentConfig?: AppointmentConfig;
   adminPin?: string;
   activeBroadcast?: BroadcastNotification;
   broadcastHistory?: BroadcastNotification[];

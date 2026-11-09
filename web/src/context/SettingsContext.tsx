@@ -20,7 +20,8 @@ const DEFAULT_SETTINGS: SiteSettings = {
       { id: '2', name: 'About Us', path: '/about', isVisible: true },
       { id: '3', name: 'Courses & Programs', path: '/courses', isVisible: true },
       { id: '4', name: 'Study Destinations', path: '/destinations', isVisible: true },
-      { id: '5', name: 'Contact Office', path: '/contact', isVisible: true },
+      { id: '5', name: 'Track Status', path: '/track-appointment', isVisible: true },
+      { id: '6', name: 'Contact Office', path: '/contact', isVisible: true },
     ],
   },
   footer: {
@@ -61,6 +62,9 @@ const DEFAULT_SETTINGS: SiteSettings = {
     maxMonthlyLimit: 99,
     currentMonth: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`,
   },
+  appointmentConfig: {
+    maxPerDay: 10,
+  },
   adminPin: '1234',
   broadcastHistory: [],
 };
@@ -74,6 +78,7 @@ interface SettingsContextType {
   updateFooter: (config: SiteSettings['footer']) => Promise<boolean>;
   updateMetrics: (config: SiteSettings['metrics']) => Promise<boolean>;
   updateIpstack: (config: SiteSettings['ipstack']) => Promise<boolean>;
+  updateAppointmentConfig: (config: { maxPerDay: number }) => Promise<boolean>;
   updateAdminPin: (newPin: string) => Promise<boolean>;
   sendBroadcastNotification: (notif: Omit<BroadcastNotification, 'id' | 'created_at'>) => Promise<boolean>;
   resetIpstackQuota: () => Promise<boolean>;
@@ -126,6 +131,8 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               liveMerged.metrics = { ...liveMerged.metrics, ...row.setting_value };
             } else if (row.setting_key === 'ipstack_config' && row.setting_value) {
               liveMerged.ipstack = { ...liveMerged.ipstack, ...row.setting_value };
+            } else if (row.setting_key === 'appointment_config' && row.setting_value) {
+              liveMerged.appointmentConfig = { ...liveMerged.appointmentConfig, ...row.setting_value };
             } else if (row.setting_key === 'admin_security' && row.setting_value) {
               liveMerged.adminPin = row.setting_value.pin || row.setting_value;
             } else if (row.setting_key === 'active_broadcast' && row.setting_value) {
@@ -219,6 +226,14 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return true;
   };
 
+  const updateAppointmentConfig = async (config: { maxPerDay: number }) => {
+    const next = { ...settings, appointmentConfig: config };
+    setSettings(next);
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(next));
+    await saveToSupabase('appointment_config', config);
+    return true;
+  };
+
   const updateAdminPin = async (newPin: string) => {
     const next = { ...settings, adminPin: newPin };
     setSettings(next);
@@ -282,6 +297,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         updateFooter,
         updateMetrics,
         updateIpstack,
+        updateAppointmentConfig,
         updateAdminPin,
         sendBroadcastNotification,
         resetIpstackQuota,
