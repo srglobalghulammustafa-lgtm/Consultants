@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { SiteSettings } from '../types';
+import { SiteSettings, BroadcastNotification } from '../types';
 import { COMPANY_CONTACT, SITE_METRICS } from '../data/mockData';
 
 const DEFAULT_SETTINGS: SiteSettings = {
@@ -46,6 +46,7 @@ const DEFAULT_SETTINGS: SiteSettings = {
       { id: 'q4', label: 'Contact Gujranwala', path: '/contact' },
     ],
     copyright: 'SR Global Consultants. All rights reserved. Gujranwala • Australia.',
+    copyrightYear: '2026',
   },
   metrics: {
     studentsGuided: SITE_METRICS.studentsGuided || 5200,
@@ -61,6 +62,7 @@ const DEFAULT_SETTINGS: SiteSettings = {
     currentMonth: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`,
   },
   adminPin: '1234',
+  broadcastHistory: [],
 };
 
 const LOCAL_STORAGE_KEY = 'sr_global_site_settings_v1';
@@ -73,6 +75,7 @@ interface SettingsContextType {
   updateMetrics: (config: SiteSettings['metrics']) => Promise<boolean>;
   updateIpstack: (config: SiteSettings['ipstack']) => Promise<boolean>;
   updateAdminPin: (newPin: string) => Promise<boolean>;
+  sendBroadcastNotification: (notif: Omit<BroadcastNotification, 'id' | 'created_at'>) => Promise<boolean>;
   resetIpstackQuota: () => Promise<boolean>;
   resetToDefaults: () => Promise<boolean>;
   isSyncing: boolean;
@@ -125,13 +128,16 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               liveMerged.ipstack = { ...liveMerged.ipstack, ...row.setting_value };
             } else if (row.setting_key === 'admin_security' && row.setting_value) {
               liveMerged.adminPin = row.setting_value.pin || row.setting_value;
+            } else if (row.setting_key === 'active_broadcast' && row.setting_value) {
+              liveMerged.activeBroadcast = row.setting_value;
+            } else if (row.setting_key === 'broadcast_history' && row.setting_value) {
+              liveMerged.broadcastHistory = row.setting_value;
             }
           });
 
           setSettings(liveMerged);
           localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(liveMerged));
         } else {
-          // If table not found or empty, fallback gracefully
           if (error) {
             console.info('Supabase site_settings notice (using client cache/defaults):', error.message);
           }
@@ -222,6 +228,26 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return true;
   };
 
+  const sendBroadcastNotification = async (notifData: Omit<BroadcastNotification, 'id' | 'created_at'>) => {
+    const newNotif: BroadcastNotification = {
+      ...notifData,
+      id: 'notif-' + Date.now(),
+      created_at: new Date().toISOString(),
+      is_active: true,
+    };
+    const history = [newNotif, ...(settings.broadcastHistory || [])].slice(0, 20);
+    const next = {
+      ...settings,
+      activeBroadcast: newNotif,
+      broadcastHistory: history,
+    };
+    setSettings(next);
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(next));
+    await saveToSupabase('active_broadcast', newNotif);
+    await saveToSupabase('broadcast_history', history);
+    return true;
+  };
+
   const resetIpstackQuota = async () => {
     const next = {
       ...settings,
@@ -257,6 +283,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         updateMetrics,
         updateIpstack,
         updateAdminPin,
+        sendBroadcastNotification,
         resetIpstackQuota,
         resetToDefaults,
         isSyncing,

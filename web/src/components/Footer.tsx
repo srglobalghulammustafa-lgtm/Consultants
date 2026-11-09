@@ -99,7 +99,7 @@ export const Footer: React.FC = () => {
 
         {/* Bottom Bar */}
         <div className="pt-8 border-t border-navy-800 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-slate-400">
-          <p>© {new Date().getFullYear()} {footer.copyright}</p>
+          <p>© {footer.copyrightYear || new Date().getFullYear()} {footer.copyright}</p>
           <div className="flex gap-6">
             <Link to="/privacy-policy" className="hover:text-white transition-colors">Privacy Policy</Link>
             <Link to="/terms" className="hover:text-white transition-colors">Terms of Service</Link>

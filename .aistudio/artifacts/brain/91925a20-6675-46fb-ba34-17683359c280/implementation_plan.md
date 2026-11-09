@@ -1,20 +1,17 @@
-# Unique Appointment ID Tracking, CRM Modals, Content Catalog Editors & Admin PIN Renewal Plan
+# Broadcast Notification Center, Premium Audio & Editable Footer Year Plan
 
-Comprehensive architectural and implementation blueprint for **SR Global Consultants** introducing unique appointment reference code generation (`SRG-APT-XXXX`), fee payment verification via WhatsApp, a public student appointment status tracking portal, full-featured CRM appointment inspection, in-place edit modals for Destinations, Courses & Testimonials, dynamic multi-column footer control, and in-dashboard admin PIN renewal with auto-logout.
+Comprehensive architectural and implementation plan for **SR Global Consultants** introducing a real-time Admin Broadcast Notification Dispatcher, Web Audio API chime sound generator, interactive Navbar Notification Bell dropdown, Android system status bar notifications, and an editable Footer Copyright Year manager.
 
 ---
 
 ## User Review & Critical Decisions
 
 > [!IMPORTANT]
-> The following product specifications were confirmed with the user:
-> - **Appointment Reference ID Format**: Unique `SRG-APT-4DIGIT` code (e.g., `SRG-APT-8492`) generated automatically upon booking submission.
-> - **Immediate Post-Booking Modal**: Right after booking on Web or Mobile App, present a confirmation modal showing the Appointment ID, a 1-click Copy button, and a direct **"Pay Fee & Confirm on WhatsApp"** CTA pre-populated with the student's ID.
-> - **Dedicated Track Status Feature**: A dedicated "Track Appointment" lookup page/tab where students enter their Appointment Reference ID (`SRG-APT-8492`) or phone number to view real-time status (`Pending Fee Verification`, `Confirmed`, `Completed`, `Cancelled`).
-> - **Admin Manual Confirmation**: Admin reviews fee payment receipt sent via WhatsApp, opens the Appointment CRM Modal in the Admin Dashboard, and changes status to `Confirmed`. The student's public tracking page updates in real-time.
-> - **Content Editing Modals**: Edit modals for existing **Destinations**, **Courses & Trades**, and **Testimonials** allowing immediate updates to live Supabase database records.
-> - **Multi-Column Footer Manager**: Full control over footer column titles (e.g. "Study Destinations", "Useful Links") and link arrays.
-> - **Admin Password/PIN Renewal**: In-dashboard PIN renewal form pushing changes to Supabase `site_settings`, immediately logging out the active admin session, and prompting re-login with the new PIN.
+> The following product choices were confirmed by the user:
+> - **Web Notification Display**: Top Announcement Banner at the header level plus an interactive Notification Bell dropdown menu in `Navbar.tsx` with badge counter.
+> - **Web Premium Audio Chime**: Synthetic two-tone glass chime generated via Web Audio API (`AudioContext`), playing when notifications arrive or are inspected without requiring external MP3 file downloads.
+> - **Android App Notifications**: Real Android system status bar notification (via `NotificationManager` / `NotificationCompat.Builder`) with sound/vibration plus an animated top header banner when the app is active.
+> - **Footer Copyright Year**: Editable `copyrightYear` field in Admin Settings -> Footer tab with dynamic string formatting (`© {copyrightYear} SR Global Consultants. All rights reserved. Gujranwala • Australia.`).
 
 ---
 
@@ -22,150 +19,101 @@ Comprehensive architectural and implementation blueprint for **SR Global Consult
 
 ```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                    APPOINTMENT LIFECYCLE & FEE VERIFICATION                 │
+│                 ADMIN BROADCAST NOTIFICATION PIPELINE                       │
 └─────────────────────────────────────────────────────────────────────────────┘
 
- [Student Books Slot] ──► [Generates SRG-APT-8492] ──► [Booking Confirmation Modal]
-                                                               │
-                                                               ▼
-                                                     [Pay Fee via WhatsApp]
-                                                               │
- [Track Status Search] ◄── [Live Supabase Sync] ◄── [Admin Confirms in CRM]
-  (Shows "Confirmed")       (Status: Confirmed)      (After Fee Receipt Review)
+  [Admin Dashboard: Dispatch Center]
+         │
+         ├──► Pushes to Supabase (`broadcast_notifications` & `site_settings`)
+         │
+         ├──► WEB CLIENT
+         │     ├── Top Announcement Banner
+         │     ├── Navbar Bell Icon & Dropdown Menu
+         │     └── Web Audio API Glass Chime Sound Effect
+         │
+         └──► ANDROID CLIENT
+               ├── System Status Bar Notification (`NotificationCompat`)
+               ├── In-App Animated Top Header Banner
+               └── System Audio Ping & Vibration
 ```
 
-1. **Booking & ID Generation**:
-   - Student submits booking form on Web or Mobile App.
-   - System auto-generates a unique `appointment_id` (e.g., `SRG-APT-8492`).
-   - Modal pops up displaying the Reference ID and a direct button: **"Pay Fee & Confirm on WhatsApp"**.
-   - Pre-filled WhatsApp message: *"Hello SR Global Consultants! My Appointment Reference ID is SRG-APT-8492. I have submitted my booking and transferred the fee for verification."*
+1. **Admin Broadcast Dispatcher**:
+   - Located in `AdminDashboard.tsx` under a dedicated "Notifications" tab.
+   - Form fields: Title, Message, Priority (`Normal`, `Urgent`), Target Page Link (`/courses`, `/book-appointment`), Play Sound Toggle.
+   - Saves broadcast records to Supabase table `broadcast_notifications` and updates `site_settings` key `active_broadcast`.
 
-2. **Public Track Status Portal (`/track-appointment`)**:
-   - New dedicated route and mobile tab where students input their `SRG-APT-XXXX` ID or registered phone number.
-   - Displays real-time status badge:
-     - `Pending Fee Verification` (Amber) — Waiting for WhatsApp fee receipt.
-     - `Confirmed` (Emerald Green) — Verified by admin, slot locked.
-     - `Completed` (Blue) — Counseling session finished.
-     - `Rescheduled` / `Cancelled` (Slate/Red).
-   - Shows meeting details (Date, Time, Counseling Mode, Counselor Notes).
+2. **Web Portal Notification System**:
+   - **Header Announcement Banner**: Positioned at the top of `Navbar.tsx`, displaying urgent admissions or visa policy updates.
+   - **Navbar Notification Bell**: Bell button with badge counter (`1`, `2`) displaying recent broadcasts in a glassmorphic dropdown list with timestamps and direct action links.
+   - **Synthesized Glass Chime Sound**: A custom pure-tone Web Audio API sound generator (`playPremiumChime()`) that plays a pleasant 2-step harmonic chime (`523.25Hz` C5 → `659.25Hz` E5).
 
-3. **Admin CRM Appointment Management**:
-   - Displays `SRG-APT-8492` prominently in the Appointments table.
-   - Clicking an appointment opens the **Appointment Details CRM Modal**:
-     - Student profile, contact, counseling mode (Office/Online), destination interest.
-     - Counselor private notes field with real-time save.
-     - Status selector (`Pending` -> `Confirmed` -> `Completed`).
-     - One-click WhatsApp, Call, and Email buttons.
+3. **Android App System Notifications**:
+   - **Android Status Bar Notification**: Dispatches real system notifications using `NotificationManager` and `NotificationCompat.Builder` (Channel: `SR_GLOBAL_BROADCASTS`, Importance: `HIGH`).
+   - **In-App Top Banner**: Smoothly animated top bar with sound feedback when the app is foregrounded.
 
-4. **In-Place Catalog Editors**:
-   - Edit buttons on Destinations, Courses, and Testimonials cards/tables.
-   - Pre-filled edit modals allowing instant updates to live Supabase database records.
-
-5. **Footer Column & Link Manager**:
-   - Custom headings editor for Footer Column 1 ("Study Destinations") and Column 2 ("Useful Links").
-   - Link addition, editing, and deletion synced to `site_settings`.
-
-6. **Admin PIN Renewal Engine**:
-   - Secure form validating current PIN, updating Supabase `admin_security`, purging session, and redirecting to login.
+4. **Footer Copyright & Year Manager**:
+   - `copyrightYear` state added to `SiteSettings['footer']` (default: `'2026'`).
+   - Dynamically renders `© {footer.copyrightYear || '2026'} SR Global Consultants. All rights reserved. Gujranwala • Australia.` across all footer instances.
 
 ---
 
 ## 2. Technical Architecture & Data Strategy
 
-```text
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        DATA SCHEMAS & COMPONENT MAPPING                     │
-└─────────────────────────────────────────────────────────────────────────────┘
+### 1. Web Files & Data Layer
+- **`web/src/types.ts`**:
+  - Add `BroadcastNotification` interface (`id`, `title`, `message`, `priority`, `link`, `created_at`, `is_active`).
+  - Add `copyrightYear?: string` to `FooterConfig`.
+  - Add `activeBroadcast?: BroadcastNotification` to `SiteSettings`.
+- **`web/src/lib/audio.ts`** (New File):
+  - `playPremiumChime()`: Web Audio API oscillator synthesizing a soft 2-tone harmonic chime.
+- **`web/src/context/SettingsContext.tsx`**:
+  - Add `sendBroadcastNotification(notification: BroadcastNotification): Promise<boolean>`.
+  - Persist `activeBroadcast` in `site_settings`.
+- **`web/src/components/Navbar.tsx`**:
+  - Render top Announcement Banner.
+  - Render Notification Bell with badge counter and interactive dropdown menu.
+- **`web/src/components/Footer.tsx`**:
+  - Render dynamic year `© {footer.copyrightYear || new Date().getFullYear().toString()}...`.
 
-  ┌─────────────────────────┐             ┌─────────────────────────┐
-  │   Appointment Model     │             │    SiteSettings Model   │
-  ├─────────────────────────┤             ├─────────────────────────┤
-  │ id: UUID                │             │ footer: {               │
-  │ appointment_code: TEXT  │             │   destinationsTitle     │
-  │ client_name: TEXT       │             │   destinationLinks[]    │
-  │ phone / email: TEXT     │             │   quickLinksTitle       │
-  │ status: TEXT            │             │   quickLinks[]          │
-  │ notes: TEXT             │             │ }                       │
-  │ mode: Office | Online   │             │ adminPin: TEXT          │
-  └────────────┬────────────┘             └────────────┬────────────┘
-               │                                       │
-               ▼                                       ▼
-  ┌─────────────────────────┐             ┌─────────────────────────┐
-  │  TrackAppointment.tsx   │             │   AdminDashboard.tsx    │
-  │  • Search SRG-APT-XXXX  │             │   • Appointment Modal   │
-  │  • Real-time Status     │             │   • Content Edit Modals │
-  │  • Direct WhatsApp CTA  │             │   • PIN Renewal Form    │
-  └─────────────────────────┘             └─────────────────────────┘
-```
-
-### Files to Create / Modify
-1. **`web/src/types.ts`**:
-   - Update `Appointment` interface with `appointment_code?: string` and `notes?: string`.
-   - Update `FooterConfig` with `destinationsTitle?: string` and `quickLinksTitle?: string`.
-   - Update `SiteSettings` with `adminPin?: string`.
-2. **`web/src/lib/utils.ts`**:
-   - Helper function `generateAppointmentCode()` producing `SRG-APT-${4_digit_random}`.
-3. **`web/src/context/LiveDataContext.tsx`**:
-   - Update `addAppointment` to automatically include `appointment_code`.
-   - Update `updateAppointmentStatus` to handle `notes` and `status` updates.
-   - Add lookup helper `getAppointmentByCodeOrPhone(query: string)`.
-4. **`web/src/pages/BookAppointment.tsx`**:
-   - Integrate unique ID generation on submission.
-   - Show interactive post-booking confirmation modal with ID, Copy button, and **"Pay Fee & Confirm on WhatsApp"** CTA.
-5. **`web/src/pages/TrackAppointment.tsx`** (New Page):
-   - Dedicated public status tracking portal for students.
-6. **`web/src/components/Navbar.tsx` & `web/src/components/Footer.tsx`**:
-   - Add link to "Track Appointment" (`/track-appointment`).
-   - Use dynamic column titles in `Footer.tsx`.
-7. **`web/src/pages/AdminDashboard.tsx`**:
-   - Add Appointment Details CRM Modal with notes, status, and direct communication triggers.
-   - Add Edit Destination Modal, Edit Course Modal, and Edit Testimonial Modal.
-   - Add Footer Column Titles and Link Manager in Footer Settings.
-   - Add Admin Security & PIN Renewal form with automatic logout.
-8. **`web/src/pages/AdminLogin.tsx`**:
-   - Validate input PIN against `settings.adminPin` / `sr_global_admin_pin` with dynamic error / renewal notices.
-9. **`app/src/main/java/com/example/ui/screens/` (Android)**:
-   - Update Appointment Screen to display unique Reference ID on booking and direct WhatsApp payment button.
-   - Add Appointment Status Search in Student Workspace tab.
+### 2. Android App Architecture
+- **`app/src/main/java/com/example/util/NotificationHelper.kt`** (New File):
+  - Creates Android `NotificationChannel` (`sr_global_broadcast_channel`).
+  - Dispatches `NotificationCompat.Builder` system status bar notifications with sound, vibration, and small icon (`R.drawable.sr_global_icon`).
+- **`app/src/main/java/com/example/ui/components/CommonComponents.kt`**:
+  - Add `BroadcastTopBanner` composable rendered inside `MainActivity.kt`.
 
 ---
 
-## 3. Implementation Steps & Execution Sequence
+## 3. Execution Sequence & Sub-Tasks
 
-1. **Schema & Types Setup**:
-   - Update `types.ts` and `LiveDataContext.tsx` with `appointment_code` and status lookup methods.
-2. **Booking Flow & Confirmation Modal**:
-   - Update `BookAppointment.tsx` to generate `SRG-APT-XXXX`, save to Supabase, and open confirmation modal with WhatsApp fee link.
-3. **Public Track Appointment Portal**:
-   - Create `TrackAppointment.tsx` page with search bar, real-time status card, and progress timeline. Add `/track-appointment` route in `App.tsx` and Navbar.
-4. **Admin Dashboard Upgrade**:
-   - Implement Appointment Details CRM Popup Modal in `AdminDashboard.tsx`.
-   - Implement Edit Modals for Destinations, Courses, and Testimonials.
-   - Implement Footer Column Titles and Link Editor.
-   - Implement Admin Security PIN Renewal tab with auto-logout.
-5. **Android App Mirroring**:
-   - Update Android Appointment tab with Reference ID generation and WhatsApp fee button.
-6. **Build & Compilation Verification**:
-   - Run `npm run build` in `web` to verify 0 TypeScript errors.
+1. **Types & Audio Engine Setup**:
+   - Update `web/src/types.ts` with `BroadcastNotification` and `copyrightYear`.
+   - Create `web/src/lib/audio.ts` with Web Audio API chime synthesizer.
+2. **Settings Context Integration**:
+   - Add `sendBroadcastNotification` and `updateFooterYear` in `SettingsContext.tsx`.
+3. **Navbar & Bell Dropdown Component**:
+   - Update `Navbar.tsx` with top announcement bar and Notification Bell menu.
+4. **Footer Year Update**:
+   - Update `Footer.tsx` to use dynamic `copyrightYear`.
+5. **Admin Dashboard Broadcast Manager**:
+   - Add Broadcast Notification Dispatcher tab and Footer Year Editor input in `AdminDashboard.tsx`.
+6. **Android Notification Helper & Top Banner**:
+   - Create `NotificationHelper.kt` and integrate status bar dispatch in `MainActivity.kt`.
+7. **Compilation & Verification**:
+   - Run `npm run build` in `/web`.
    - Run `compile_applet` for Android.
 
 ---
 
 ## 4. Verification Plan
 
-1. **Booking & WhatsApp Fee Verification**:
-   - Submit a test appointment on `/book-appointment`.
-   - Confirm modal displays `SRG-APT-XXXX`.
-   - Click "Pay Fee & Confirm on WhatsApp", verify pre-populated message contains the correct Reference ID.
-2. **Public Status Tracking Verification**:
-   - Navigate to `/track-appointment`.
-   - Enter `SRG-APT-XXXX` or test phone number.
-   - Verify status displays `Pending Fee Verification`.
-3. **Admin CRM Confirmation Verification**:
-   - Open Admin Dashboard (`/admin/dashboard`), go to Appointments tab.
-   - Click the test appointment, enter counselor notes, and change status to `Confirmed`.
-   - Return to `/track-appointment`, re-query the ID, and verify status now shows `Confirmed` in green.
-4. **Content Edit Modals Verification**:
-   - Edit a Destination, Course, and Testimonial in Admin Dashboard; verify changes persist across public pages.
-5. **PIN Renewal Verification**:
-   - Change PIN in Admin Security tab, verify auto-logout, and test login with the new PIN.
+1. **Admin Broadcast Dispatch Verification**:
+   - Go to Admin Dashboard -> Notifications tab, type "Special July Intake Discount!", choose `High` priority, and click "Send Broadcast Notification".
+2. **Web Portal Verification**:
+   - Observe top announcement banner appear on website.
+   - Click Notification Bell in Navbar, verify dropdown shows message and badge count.
+   - Verify premium chime sound plays via Web Audio API.
+3. **Footer Year Verification**:
+   - Update `copyrightYear` in Admin Settings -> Footer tab from `2026` to `2027`; verify public footer displays `© 2027 SR Global Consultants...`.
+4. **Android App Verification**:
+   - Launch app, verify top notification banner appears, and check status bar notification dispatch logic.

@@ -6,7 +6,7 @@ import {
   ShieldCheck, ArrowRight, Filter, Save, Plus, Globe, Sparkles,
   LayoutDashboard, BookOpen, Star, Settings, ExternalLink, Copy, Check,
   ChevronRight, MapPin, Mail, AlertCircle, Eye, EyeOff, Activity,
-  Navigation, ShieldAlert, X, Send
+  Navigation, ShieldAlert, X, Send, Bell, Volume2
 } from 'lucide-react';
 import { useSiteSettings } from '../context/SettingsContext';
 import { useLiveData } from '../context/LiveDataContext';
@@ -17,7 +17,7 @@ export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { 
     settings, updateWhatsApp, updateHeader, updateFooter, 
-    updateMetrics, updateIpstack, updateAdminPin, resetIpstackQuota, isSyncing, isLiveSupabase 
+    updateMetrics, updateIpstack, updateAdminPin, sendBroadcastNotification, resetIpstackQuota, isSyncing, isLiveSupabase 
   } = useSiteSettings();
 
   const { 
@@ -29,7 +29,7 @@ export const AdminDashboard: React.FC = () => {
   } = useLiveData();
 
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'leads' | 'appointments' | 'destinations' | 'courses' | 'testimonials' | 'whatsapp' | 'header' | 'footer' | 'ipstack' | 'security' | 'database'
+    'overview' | 'leads' | 'appointments' | 'destinations' | 'courses' | 'testimonials' | 'whatsapp' | 'broadcast' | 'header' | 'footer' | 'ipstack' | 'security' | 'database'
   >('overview');
 
   // Filter & Selected Lead Modal State
@@ -104,10 +104,28 @@ export const AdminDashboard: React.FC = () => {
   const [footerForm, setFooterForm] = useState({ ...settings.footer });
   const [metricsForm, setMetricsForm] = useState({ ...settings.metrics });
   const [ipstackForm, setIpstackForm] = useState({ ...settings.ipstack });
+  const [broadcastForm, setBroadcastForm] = useState({
+    title: '',
+    message: '',
+    priority: 'Normal' as 'Normal' | 'Urgent',
+    link: '',
+    playSound: true,
+  });
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  const handleSendBroadcast = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!broadcastForm.title || !broadcastForm.message) {
+      showToast('Please enter both title and message for broadcast');
+      return;
+    }
+    await sendBroadcastNotification({ ...broadcastForm, is_active: true });
+    showToast('Broadcast notification dispatched to Web & App!');
+    setBroadcastForm({ title: '', message: '', priority: 'Normal', link: '', playSound: true });
   };
 
   const handleLogout = () => {
@@ -550,6 +568,23 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
             >
               <MessageCircle className="w-4 h-4 text-green-500" />
               <span>WhatsApp Widget</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('broadcast')}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+                activeTab === 'broadcast'
+                  ? 'bg-amber-50 text-amber-800 font-bold border border-amber-200'
+                  : 'text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Bell className="w-4 h-4 text-amber-500" />
+                <span>Broadcast Alert</span>
+              </div>
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">
+                Live
+              </span>
             </button>
 
             <button
@@ -1828,6 +1863,127 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
             </div>
           )}
 
+          {/* TAB: BROADCAST NOTIFICATION DISPATCHER */}
+          {activeTab === 'broadcast' && (
+            <div className="space-y-6">
+              <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="p-2 rounded-xl bg-amber-100 text-amber-600">
+                      <Bell className="w-5 h-5" />
+                    </span>
+                    <h2 className="text-xl font-bold text-navy-950">Broadcast Notification Center</h2>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Send real-time alerts to the website top announcement banner, notification bell menu, and Android application status bar with audio chime.
+                  </p>
+                </div>
+
+                <form onSubmit={handleSendBroadcast} className="space-y-5 max-w-2xl">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                      Notification Title
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={broadcastForm.title}
+                      onChange={(e) => setBroadcastForm({ ...broadcastForm, title: e.target.value })}
+                      placeholder="e.g. Free Visa Counseling Seminar in Gujranwala Office"
+                      className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm font-semibold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                      Detailed Announcement Message
+                    </label>
+                    <textarea
+                      rows={3}
+                      required
+                      value={broadcastForm.message}
+                      onChange={(e) => setBroadcastForm({ ...broadcastForm, message: e.target.value })}
+                      placeholder="Join us this Saturday for direct face-to-face evaluation for Australia & UK visas. Limited seats!"
+                      className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                        Alert Priority
+                      </label>
+                      <select
+                        value={broadcastForm.priority}
+                        onChange={(e) => setBroadcastForm({ ...broadcastForm, priority: e.target.value as any })}
+                        className="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm font-bold bg-white"
+                      >
+                        <option value="Normal">Normal (Standard Blue/Navy Header)</option>
+                        <option value="Urgent">Urgent ⚡ (Flashing Crimson Header)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                        Target Link (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={broadcastForm.link}
+                        onChange={(e) => setBroadcastForm({ ...broadcastForm, link: e.target.value })}
+                        placeholder="/book-appointment or https://wa.me/..."
+                        className="w-full px-4 py-3 rounded-xl border border-slate-300 font-mono text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="playSoundCheck"
+                      checked={broadcastForm.playSound}
+                      onChange={(e) => setBroadcastForm({ ...broadcastForm, playSound: e.target.checked })}
+                      className="w-4 h-4 text-amber-600 rounded"
+                    />
+                    <label htmlFor="playSoundCheck" className="text-sm font-semibold text-slate-700">
+                      Play Web & Mobile Glass Chime Audio Alert on delivery
+                    </label>
+                  </div>
+
+                  <div className="pt-2 flex flex-wrap gap-4">
+                    <button
+                      type="submit"
+                      disabled={isSyncing}
+                      className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-bold px-6 py-3 rounded-xl shadow-md transition-all text-sm"
+                    >
+                      <Send className="w-4 h-4" />
+                      <span>{isSyncing ? 'Broadcasting...' : 'Dispatch Broadcast Alert Now'}</span>
+                    </button>
+                  </div>
+                </form>
+
+                {/* Live Active Broadcast Preview Box */}
+                {settings.activeBroadcast && (
+                  <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Currently Active Broadcast</span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        settings.activeBroadcast.priority === 'Urgent' ? 'bg-rose-100 text-rose-700' : 'bg-brand-100 text-brand-700'
+                      }`}>
+                        {settings.activeBroadcast.priority}
+                      </span>
+                    </div>
+                    <h4 className="font-bold text-navy-950 text-base">{settings.activeBroadcast.title}</h4>
+                    <p className="text-xs text-slate-600">{settings.activeBroadcast.message}</p>
+                    <div className="text-[11px] text-slate-400 pt-1">
+                      Sent: {new Date(settings.activeBroadcast.created_at).toLocaleString()}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* TAB 8: HEADER & NAVBAR */}
           {activeTab === 'header' && (
             <div className="space-y-6">
@@ -2018,14 +2174,27 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                     </div>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Copyright Line</label>
-                    <input
-                      type="text"
-                      value={footerForm.copyright}
-                      onChange={(e) => setFooterForm({ ...footerForm, copyright: e.target.value })}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-medium"
-                    />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Copyright Line</label>
+                      <input
+                        type="text"
+                        value={footerForm.copyright}
+                        onChange={(e) => setFooterForm({ ...footerForm, copyright: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-medium"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Copyright Year</label>
+                      <input
+                        type="text"
+                        value={footerForm.copyrightYear || '2026'}
+                        onChange={(e) => setFooterForm({ ...footerForm, copyrightYear: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-medium"
+                        placeholder="e.g. 2026"
+                      />
+                    </div>
                   </div>
 
                   {/* COLUMN 1 LINKS MANAGER */}

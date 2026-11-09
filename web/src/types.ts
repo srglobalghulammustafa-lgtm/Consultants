@@ -134,6 +134,18 @@ export interface FooterConfig {
   quickLinksTitle?: string;
   quickLinks: FooterLinkItem[];
   copyright: string;
+  copyrightYear?: string;
+}
+
+export interface BroadcastNotification {
+  id: string;
+  title: string;
+  message: string;
+  priority: 'Normal' | 'Urgent';
+  link?: string;
+  playSound?: boolean;
+  created_at: string;
+  is_active: boolean;
 }
 
 export interface CompanyMetrics {
@@ -159,4 +171,6 @@ export interface SiteSettings {
   metrics: CompanyMetrics;
   ipstack: IpstackConfig;
   adminPin?: string;
+  activeBroadcast?: BroadcastNotification;
+  broadcastHistory?: BroadcastNotification[];
 }
