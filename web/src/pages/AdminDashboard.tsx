@@ -2067,6 +2067,17 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                       />
                     </div>
 
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Website Logo URL</label>
+                      <input
+                        type="text"
+                        value={headerForm.logoUrl || '/logo.png'}
+                        onChange={(e) => setHeaderForm({ ...headerForm, logoUrl: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-mono"
+                        placeholder="/logo.png"
+                      />
+                    </div>
                     <div>
                       <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Official Email</label>
                       <input

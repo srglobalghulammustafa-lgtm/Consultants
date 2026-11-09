@@ -114,6 +114,7 @@ export interface HeaderConfig {
   email: string;
   address: string;
   navLinks: NavLinkItem[];
+  logoUrl?: string;
 }
 
 export interface FooterLinkItem {

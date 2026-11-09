@@ -9,23 +9,45 @@ export const Footer: React.FC = () => {
 
   return (
     <footer className="bg-navy-950 text-slate-300 pt-16 pb-8 border-t-4 border-brand-500">
-      <div className="max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-12 xl:px-16">
+      <div className="max-w-[98%] xl:max-w-[96%] mx-auto px-4 sm:px-6 lg:px-10">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 mb-12">
-          {/* Brand Info */}
+          {/* Brand Info & ICEF Badge side-by-side */}
           <div>
-            <div className="flex items-center gap-3 mb-4">
-              <img src="/logo.png" alt="SR Global" className="w-12 h-12 rounded-full object-cover ring-2 ring-brand-500" />
+            <div className="flex items-center gap-3.5 mb-4">
+              <img 
+                src="/logo.png" 
+                alt="SR Global Consultants Logo" 
+                className="w-16 h-16 rounded-full object-cover shadow-md bg-white p-0.5" 
+              />
               <div>
-                <span className="font-serif font-black text-xl text-white tracking-wider">SR GLOBAL</span>
-                <p className="text-[10px] font-bold text-brand-400 tracking-widest uppercase">— CONSULTANTS —</p>
+                <span className="font-serif font-black text-xl text-white tracking-wider block">SR GLOBAL</span>
+                <span className="bg-brand-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider block w-fit mt-0.5">Pakistan • Australia</span>
+                <p className="text-[10px] font-bold text-brand-400 tracking-widest uppercase mt-1">— CONSULTANTS —</p>
               </div>
             </div>
             <p className="text-sm text-slate-400 mb-4 leading-relaxed">
               {footer.tagline}
             </p>
-            <div className="inline-flex items-center gap-2 bg-navy-900 border border-navy-800 px-3 py-1.5 rounded-lg text-xs text-brand-300">
-              <ShieldCheck className="w-4 h-4 text-green-400" />
-              <span>Certified Educational Counselors</span>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="inline-flex items-center gap-2 bg-navy-900 border border-navy-800 px-3 py-1.5 rounded-lg text-xs text-brand-300">
+                <ShieldCheck className="w-4 h-4 text-green-400" />
+                <span>Certified Educational Counselors</span>
+              </div>
+
+              {/* ICEF Accredited Badge Link in Column 1 */}
+              <a
+                href={footer.accreditedBadgeUrl || 'https://www.icef.com/agency-status/#7092'}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block group mt-2"
+                title="ICEF Accredited Certified Global Partner #7092"
+              >
+                <img
+                  src="/assets/icef_badge.png"
+                  alt="ICEF Accredited Certified Global Partner"
+                  className="h-20 w-auto object-contain rounded-xl shadow-lg group-hover:scale-105 transition-transform bg-navy-900/80 p-1"
+                />
+              </a>
             </div>
           </div>
 
@@ -89,24 +111,10 @@ export const Footer: React.FC = () => {
                   {footer.email}
                 </a>
               </p>
-              <p className="flex items-center gap-2.5 text-xs text-slate-400 mb-3">
+              <p className="flex items-center gap-2.5 text-xs text-slate-400">
                 <Clock className="w-4 h-4 text-brand-400 shrink-0" />
                 <span>{footer.officeHours}</span>
               </p>
-
-              <a
-                href={footer.accreditedBadgeUrl || 'https://www.icef.com/agency-status/#7092'}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-block group"
-                title="ICEF Accredited Certified Global Partner #7092"
-              >
-                <img
-                  src="/assets/icef_badge.png"
-                  alt="ICEF Accredited Certified Global Partner"
-                  className="h-24 w-auto object-contain rounded-xl shadow-lg ring-2 ring-brand-500/30 group-hover:scale-105 transition-transform bg-navy-900/60 p-1"
-                />
-              </a>
             </div>
           </div>
         </div>

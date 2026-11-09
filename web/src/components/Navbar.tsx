@@ -48,7 +48,7 @@ export const Navbar: React.FC = () => {
             ? 'bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 animate-pulse' 
             : 'bg-gradient-to-r from-brand-700 via-navy-900 to-brand-800'
         }`}>
-          <div className="max-w-[1536px] mx-auto flex items-center justify-between gap-3">
+          <div className="max-w-[98%] xl:max-w-[96%] mx-auto flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5 min-w-0">
               <span className="p-1 bg-white/20 rounded-full shrink-0">
                 <Sparkles className="w-3.5 h-3.5 text-amber-300" />
@@ -83,9 +83,8 @@ export const Navbar: React.FC = () => {
         </div>
       )}
 
-      {/* Top Notification Bar */}
       <div className="bg-navy-950 text-white text-xs py-2 px-4 border-b border-navy-800">
-        <div className="max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-12 xl:px-16 flex flex-col sm:flex-row justify-between items-center gap-2">
+        <div className="max-w-[98%] xl:max-w-[96%] mx-auto flex flex-col sm:flex-row justify-between items-center gap-2">
           <div className="flex flex-wrap items-center gap-4 text-slate-300">
             <span className="flex items-center gap-1">
               <MapPin className="w-3.5 h-3.5 text-brand-400" />
@@ -112,14 +111,14 @@ export const Navbar: React.FC = () => {
       </div>
 
       {/* Main Navbar */}
-      <div className="max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-12 xl:px-16">
+      <div className="max-w-[98%] xl:max-w-[96%] mx-auto">
         <div className="flex justify-between items-center h-20">
           {/* Official Logo Brand */}
           <Link to="/" className="flex items-center gap-3 group">
             <img 
               src="/logo.png" 
               alt="SR Global Consultants Logo" 
-              className="h-12 w-12 rounded-full object-cover shadow-sm ring-2 ring-brand-500/20 group-hover:scale-105 transition-transform"
+              className="h-12 w-12 rounded-full object-cover shadow-sm group-hover:scale-105 transition-transform"
             />
             <div>
               <div className="flex items-center gap-1.5">
