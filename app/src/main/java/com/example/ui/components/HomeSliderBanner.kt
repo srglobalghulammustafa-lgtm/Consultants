@@ -24,6 +24,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.model.BannerSlide
+import androidx.compose.ui.draw.alpha
+import coil.compose.AsyncImage
 import com.example.ui.theme.*
 import kotlinx.coroutines.delay
 
@@ -72,9 +74,21 @@ fun HomeSliderBanner(
                             )
                         )
                     )
-                    .padding(20.dp)
             ) {
-                Column {
+                // Background Image
+                if (!currentSlide.bgImage.isNullOrBlank()) {
+                    androidx.compose.ui.layout.ContentScale.Crop
+                    coil.compose.AsyncImage(
+                        model = currentSlide.bgImage,
+                        contentDescription = null,
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                        modifier = Modifier.matchParentSize().alpha(0.4f)
+                    )
+                }
+
+                Column(
+                    modifier = Modifier.padding(20.dp)
+                ) {
                     // Tag and Slide Counter
                     Row(
                         modifier = Modifier.fillMaxWidth(),

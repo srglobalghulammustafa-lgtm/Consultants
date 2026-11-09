@@ -46,6 +46,7 @@ fun HomeScreen(
     val destinations by viewModel.destinations.collectAsState()
     val testimonials by viewModel.testimonials.collectAsState()
     val bannerSlides by viewModel.bannerSlides.collectAsState()
+    val activeBroadcast by viewModel.activeBroadcast.collectAsState()
     val inquirySuccess by viewModel.inquirySuccessMessage.collectAsState()
 
     var inqName by remember { mutableStateOf("") }
@@ -61,6 +62,54 @@ fun HomeScreen(
             .background(SlateBackground),
         contentPadding = PaddingValues(bottom = 96.dp)
     ) {
+        // 0. BROADCAST BANNER
+        if (activeBroadcast != null) {
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                        .clickable {
+                            activeBroadcast?.link?.let { link ->
+                                // Optional: link handling
+                            }
+                        },
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (activeBroadcast?.priority == "Urgent") Color(0xFFD32F2F) else AmberGold
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = if (activeBroadcast?.priority == "Urgent") Icons.Default.Warning else Icons.Default.Campaign,
+                            contentDescription = null,
+                            tint = if (activeBroadcast?.priority == "Urgent") Color.White else NavyDark,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = activeBroadcast?.title ?: "",
+                                style = MaterialTheme.typography.titleSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (activeBroadcast?.priority == "Urgent") Color.White else NavyDark
+                                )
+                            )
+                            Text(
+                                text = activeBroadcast?.message ?: "",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = if (activeBroadcast?.priority == "Urgent") Color.White.copy(alpha = 0.9f) else NavyDark.copy(alpha = 0.8f)
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         // 1. HERO SECTION
         item {
             Box(
@@ -527,20 +576,30 @@ fun HomeScreen(
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Box(
                                         modifier = Modifier
-                                            .size(36.dp)
+                                            .size(44.dp)
                                             .clip(CircleShape)
                                             .background(NavyCard),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        Text(
-                                            text = testimonial.studentName.take(1),
-                                            style = MaterialTheme.typography.titleMedium.copy(
-                                                fontWeight = FontWeight.Bold,
-                                                color = AmberGold
+                                        if (!testimonial.imageUrl.isNullOrBlank()) {
+                                            val finalImageUrl = viewModel.fixGoogleDriveLink(testimonial.imageUrl)
+                                            coil.compose.AsyncImage(
+                                                model = finalImageUrl,
+                                                contentDescription = testimonial.studentName,
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
                                             )
-                                        )
+                                        } else {
+                                            Text(
+                                                text = testimonial.studentName.take(1),
+                                                style = MaterialTheme.typography.titleMedium.copy(
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = AmberGold
+                                                )
+                                            )
+                                        }
                                     }
-                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Spacer(modifier = Modifier.width(12.dp))
                                     Column {
                                         Text(
                                             text = testimonial.studentName,

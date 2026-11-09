@@ -23,6 +23,9 @@ import com.example.ui.components.SectionHeader
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.MainViewModel
 import com.example.ui.viewmodel.NavTab
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.draw.alpha
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -180,15 +183,35 @@ fun DestinationsScreen(
             containerColor = Color.White,
             shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 12.dp)
-            ) {
+            Box(modifier = Modifier.fillMaxWidth().height(160.dp)) {
+                if (!detail.imageUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = viewModel.fixGoogleDriveLink(detail.imageUrl),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Box(modifier = Modifier.fillMaxSize().background(NavyDark))
+                }
+                
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            androidx.compose.ui.graphics.Brush.verticalGradient(
+                                listOf(Color.Transparent, Color.Black.copy(alpha = 0.8f))
+                            )
+                        )
+                )
+                
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
+                    verticalAlignment = Alignment.Bottom,
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.BottomStart)
+                        .padding(20.dp)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(text = detail.flagEmoji, fontSize = 36.sp)
@@ -198,7 +221,7 @@ fun DestinationsScreen(
                                 text = detail.countryName,
                                 style = MaterialTheme.typography.headlineSmall.copy(
                                     fontWeight = FontWeight.Bold,
-                                    color = NavyDark
+                                    color = Color.White
                                 )
                             )
                             Text(
@@ -208,6 +231,13 @@ fun DestinationsScreen(
                         }
                     }
                 }
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 12.dp)
+            ) {
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
 

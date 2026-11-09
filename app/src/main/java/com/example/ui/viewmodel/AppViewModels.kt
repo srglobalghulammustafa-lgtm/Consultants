@@ -23,6 +23,7 @@ class MainViewModel(
     val studentCase = repository.studentCase
     val testimonials = repository.testimonials
     val bannerSlides = repository.bannerSlides
+    val activeBroadcast = repository.activeBroadcast
 
     // Notification message alert state
     private val _notificationSuccessMessage = MutableStateFlow<String?>(null)
@@ -216,9 +217,78 @@ class MainViewModel(
         repository.deleteCourse(id)
     }
 
+    fun saveDestination(dest: Destination) {
+        viewModelScope.launch {
+            repository.supabaseClient.saveDestination(dest)
+            repository.refreshAllData()
+        }
+    }
+
+    fun deleteDestinationRemote(id: String) {
+        viewModelScope.launch {
+            repository.supabaseClient.deleteDestination(id)
+            repository.refreshAllData()
+        }
+    }
+
+    fun saveTestimonialRemote(t: Testimonial) {
+        viewModelScope.launch {
+            repository.supabaseClient.saveTestimonial(t)
+            repository.refreshAllData()
+        }
+    }
+
+    fun deleteTestimonialRemote(id: String) {
+        viewModelScope.launch {
+            repository.supabaseClient.deleteTestimonial(id)
+            repository.refreshAllData()
+        }
+    }
+
+    fun saveBanner(b: Banner) {
+        viewModelScope.launch {
+            repository.supabaseClient.saveBanner(b)
+            repository.refreshAllData()
+        }
+    }
+
+    fun deleteBanner(id: String) {
+        viewModelScope.launch {
+            repository.supabaseClient.deleteBanner(id)
+            repository.refreshAllData()
+        }
+    }
+
+    fun saveBroadcast(b: BroadcastNotification) {
+        viewModelScope.launch {
+            repository.supabaseClient.saveBroadcast(b)
+            repository.refreshAllData()
+        }
+    }
+
+    fun deleteBroadcast(id: String) {
+        viewModelScope.launch {
+            repository.supabaseClient.deleteBroadcast(id)
+            repository.refreshAllData()
+        }
+    }
+
+    fun fixGoogleDriveLink(url: String?): String? {
+        return repository.fixGoogleDriveLink(url)
+    }
+
     fun sendBroadcastNotification(context: android.content.Context, title: String, message: String) {
         com.example.util.NotificationHelper.showNotification(context, title, message)
         _notificationSuccessMessage.value = "Notification dispatched to device status bar!"
+        
+        saveBroadcast(
+            BroadcastNotification(
+                title = title,
+                message = message,
+                priority = "Urgent",
+                isActive = true
+            )
+        )
     }
 
     fun toggleDocumentUpload(docId: String) {

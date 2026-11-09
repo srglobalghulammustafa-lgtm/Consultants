@@ -73,6 +73,7 @@ data class Course(
 )
 
 data class Destination(
+    val id: String? = null,
     val countryName: String,
     val slug: String,
     val capital: String,
@@ -84,7 +85,8 @@ data class Destination(
     val visaProcess: String,
     val admissionRequirements: String,
     val topUniversities: List<String>,
-    val flagEmoji: String
+    val flagEmoji: String,
+    val imageUrl: String? = null
 )
 
 data class Testimonial(
@@ -94,7 +96,27 @@ data class Testimonial(
     val country: String,
     val quote: String,
     val rating: Int = 5,
-    val year: String = "2025"
+    val year: String = "2025",
+    val imageUrl: String? = null
+)
+
+data class BroadcastNotification(
+    val id: String = UUID.randomUUID().toString(),
+    val title: String,
+    val message: String,
+    val priority: String = "Normal",
+    val link: String? = null,
+    val playSound: Boolean = false,
+    val isActive: Boolean = true,
+    val createdAt: String = ""
+)
+
+data class Banner(
+    val id: String = UUID.randomUUID().toString(),
+    val title: String,
+    val description: String,
+    val imageUrl: String,
+    val link: String? = null
 )
 
 data class DocumentItem(
@@ -122,8 +144,8 @@ data class StudentCase(
 data class SiteMetrics(
     val studentsGuided: Int = 5200,
     val partnerUniversities: Int = 160,
-    val visaSuccessRate: Double = 98.4,
-    val yearsExperience: Int = 12
+    val visaSuccessRate: String = "98.4%",
+    val yearsExperience: String = "12+"
 )
 
 data class ConsultancyContact(
@@ -151,6 +173,7 @@ data class BannerSlide(
     val buttonText: String,
     val actionTab: String = "APPOINTMENT",
     val gradientStart: Long = 0xFF0A192F,
-    val gradientEnd: Long = 0xFF1B75BC
+    val gradientEnd: Long = 0xFF1B75BC,
+    val bgImage: String? = null
 )
 

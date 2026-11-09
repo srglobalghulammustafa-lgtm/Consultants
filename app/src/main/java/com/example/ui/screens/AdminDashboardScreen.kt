@@ -42,24 +42,19 @@ fun AdminDashboardScreen(
     val contact by viewModel.contact.collectAsState()
     val notificationMsg by viewModel.notificationSuccessMessage.collectAsState()
 
+    val destinations by viewModel.destinations.collectAsState()
+    val bannerSlides by viewModel.bannerSlides.collectAsState()
+    val testimonials by viewModel.testimonials.collectAsState()
+
     var activeAdminTab by remember { mutableStateOf(AdminSubTab.LEADS) }
-    var selectedLeadFilter by remember { mutableStateOf<LeadStatus?>(null) }
     var showCsvDialog by remember { mutableStateOf(false) }
     var csvContent by remember { mutableStateOf("") }
 
     var editingLead by remember { mutableStateOf<Lead?>(null) }
-    var newLeadNote by remember { mutableStateOf("") }
+    var editingBanner by remember { mutableStateOf<Banner?>(null) }
+    var editingDestination by remember { mutableStateOf<Destination?>(null) }
+    var editingTestimonial by remember { mutableStateOf<Testimonial?>(null) }
 
-    var notifTitle by remember { mutableStateOf("New Intake Announcement: Australia 2025/2026") }
-    var notifBody by remember { mutableStateOf("Admissions are open for AQF Trade & Masters degrees at SR Global Gujranwala. Fast-track your visa application today!") }
-
-    var editWhatsapp by remember(contact) { mutableStateOf(contact.whatsappNumber) }
-    var editPakPhone by remember(contact) { mutableStateOf(contact.phonePakistan) }
-    var editAusPhone by remember(contact) { mutableStateOf(contact.phoneAustralia) }
-    var editEmail by remember(contact) { mutableStateOf(contact.email) }
-    var editFb by remember(contact) { mutableStateOf(contact.facebook) }
-    var editTwitter by remember(contact) { mutableStateOf(contact.twitter) }
-    var editLinkedIn by remember(contact) { mutableStateOf(contact.linkedin) }
     var settingsSavedMsg by remember { mutableStateOf<String?>(null) }
 
     Column(
@@ -91,7 +86,7 @@ fun AdminDashboardScreen(
                         Spacer(modifier = Modifier.width(4.dp))
                         Column {
                             Text(
-                                text = "CONSULTANT CRM & ADMIN",
+                                text = "SR GLOBAL ADMIN",
                                 style = MaterialTheme.typography.titleMedium.copy(
                                     fontWeight = FontWeight.ExtraBold,
                                     color = AmberLight,
@@ -99,7 +94,7 @@ fun AdminDashboardScreen(
                                 )
                             )
                             Text(
-                                text = "SR Global • Gujranwala Head Office",
+                                text = "Staff Command Center",
                                 style = MaterialTheme.typography.bodySmall.copy(color = Color.White.copy(alpha = 0.7f), fontSize = 11.sp)
                             )
                         }
@@ -115,29 +110,27 @@ fun AdminDashboardScreen(
                             brush = androidx.compose.ui.graphics.SolidColor(AmberGold)
                         ),
                         shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                        modifier = Modifier.minimumInteractiveComponentSize().testTag("export_csv_button")
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
                     ) {
                         Icon(imageVector = Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Export CSV", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text("Export", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 }
 
                 Spacer(modifier = Modifier.height(10.dp))
 
                 // Admin Sub Tabs
-                Row(
+                LazyRow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    AdminSubTab.values().forEach { tab ->
+                    items(AdminSubTab.values()) { tab ->
                         val isSelected = activeAdminTab == tab
                         Surface(
                             shape = RoundedCornerShape(8.dp),
                             color = if (isSelected) AmberGold else Color.White.copy(alpha = 0.1f),
                             modifier = Modifier
-                                .weight(1f)
                                 .clickable { activeAdminTab = tab }
                                 .testTag("admin_tab_${tab.name.lowercase()}")
                         ) {
@@ -148,7 +141,7 @@ fun AdminDashboardScreen(
                                     fontWeight = FontWeight.Bold,
                                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
                                 ),
-                                modifier = Modifier.padding(vertical = 8.dp)
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
                             )
                         }
                     }
@@ -161,516 +154,113 @@ fun AdminDashboardScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // KPI METRICS ROW
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    KpiCard(
-                        title = "Total Inquiries",
-                        value = "${leads.size}",
-                        icon = Icons.Default.PersonSearch,
-                        color = AccentCyan,
-                        modifier = Modifier.weight(1f)
-                    )
-                    KpiCard(
-                        title = "Appointments",
-                        value = "${appointments.size}",
-                        icon = Icons.Default.Event,
-                        color = AmberGold,
-                        modifier = Modifier.weight(1f)
-                    )
-                    KpiCard(
-                        title = "Active Courses",
-                        value = "${courses.size}",
-                        icon = Icons.Default.School,
-                        color = SuccessGreen,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
-
             when (activeAdminTab) {
                 AdminSubTab.LEADS -> {
                     item {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "Inquiries Pipeline",
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = NavyDark)
-                            )
-
-                            // Status Filter Chips
-                            LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                item {
-                                    FilterChip(
-                                        selected = selectedLeadFilter == null,
-                                        onClick = { selectedLeadFilter = null },
-                                        label = { Text("All (${leads.size})", fontSize = 10.sp) }
-                                    )
-                                }
-                                items(LeadStatus.values()) { status ->
-                                    val count = leads.count { it.status == status }
-                                    FilterChip(
-                                        selected = selectedLeadFilter == status,
-                                        onClick = { selectedLeadFilter = status },
-                                        label = { Text("${status.label} ($count)", fontSize = 10.sp) }
-                                    )
-                                }
-                            }
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            KpiCard("Total Leads", "${leads.size}", Icons.Default.PersonSearch, AccentCyan, Modifier.weight(1f))
+                            KpiCard("New Today", "${leads.count { it.createdAt.contains("Today") }}", Icons.Default.NewReleases, AmberGold, Modifier.weight(1f))
                         }
                     }
-
-                    val filteredLeads = leads.filter {
-                        selectedLeadFilter == null || it.status == selectedLeadFilter
-                    }
-
-                    if (filteredLeads.isEmpty()) {
-                        item {
-                            Card(
-                                shape = RoundedCornerShape(12.dp),
-                                colors = CardDefaults.cardColors(containerColor = Color.White),
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)
-                            ) {
-                                Text(
-                                    text = "No inquiries in this pipeline stage.",
-                                    modifier = Modifier.padding(20.dp),
-                                    style = MaterialTheme.typography.bodyMedium.copy(color = SlateTextSecondary)
-                                )
-                            }
-                        }
-                    } else {
-                        items(filteredLeads) { lead ->
-                            Card(
-                                shape = RoundedCornerShape(12.dp),
-                                colors = CardDefaults.cardColors(containerColor = Color.White),
-                                elevation = CardDefaults.cardElevation(2.dp),
-                                modifier = Modifier.fillMaxWidth().testTag("lead_card_${lead.id}")
-                            ) {
-                                Column(modifier = Modifier.padding(14.dp)) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = lead.fullName,
-                                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = NavyDark)
-                                        )
-                                        LeadStatusBadge(lead.status)
-                                    }
-
-                                    Spacer(modifier = Modifier.height(4.dp))
-
-                                    Text(
-                                        text = "${lead.phone} • ${lead.email}",
-                                        style = MaterialTheme.typography.bodySmall.copy(color = SlateTextSecondary)
-                                    )
-                                    Text(
-                                        text = "Country: ${lead.destination} • Course: ${lead.courseInterest}",
-                                        style = MaterialTheme.typography.bodySmall.copy(color = AccentCyan, fontWeight = FontWeight.Medium)
-                                    )
-
-                                    if (lead.notes.isNotBlank()) {
-                                        Spacer(modifier = Modifier.height(6.dp))
-                                        Surface(
-                                            shape = RoundedCornerShape(6.dp),
-                                            color = SlateBackground,
-                                            modifier = Modifier.fillMaxWidth()
-                                        ) {
-                                            Text(
-                                                text = "Notes: ${lead.notes}",
-                                                style = MaterialTheme.typography.bodySmall.copy(color = SlateTextPrimary, fontSize = 11.sp),
-                                                modifier = Modifier.padding(8.dp)
-                                            )
-                                        }
-                                    }
-
-                                    Spacer(modifier = Modifier.height(10.dp))
-
-                                    // Action buttons: Update status & WhatsApp
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        Button(
-                                            onClick = {
-                                                launchWhatsApp(context, lead.phone, "Hello ${lead.fullName}, this is SR Global Consultants following up on your inquiry.")
-                                            },
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = WhatsAppGreen,
-                                                contentColor = Color.White
-                                            ),
-                                            shape = RoundedCornerShape(8.dp),
-                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                            modifier = Modifier.weight(1f).minimumInteractiveComponentSize()
-                                        ) {
-                                            Icon(imageVector = Icons.Default.Chat, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                            Text("WhatsApp", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                        }
-
-                                        OutlinedButton(
-                                            onClick = {
-                                                editingLead = lead
-                                                newLeadNote = lead.notes
-                                            },
-                                            shape = RoundedCornerShape(8.dp),
-                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                            modifier = Modifier.weight(1f).minimumInteractiveComponentSize()
-                                        ) {
-                                            Icon(imageVector = Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp))
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                            Text("Update Stage", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                    items(leads) { lead ->
+                        LeadAdminCard(lead, onUpdate = { editingLead = it })
                     }
                 }
 
                 AdminSubTab.APPOINTMENTS -> {
+                    items(appointments) { appt ->
+                        AppointmentAdminCard(appt, onAction = { id, status -> viewModel.updateAppointmentStatus(id, status) })
+                    }
+                }
+
+                AdminSubTab.BANNERS -> {
                     item {
-                        Text(
-                            text = "Scheduled Consultations",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = NavyDark)
-                        )
+                        Button(
+                            onClick = { editingBanner = Banner(title = "", description = "", imageUrl = "") },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen)
+                        ) {
+                            Icon(Icons.Default.Add, null)
+                            Text("Add New Homepage Banner")
+                        }
+                    }
+                    items(bannerSlides) { slide ->
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = Color.White)
+                        ) {
+                            Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(slide.title, fontWeight = FontWeight.Bold)
+                                    Text(slide.subtitle, style = MaterialTheme.typography.bodySmall, maxLines = 1)
+                                }
+                                IconButton(onClick = { 
+                                    editingBanner = Banner(id = slide.id, title = slide.title, description = slide.subtitle, imageUrl = slide.bgImage ?: "")
+                                }) {
+                                    Icon(Icons.Default.Edit, null, tint = AccentCyan)
+                                }
+                                IconButton(onClick = { viewModel.deleteBanner(slide.id) }) {
+                                    Icon(Icons.Default.Delete, null, tint = ErrorRed)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                AdminSubTab.CONTENT -> {
+                    item { Text("Study Destinations", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
+                    item {
+                        Button(
+                            onClick = { editingDestination = Destination(countryName = "", slug = "", capital = "", currency = "", avgLivingCost = "", workRights = "", visaSubclass = "", overview = "", visaProcess = "", admissionRequirements = "", topUniversities = emptyList(), flagEmoji = "🌍") },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Add New Destination")
+                        }
+                    }
+                    items(destinations) { dest ->
+                        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+                            Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(dest.flagEmoji, fontSize = 24.sp)
+                                Spacer(Modifier.width(12.dp))
+                                Text(dest.countryName, modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold)
+                                IconButton(onClick = { editingDestination = dest }) { Icon(Icons.Default.Edit, null) }
+                                IconButton(onClick = { dest.id?.let { viewModel.deleteDestinationRemote(it) } }) { Icon(Icons.Default.Delete, null, tint = ErrorRed) }
+                            }
+                        }
                     }
 
-                    items(appointments) { appt ->
-                        Card(
-                            shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color.White),
-                            elevation = CardDefaults.cardElevation(2.dp),
-                            modifier = Modifier.fillMaxWidth().testTag("admin_appt_${appt.id}")
+                    item { Spacer(Modifier.height(16.dp)) }
+                    item { Text("Student Testimonials", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
+                    item {
+                        Button(
+                            onClick = { editingTestimonial = Testimonial(studentName = "", university = "", country = "", quote = "") },
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Column(modifier = Modifier.padding(14.dp)) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Column {
-                                        Text(text = appt.clientName, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = NavyDark))
-                                        Text(text = "${appt.date} • ${appt.timeSlot}", style = MaterialTheme.typography.bodySmall.copy(color = AmberGold, fontWeight = FontWeight.Bold))
-                                    }
-                                    Surface(
-                                        shape = RoundedCornerShape(6.dp),
-                                        color = if (appt.status == AppointmentStatus.CONFIRMED) SuccessGreen.copy(alpha = 0.15f) else AmberPale
-                                    ) {
-                                        Text(
-                                            text = appt.status.label,
-                                            style = MaterialTheme.typography.labelSmall.copy(
-                                                color = if (appt.status == AppointmentStatus.CONFIRMED) SuccessGreen else AmberGold,
-                                                fontWeight = FontWeight.Bold
-                                            ),
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                        )
-                                    }
-                                }
-
-                                Spacer(modifier = Modifier.height(6.dp))
-
-                                Text(text = "Mode: ${appt.mode.label} • Destination: ${appt.destination}", style = MaterialTheme.typography.bodySmall)
-                                Text(text = "Contact: ${appt.phone} • ${appt.email}", style = MaterialTheme.typography.bodySmall.copy(color = SlateTextSecondary))
-
-                                if (appt.message.isNotBlank()) {
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    Text(text = "Inquiry: ${appt.message}", style = MaterialTheme.typography.bodySmall.copy(color = SlateTextPrimary))
-                                }
-
-                                Spacer(modifier = Modifier.height(10.dp))
-
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    if (appt.status != AppointmentStatus.COMPLETED) {
-                                        Button(
-                                            onClick = { viewModel.updateAppointmentStatus(appt.id, AppointmentStatus.COMPLETED) },
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = SuccessGreen,
-                                                contentColor = Color.White
-                                            ),
-                                            shape = RoundedCornerShape(8.dp),
-                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                            modifier = Modifier.weight(1f).minimumInteractiveComponentSize()
-                                        ) {
-                                            Text("Mark Completed", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                        }
-                                    }
-
-                                    if (appt.status != AppointmentStatus.CANCELLED) {
-                                        OutlinedButton(
-                                            onClick = { viewModel.updateAppointmentStatus(appt.id, AppointmentStatus.CANCELLED) },
-                                            colors = ButtonDefaults.outlinedButtonColors(contentColor = ErrorRed),
-                                            border = ButtonDefaults.outlinedButtonBorder.copy(
-                                                brush = androidx.compose.ui.graphics.SolidColor(ErrorRed)
-                                            ),
-                                            shape = RoundedCornerShape(8.dp),
-                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                            modifier = Modifier.weight(1f).minimumInteractiveComponentSize()
-                                        ) {
-                                            Text("Cancel", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                        }
-                                    }
-                                }
+                            Text("Add Success Story")
+                        }
+                    }
+                    items(testimonials) { t ->
+                        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+                            Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(t.studentName, modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold)
+                                IconButton(onClick = { editingTestimonial = t }) { Icon(Icons.Default.Edit, null) }
+                                IconButton(onClick = { viewModel.deleteTestimonialRemote(t.id) }) { Icon(Icons.Default.Delete, null, tint = ErrorRed) }
                             }
                         }
                     }
                 }
 
                 AdminSubTab.SETTINGS -> {
-                    // PUSH NOTIFICATION BROADCASTER
-                    item {
-                        Card(
-                            shape = RoundedCornerShape(14.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color.White),
-                            elevation = CardDefaults.cardElevation(3.dp),
-                            modifier = Modifier.fillMaxWidth().testTag("admin_notification_card")
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = Icons.Default.NotificationsActive,
-                                        contentDescription = null,
-                                        tint = AccentCyan,
-                                        modifier = Modifier.size(22.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Column {
-                                        Text(
-                                            text = "Broadcast Status Bar Notification",
-                                            style = MaterialTheme.typography.titleMedium.copy(
-                                                fontWeight = FontWeight.Bold,
-                                                color = NavyDark
-                                            )
-                                        )
-                                        Text(
-                                            text = "Sends an alert to user status bar even when app is minimized",
-                                            style = MaterialTheme.typography.bodySmall.copy(color = SlateTextSecondary, fontSize = 11.sp)
-                                        )
-                                    }
-                                }
-
-                                Spacer(modifier = Modifier.height(14.dp))
-
-                                OutlinedTextField(
-                                    value = notifTitle,
-                                    onValueChange = { notifTitle = it },
-                                    label = { Text("Notification Title") },
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth().testTag("notif_title_input")
-                                )
-
-                                Spacer(modifier = Modifier.height(10.dp))
-
-                                OutlinedTextField(
-                                    value = notifBody,
-                                    onValueChange = { notifBody = it },
-                                    label = { Text("Notification Message") },
-                                    minLines = 2,
-                                    modifier = Modifier.fillMaxWidth().testTag("notif_body_input")
-                                )
-
-                                Spacer(modifier = Modifier.height(14.dp))
-
-                                Button(
-                                    onClick = {
-                                        viewModel.sendBroadcastNotification(context, notifTitle, notifBody)
-                                    },
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = AccentCyan,
-                                        contentColor = Color.White
-                                    ),
-                                    shape = RoundedCornerShape(10.dp),
-                                    modifier = Modifier.fillMaxWidth().testTag("send_notification_button")
-                                ) {
-                                    Icon(imageVector = Icons.Default.Send, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Dispatch Status Bar Notification", fontWeight = FontWeight.Bold)
-                                }
-
-                                if (notificationMsg != null) {
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Surface(
-                                        shape = RoundedCornerShape(8.dp),
-                                        color = SuccessGreen.copy(alpha = 0.15f)
-                                    ) {
-                                        Text(
-                                            text = "✓ $notificationMsg",
-                                            style = MaterialTheme.typography.bodySmall.copy(
-                                                color = SuccessGreen,
-                                                fontWeight = FontWeight.Bold
-                                            ),
-                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // CONTACT & SOCIAL HANDLES EDITOR
-                    item {
-                        Card(
-                            shape = RoundedCornerShape(14.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color.White),
-                            elevation = CardDefaults.cardElevation(3.dp),
-                            modifier = Modifier.fillMaxWidth().testTag("admin_settings_card")
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text(
-                                    text = "Manage Public Contact & Social Handles",
-                                    style = MaterialTheme.typography.titleMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = NavyDark
-                                    )
-                                )
-                                Text(
-                                    text = "Changes apply instantly to mobile app and web portal",
-                                    style = MaterialTheme.typography.bodySmall.copy(color = SlateTextSecondary, fontSize = 11.sp)
-                                )
-
-                                Spacer(modifier = Modifier.height(14.dp))
-
-                                OutlinedTextField(
-                                    value = editWhatsapp,
-                                    onValueChange = { editWhatsapp = it },
-                                    label = { Text("WhatsApp Number (no plus/spaces)") },
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                OutlinedTextField(
-                                    value = editPakPhone,
-                                    onValueChange = { editPakPhone = it },
-                                    label = { Text("Pakistan Helpline") },
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                OutlinedTextField(
-                                    value = editAusPhone,
-                                    onValueChange = { editAusPhone = it },
-                                    label = { Text("Australia Office Helpline") },
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                OutlinedTextField(
-                                    value = editEmail,
-                                    onValueChange = { editEmail = it },
-                                    label = { Text("Official Email") },
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                OutlinedTextField(
-                                    value = editFb,
-                                    onValueChange = { editFb = it },
-                                    label = { Text("Facebook URL") },
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                OutlinedTextField(
-                                    value = editTwitter,
-                                    onValueChange = { editTwitter = it },
-                                    label = { Text("X (Twitter) URL") },
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                OutlinedTextField(
-                                    value = editLinkedIn,
-                                    onValueChange = { editLinkedIn = it },
-                                    label = { Text("LinkedIn URL") },
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-
-                                Spacer(modifier = Modifier.height(14.dp))
-
-                                Button(
-                                    onClick = {
-                                        viewModel.updateContact(
-                                            contact.copy(
-                                                whatsappNumber = editWhatsapp,
-                                                phonePakistan = editPakPhone,
-                                                phoneAustralia = editAusPhone,
-                                                email = editEmail,
-                                                facebook = editFb,
-                                                twitter = editTwitter,
-                                                linkedin = editLinkedIn
-                                            )
-                                        )
-                                        settingsSavedMsg = "Company contact & social handles updated successfully!"
-                                    },
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = NavyDark,
-                                        contentColor = Color.White
-                                    ),
-                                    shape = RoundedCornerShape(10.dp),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Icon(imageVector = Icons.Default.Save, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Save Contact & Social Settings", fontWeight = FontWeight.Bold)
-                                }
-
-                                if (settingsSavedMsg != null) {
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Text(
-                                        text = "✓ $settingsSavedMsg",
-                                        style = MaterialTheme.typography.bodySmall.copy(
-                                            color = SuccessGreen,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    // OPERATIONAL METRICS
-                    item {
-                        Card(
-                            shape = RoundedCornerShape(14.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color.White),
-                            elevation = CardDefaults.cardElevation(2.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text(
-                                    text = "Operational Metrics & System Info",
-                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = NavyDark)
-                                )
-                                Spacer(modifier = Modifier.height(10.dp))
-                                Text("Students Guided: ${metrics.studentsGuided}", style = MaterialTheme.typography.bodyMedium)
-                                Text("Partner Universities: ${metrics.partnerUniversities}", style = MaterialTheme.typography.bodyMedium)
-                                Text("Visa Success Rate: ${metrics.visaSuccessRate}%", style = MaterialTheme.typography.bodyMedium)
-                                Text("Years in Industry: ${metrics.yearsExperience} Years", style = MaterialTheme.typography.bodyMedium)
-
-                                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-
-                                Text("Database Backend: Supabase PostgreSQL (schema.sql)", style = MaterialTheme.typography.bodySmall.copy(color = AccentCyan, fontWeight = FontWeight.Bold))
-                                Text("Row Level Security: Enabled on 18 tables", style = MaterialTheme.typography.bodySmall.copy(color = SlateTextSecondary))
-                                Text("Office Address: 1st Floor, 239A Civic Center, Gujranwala", style = MaterialTheme.typography.bodySmall.copy(color = SlateTextSecondary))
+                    item { 
+                        var title by remember { mutableStateOf("New Announcement") }
+                        var body by remember { mutableStateOf("Visit SR Global for latest intake details.") }
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(16.dp)) {
+                                Text("Broadcast Notification", fontWeight = FontWeight.Bold)
+                                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Title") }, modifier = Modifier.fillMaxWidth())
+                                OutlinedTextField(value = body, onValueChange = { body = it }, label = { Text("Message") }, modifier = Modifier.fillMaxWidth())
+                                Button(onClick = { viewModel.sendBroadcastNotification(context, title, body) }, modifier = Modifier.fillMaxWidth()) { Text("Send Notification") }
+                                if (notificationMsg != null) Text(notificationMsg!!, color = SuccessGreen, style = MaterialTheme.typography.bodySmall)
                             }
                         }
                     }
@@ -679,150 +269,168 @@ fun AdminDashboardScreen(
         }
     }
 
-    // UPDATE LEAD STAGE DIALOG
+    // DIALOGS
+    if (editingBanner != null) {
+        BannerEditDialog(banner = editingBanner!!, onDismiss = { editingBanner = null }, onSave = { viewModel.saveBanner(it) })
+    }
+    if (editingDestination != null) {
+        DestinationEditDialog(dest = editingDestination!!, onDismiss = { editingDestination = null }, onSave = { viewModel.saveDestination(it) })
+    }
+    if (editingTestimonial != null) {
+        TestimonialEditDialog(t = editingTestimonial!!, onDismiss = { editingTestimonial = null }, onSave = { viewModel.saveTestimonialRemote(it) })
+    }
     if (editingLead != null) {
-        val lead = editingLead!!
-        var chosenStatus by remember { mutableStateOf(lead.status) }
-
-        AlertDialog(
-            onDismissRequest = { editingLead = null },
-            title = { Text("Update Pipeline Stage", fontWeight = FontWeight.Bold) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Student: ${lead.fullName} (${lead.destination})")
-
-                    Text("Select Stage:", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
-
-                    LeadStatus.values().forEach { st ->
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { chosenStatus = st }
-                        ) {
-                            RadioButton(selected = chosenStatus == st, onClick = { chosenStatus = st })
-                            Text(st.label, style = MaterialTheme.typography.bodyMedium)
-                        }
-                    }
-
-                    OutlinedTextField(
-                        value = newLeadNote,
-                        onValueChange = { newLeadNote = it },
-                        label = { Text("Counselor Note / Next Action") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.updateLeadStatus(lead.id, chosenStatus, newLeadNote)
-                        editingLead = null
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = AmberGold, contentColor = NavyDeep)
-                ) {
-                    Text("Save Changes", fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { editingLead = null }) {
-                    Text("Cancel")
-                }
-            }
-        )
+        UpdateLeadDialog(lead = editingLead!!, onDismiss = { editingLead = null }, onUpdate = { id, status, note -> viewModel.updateLeadStatus(id, status, note) })
     }
 
-    // CSV EXPORT DIALOG
     if (showCsvDialog) {
         AlertDialog(
             onDismissRequest = { showCsvDialog = false },
-            title = { Text("Exported Leads (CSV)", fontWeight = FontWeight.Bold) },
-            text = {
-                Column {
-                    Text(
-                        text = "Data ready for import into CRM or spreadsheet software:",
-                        style = MaterialTheme.typography.bodySmall.copy(color = SlateTextSecondary)
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = SlateBackground,
-                        modifier = Modifier.fillMaxWidth().heightIn(max = 240.dp)
-                    ) {
-                        Text(
-                            text = csvContent,
-                            style = MaterialTheme.typography.bodySmall.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontSize = 10.sp),
-                            modifier = Modifier.padding(10.dp)
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = { showCsvDialog = false },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = NavyDark,
-                        contentColor = Color.White
-                    )
-                ) {
-                    Text("Done", color = Color.White, fontWeight = FontWeight.Bold)
-                }
-            }
+            title = { Text("Exported Data") },
+            text = { SelectionContainer { Text(csvContent) } },
+            confirmButton = { Button(onClick = { showCsvDialog = false }) { Text("Close") } }
         )
     }
 }
 
 @Composable
-fun KpiCard(
-    title: String,
-    value: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    color: Color,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(2.dp),
-        modifier = modifier
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Icon(imageVector = icon, contentDescription = null, tint = color, modifier = Modifier.size(20.dp))
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(text = value, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold, color = NavyDark))
-            Text(text = title, style = MaterialTheme.typography.labelSmall.copy(color = SlateTextSecondary, fontSize = 10.sp), maxLines = 1)
+fun SelectionContainer(content: @Composable () -> Unit) {
+    androidx.compose.foundation.text.selection.SelectionContainer { content() }
+}
+
+@Composable
+fun LeadAdminCard(lead: Lead, onUpdate: (Lead) -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+        Column(Modifier.padding(14.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(lead.fullName, fontWeight = FontWeight.Bold)
+                LeadStatusBadge(lead.status)
+            }
+            Text("${lead.phone} • ${lead.email}", style = MaterialTheme.typography.bodySmall)
+            Text("${lead.destination} • ${lead.courseInterest}", color = AccentCyan, style = MaterialTheme.typography.bodySmall)
+            Button(onClick = { onUpdate(lead) }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) { Text("Update Stage") }
+        }
+    }
+}
+
+@Composable
+fun AppointmentAdminCard(appt: Appointment, onAction: (String, AppointmentStatus) -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+        Column(Modifier.padding(14.dp)) {
+            Text(appt.clientName, fontWeight = FontWeight.Bold)
+            Text("${appt.date} @ ${appt.timeSlot}", color = AmberGold, style = MaterialTheme.typography.bodySmall)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = { onAction(appt.id, AppointmentStatus.COMPLETED) }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen)) { Text("Complete") }
+                OutlinedButton(onClick = { onAction(appt.id, AppointmentStatus.CANCELLED) }, modifier = Modifier.weight(1f)) { Text("Cancel") }
+            }
+        }
+    }
+}
+
+@Composable
+fun BannerEditDialog(banner: Banner, onDismiss: () -> Unit, onSave: (Banner) -> Unit) {
+    var title by remember { mutableStateOf(banner.title) }
+    var desc by remember { mutableStateOf(banner.description) }
+    var imgUrl by remember { mutableStateOf(banner.imageUrl) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Banner") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Title") })
+                OutlinedTextField(value = desc, onValueChange = { desc = it }, label = { Text("Description") })
+                OutlinedTextField(value = imgUrl, onValueChange = { imgUrl = it }, label = { Text("Image URL") })
+            }
+        },
+        confirmButton = { Button(onClick = { onSave(banner.copy(title = title, description = desc, imageUrl = imgUrl)); onDismiss() }) { Text("Save") } }
+    )
+}
+
+@Composable
+fun DestinationEditDialog(dest: Destination, onDismiss: () -> Unit, onSave: (Destination) -> Unit) {
+    var name by remember { mutableStateOf(dest.countryName) }
+    var flag by remember { mutableStateOf(dest.flagEmoji) }
+    var imgUrl by remember { mutableStateOf(dest.imageUrl ?: "") }
+    val flags = listOf("🇦🇺", "🇬🇧", "🇨🇦", "🇺🇸", "🇪🇺", "🇩🇪", "🇮🇪", "🇳🇿")
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Destination") },
+        text = {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.heightIn(max = 400.dp)) {
+                item { OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") }) }
+                item {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(flags) { f -> Text(f, fontSize = 24.sp, modifier = Modifier.clickable { flag = f }.border(1.dp, if (flag == f) AmberGold else Color.Transparent).padding(4.dp)) }
+                    }
+                    OutlinedTextField(value = flag, onValueChange = { flag = it }, label = { Text("Emoji") })
+                }
+                item { OutlinedTextField(value = imgUrl, onValueChange = { imgUrl = it }, label = { Text("Image URL") }) }
+            }
+        },
+        confirmButton = { Button(onClick = { onSave(dest.copy(countryName = name, flagEmoji = flag, imageUrl = imgUrl, slug = name.lowercase().replace(" ", "-"))); onDismiss() }) { Text("Save") } }
+    )
+}
+
+@Composable
+fun TestimonialEditDialog(t: Testimonial, onDismiss: () -> Unit, onSave: (Testimonial) -> Unit) {
+    var name by remember { mutableStateOf(t.studentName) }
+    var quote by remember { mutableStateOf(t.quote) }
+    var imgUrl by remember { mutableStateOf(t.imageUrl ?: "") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Testimonial") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Student Name") })
+                OutlinedTextField(value = imgUrl, onValueChange = { imgUrl = it }, label = { Text("Student Image URL") })
+                OutlinedTextField(value = quote, onValueChange = { quote = it }, label = { Text("Quote") }, minLines = 3)
+            }
+        },
+        confirmButton = { Button(onClick = { onSave(t.copy(studentName = name, quote = quote, imageUrl = imgUrl)); onDismiss() }) { Text("Save") } }
+    )
+}
+
+@Composable
+fun UpdateLeadDialog(lead: Lead, onDismiss: () -> Unit, onUpdate: (String, LeadStatus, String) -> Unit) {
+    var status by remember { mutableStateOf(lead.status) }
+    var note by remember { mutableStateOf("") }
+    AlertDialog(onDismissRequest = onDismiss, title = { Text("Update Lead Status") }, text = {
+        Column {
+            LeadStatus.values().forEach { st -> Row(verticalAlignment = Alignment.CenterVertically) { RadioButton(selected = status == st, onClick = { status = st }); Text(st.label) } }
+            OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text("Internal Note") })
+        }
+    }, confirmButton = { Button(onClick = { onUpdate(lead.id, status, note); onDismiss() }) { Text("Update") } })
+}
+
+@Composable
+fun KpiCard(title: String, value: String, icon: androidx.compose.ui.graphics.vector.ImageVector, color: Color, modifier: Modifier = Modifier) {
+    Card(modifier = modifier, colors = CardDefaults.cardColors(containerColor = Color.White)) {
+        Column(Modifier.padding(12.dp)) {
+            Icon(icon, null, tint = color, modifier = Modifier.size(20.dp))
+            Text(value, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp)
+            Text(title, style = MaterialTheme.typography.labelSmall, color = SlateTextSecondary)
         }
     }
 }
 
 @Composable
 fun LeadStatusBadge(status: LeadStatus) {
-    val (bgColor, textColor) = when (status) {
+    val (bg, txt) = when (status) {
         LeadStatus.NEW -> AccentCyanLight to AccentCyan
         LeadStatus.CONTACTED -> AmberPale to AmberGold
         LeadStatus.IN_PROGRESS -> Color(0xFFE0E7FF) to Color(0xFF4338CA)
         LeadStatus.CONVERTED -> SuccessGreen.copy(alpha = 0.15f) to SuccessGreen
         LeadStatus.CLOSED -> Color(0xFFF1F5F9) to Color(0xFF64748B)
     }
-
-    Surface(
-        shape = RoundedCornerShape(6.dp),
-        color = bgColor
-    ) {
-        Text(
-            text = status.label.uppercase(),
-            style = MaterialTheme.typography.labelSmall.copy(
-                color = textColor,
-                fontWeight = FontWeight.Bold,
-                fontSize = 9.sp
-            ),
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-        )
+    Surface(shape = RoundedCornerShape(6.dp), color = bg) {
+        Text(status.label.uppercase(), style = MaterialTheme.typography.labelSmall, color = txt, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
     }
 }
 
 enum class AdminSubTab(val title: String) {
-    LEADS("Leads CRM"),
-    APPOINTMENTS("Appointments"),
-    SETTINGS("System & Export")
+    LEADS("Leads"),
+    APPOINTMENTS("Bookings"),
+    BANNERS("Banners"),
+    CONTENT("Content"),
+    SETTINGS("System")
 }
