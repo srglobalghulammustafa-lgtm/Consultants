@@ -82,6 +82,7 @@ interface SettingsContextType {
   updateAppointmentConfig: (config: { maxPerDay: number }) => Promise<boolean>;
   updateAdminPin: (newPin: string) => Promise<boolean>;
   sendBroadcastNotification: (notif: Omit<BroadcastNotification, 'id' | 'created_at'>) => Promise<boolean>;
+  clearBroadcastHistory: () => Promise<boolean>;
   resetIpstackQuota: () => Promise<boolean>;
   resetToDefaults: () => Promise<boolean>;
   isSyncing: boolean;
@@ -264,6 +265,14 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return true;
   };
 
+  const clearBroadcastHistory = async () => {
+    const next = { ...settings, broadcastHistory: [] };
+    setSettings(next);
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(next));
+    await saveToSupabase('broadcast_history', []);
+    return true;
+  };
+
   const resetIpstackQuota = async () => {
     const next = {
       ...settings,
@@ -301,6 +310,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         updateAppointmentConfig,
         updateAdminPin,
         sendBroadcastNotification,
+        clearBroadcastHistory,
         resetIpstackQuota,
         resetToDefaults,
         isSyncing,
