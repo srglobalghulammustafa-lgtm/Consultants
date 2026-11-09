@@ -1,51 +1,36 @@
-# Implementation Plan - Broadcast Table & Admin Enhancements
+# Implementation Plan - Google Drive Image Fix & Save Reliability
 
-The user wants to fix the broadcast deletion logic by moving it to a dedicated Supabase table and add several quality-of-life improvements to the Admin panel.
+The user is reporting that Google Drive links are not saving and images are not appearing. This is likely due to:
+1. Incomplete link conversion logic.
+2. Postgres/Supabase case sensitivity for column names (imageUrl vs imageurl).
 
-## 1. Supabase SQL Migration
-I will provide the following SQL to the user to create the `broadcasts` table. This ensures that deleting a broadcast actually removes the record from the database.
-
-```sql
--- 1. Create Broadcasts Table
-CREATE TABLE IF NOT EXISTS public.broadcasts (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    title TEXT NOT NULL,
-    message TEXT NOT NULL,
-    priority TEXT NOT NULL DEFAULT 'Normal',
-    link TEXT,
-    play_sound BOOLEAN DEFAULT FALSE,
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- 2. Enable RLS
-ALTER TABLE public.broadcasts ENABLE ROW LEVEL SECURITY;
-
--- 3. Public Read Access
-CREATE POLICY "Public read broadcasts" 
-ON public.broadcasts FOR SELECT 
-USING (TRUE);
-
--- 4. Full Admin Access (Using existing rules pattern)
-CREATE POLICY "Full access to broadcasts" 
-ON public.broadcasts FOR ALL 
-USING (TRUE);
+## 1. Upgrade Link Converter
+I will replace the existing split-based logic with a robust regex:
+```typescript
+const fixGoogleDriveLink = (url: string): string => {
+  if (!url) return '';
+  const driveRegex = /drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?id=)([a-zA-Z0-9_-]+)/;
+  const match = url.match(driveRegex);
+  if (match && match[1]) {
+    return `https://drive.google.com/uc?id=${match[1]}`;
+  }
+  return url;
+};
 ```
 
-## 2. SettingsContext.tsx Refactoring
-- Modify `fetchLiveSettings` to also fetch the latest broadcasts from the `broadcasts` table.
-- Update `sendBroadcastNotification` to `insert` into the `broadcasts` table.
-- Update `deleteBroadcast` to perform a real `delete()` call on the `broadcasts` table.
-- Update `clearBroadcastHistory` to delete all records.
+## 2. LiveDataContext Mapping Fixes
+I will update `LiveDataContext.tsx` to ensure it maps incoming and outgoing data correctly, regardless of Postgres casing.
 
-## 3. AdminDashboard.tsx Enhancements
-- **Google Drive Link Fixer**: Add a helper function `fixGoogleDriveLink(url: string): string` that converts share links to direct download links.
-- **Flag Picker**: Add a `FLAGS` constant with common country emojis and a dropdown in the "Add Destination" modal.
-- **Auto-Fix Integration**: Hook the Google Drive fixer into the `onChange` or `onBlur` events of image URL fields for Banners, Testimonials, and Destinations.
+- **Fetch**: `imageUrl: d.imageUrl || d.imageurl`
+- **Update/Insert**: Explicitly send the field names.
 
-## 4. Components Update
-- **Navbar.tsx**: Update how it fetches notifications to ensure it pulls from the live `broadcasts` table (via the updated Context).
-- **Destinations.tsx**: Ensure it correctly handles the flag/image priority.
+## 3. SQL Script Update
+The script in `AdminDashboard.tsx` will be updated to use `"imageUrl"` (with quotes) to ensure the column is created exactly as requested by the TypeScript code.
+
+## 4. Public View Fallbacks
+- Add `crossOrigin="anonymous"` and better error handling to `img` tags.
+- Ensure `Destinations.tsx` and `Home.tsx` properly handle the mapping.
 
 ## 5. Verification
-- Run `npm run build` to ensure no type mismatches or syntax errors.
+- Sync all changes.
+- Provide the updated SQL to the user.

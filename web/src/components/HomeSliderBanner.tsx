@@ -98,12 +98,13 @@ export const HomeSliderBanner: React.FC = () => {
     >
       <div className={`relative overflow-hidden rounded-3xl text-white shadow-2xl p-8 sm:p-12 transition-all duration-700 border border-white/10 min-h-[340px] flex items-center ${!slide.bgImage ? `bg-gradient-to-r ${slide.gradient}` : ''}`}>
         {/* Background Image if exists */}
-        {slide.bgImage && (
+        {(slide.bgImage || (slide as any).bgimage) && (
           <>
             <img 
-              src={slide.bgImage} 
+              src={slide.bgImage || (slide as any).bgimage} 
               alt={slide.title} 
               className="absolute inset-0 w-full h-full object-cover" 
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
             />
             <div className={`absolute inset-0 bg-gradient-to-r ${slide.gradient} opacity-85`} />
           </>

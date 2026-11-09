@@ -44,9 +44,14 @@ export const Destinations: React.FC = () => {
         {/* Active Destination Detail Pane */}
         <div className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
           {/* Top Banner */}
-          <div className={`p-8 sm:p-12 border-b-4 border-brand-500 relative ${!activeDestination.imageUrl ? 'bg-navy-950 text-white' : ''}`}>
-            {activeDestination.imageUrl && (
-              <img src={activeDestination.imageUrl} alt={activeDestination.country_name} className="absolute inset-0 w-full h-full object-cover brightness-50" />
+          <div className={`p-8 sm:p-12 border-b-4 border-brand-500 relative ${!(activeDestination.imageUrl || (activeDestination as any).imageurl) ? 'bg-navy-950 text-white' : ''}`}>
+            {(activeDestination.imageUrl || (activeDestination as any).imageurl) && (
+              <img 
+                src={activeDestination.imageUrl || (activeDestination as any).imageurl} 
+                alt={activeDestination.country_name} 
+                className="absolute inset-0 w-full h-full object-cover brightness-50" 
+                onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.backgroundColor = '#0A192F'; (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
             )}
             <div className="flex flex-wrap justify-between items-center gap-6 relative z-10">
               <div className="flex items-center gap-4">

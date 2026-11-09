@@ -88,7 +88,7 @@ export const LiveDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           admission_requirements: d.admission_requirements || '',
           top_universities: Array.isArray(d.top_universities) ? d.top_universities : (d.top_universities ? d.top_universities.split('\n') : ['Top Universities']),
           flag: d.flag || '🌏',
-          imageUrl: d.imageUrl,
+          imageUrl: d.imageUrl || d.imageurl,
         }));
         setDestinations(mappedDest);
         setIsSupabaseConnected(true);
@@ -101,7 +101,11 @@ export const LiveDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         .order('created_at', { ascending: false });
 
       if (!testError && testData && testData.length > 0) {
-        setTestimonials(testData);
+        const mappedTest = testData.map((t: any) => ({
+          ...t,
+          imageUrl: t.imageUrl || t.imageurl
+        }));
+        setTestimonials(mappedTest);
         setIsSupabaseConnected(true);
       }
       
@@ -111,7 +115,11 @@ export const LiveDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         .select('*');
         
       if (!bannerError && bannerData) {
-        setBanners(bannerData);
+        const mappedBanners = bannerData.map((b: any) => ({
+          ...b,
+          imageUrl: b.imageUrl || b.imageurl
+        }));
+        setBanners(mappedBanners);
       }
 
       // 4. Fetch Leads
@@ -153,7 +161,12 @@ export const LiveDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setBanners((prev) => [...prev, bannerWithId]);
 
     try {
-      const { data, error } = await supabase.from('banners').insert([newBanner]).select().single();
+      const { data, error } = await supabase.from('banners').insert([{
+        title: newBanner.title,
+        description: newBanner.description,
+        imageUrl: newBanner.imageUrl,
+        link: newBanner.link
+      }]).select().single();
       if (!error && data) {
         setBanners((prev) => prev.map((b) => (b.id === tempId ? data : b)));
         return true;
@@ -167,7 +180,11 @@ export const LiveDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const updateBanner = async (id: string, updated: Partial<Banner>) => {
     setBanners((prev) => prev.map((b) => (b.id === id ? { ...b, ...updated } : b)));
     try {
-      await supabase.from('banners').update(updated).eq('id', id);
+      const payload: any = { ...updated };
+      // Map imageUrl to both cases just in case, or use explicit one
+      if (updated.imageUrl) payload.imageUrl = updated.imageUrl;
+      
+      await supabase.from('banners').update(payload).eq('id', id);
     } catch (e) {
       console.warn('Sync notice for updateBanner:', e);
     }
@@ -250,7 +267,11 @@ export const LiveDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const updateDestination = async (slug: string, updated: Partial<Destination>) => {
     setDestinations((prev) => prev.map((d) => (d.slug === slug ? { ...d, ...updated } : d)));
     try {
-      await supabase.from('destinations').update(updated).eq('slug', slug);
+      const payload: any = { ...updated };
+      if (updated.visa_process) payload.visa_process = updated.visa_process.join('\n');
+      if (updated.imageUrl) payload.imageUrl = updated.imageUrl;
+
+      await supabase.from('destinations').update(payload).eq('slug', slug);
     } catch (e) {
       console.warn('Sync notice for updateDestination:', e);
     }
@@ -274,7 +295,14 @@ export const LiveDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setTestimonials((prev) => [itemWithId, ...prev]);
 
     try {
-      const { data, error } = await supabase.from('testimonials').insert([newItem]).select().single();
+      const { data, error } = await supabase.from('testimonials').insert([{
+        student_name: newItem.student_name,
+        university: newItem.university,
+        country: newItem.country,
+        quote: newItem.quote,
+        rating: newItem.rating,
+        imageUrl: newItem.imageUrl
+      }]).select().single();
       if (!error && data) {
         setTestimonials((prev) => prev.map((t) => (t.id === tempId ? data : t)));
       }
@@ -287,7 +315,10 @@ export const LiveDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const updateTestimonial = async (id: string, updated: Partial<Testimonial>) => {
     setTestimonials((prev) => prev.map((t) => (t.id === id ? { ...t, ...updated } : t)));
     try {
-      await supabase.from('testimonials').update(updated).eq('id', id);
+      const payload: any = { ...updated };
+      if (updated.imageUrl) payload.imageUrl = updated.imageUrl;
+
+      await supabase.from('testimonials').update(payload).eq('id', id);
     } catch (e) {
       console.warn('Sync notice for updateTestimonial:', e);
     }

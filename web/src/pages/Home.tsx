@@ -440,11 +440,12 @@ export const Home: React.FC = () => {
                   </p>
                 </div>
                 <div className="pt-4 border-t border-slate-100 flex items-center gap-3">
-                  {item.imageUrl ? (
+                  {(item.imageUrl || (item as any).imageurl) ? (
                     <img 
-                      src={item.imageUrl} 
+                      src={item.imageUrl || (item as any).imageurl} 
                       alt={item.student_name} 
-                      className="w-10 h-10 rounded-full object-cover border border-slate-100" 
+                      className="w-10 h-10 rounded-full object-cover border border-slate-100 shadow-sm"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                     />
                   ) : (
                     <div className="w-10 h-10 rounded-full bg-brand-500 text-white font-bold flex items-center justify-center">

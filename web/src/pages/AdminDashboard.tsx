@@ -15,14 +15,11 @@ import { fetchUserLocationWithQuota } from '../lib/ipstack';
 
 const fixGoogleDriveLink = (url: string): string => {
   if (!url) return '';
-  if (url.includes('drive.google.com') && (url.includes('/file/d/') || url.includes('id='))) {
-    let id = '';
-    if (url.includes('/file/d/')) {
-      id = url.split('/file/d/')[1].split('/')[0];
-    } else if (url.includes('id=')) {
-      id = url.split('id=')[1].split('&')[0];
-    }
-    if (id) return `https://drive.google.com/uc?id=${id}`;
+  // Handles: /file/d/ID/view, open?id=ID, uc?id=ID
+  const driveRegex = /drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?id=)([a-zA-Z0-9_-]+)/;
+  const match = url.match(driveRegex);
+  if (match && match[1]) {
+    return `https://drive.google.com/uc?id=${match[1]}`;
   }
   return url;
 };
@@ -85,6 +82,7 @@ export const AdminDashboard: React.FC = () => {
   const [editingDestination, setEditingDestination] = useState<Destination | null>(null);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [editingTestimonial, setEditingTestimonial] = useState<Testimonial | null>(null);
+  const [editingBanner, setEditingBanner] = useState<Banner | null>(null);
 
   // Admin PIN Renewal State
   const [currentPinInput, setCurrentPinInput] = useState('');
@@ -380,7 +378,7 @@ CREATE TABLE IF NOT EXISTS public.destinations (
     overview TEXT NOT NULL,
     visa_process TEXT NOT NULL,
     admission_requirements TEXT NOT NULL,
-    imageUrl TEXT,
+    "imageUrl" TEXT,
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -391,7 +389,7 @@ CREATE TABLE IF NOT EXISTS public.testimonials (
     university TEXT NOT NULL,
     country TEXT NOT NULL,
     quote TEXT NOT NULL,
-    imageUrl TEXT,
+    "imageUrl" TEXT,
     rating INT DEFAULT 5,
     is_featured BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW()
@@ -401,7 +399,7 @@ CREATE TABLE IF NOT EXISTS public.banners (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     title TEXT NOT NULL,
     description TEXT,
-    imageUrl TEXT NOT NULL,
+    "imageUrl" TEXT NOT NULL,
     link TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -2744,12 +2742,22 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                                <span className="text-xs font-mono bg-slate-100 px-2 py-1 rounded text-slate-600">{banner.link}</span>
                              </td>
                              <td className="px-6 py-4 text-right">
-                               <button 
-                                 onClick={() => { if(confirm('Delete this banner?')) { deleteBanner(banner.id); showToast('Banner deleted'); } }} 
-                                 className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                               >
-                                 <Trash2 className="w-5 h-5" />
-                               </button>
+                               <div className="flex items-center justify-end gap-1">
+                                 <button 
+                                   onClick={() => setEditingBanner(banner)} 
+                                   className="p-2 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
+                                   title="Edit Banner"
+                                 >
+                                   <Edit3 className="w-5 h-5" />
+                                 </button>
+                                 <button 
+                                   onClick={() => { if(confirm('Delete this banner?')) { deleteBanner(banner.id); showToast('Banner deleted'); } }} 
+                                   className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                   title="Delete Banner"
+                                 >
+                                   <Trash2 className="w-5 h-5" />
+                                 </button>
+                               </div>
                              </td>
                            </tr>
                          ))
@@ -2850,6 +2858,90 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                     Add Banner
                   </button>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* POPUP / MODAL: EDIT BANNER */}
+          {editingBanner && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-navy-950/40 backdrop-blur-sm animate-in fade-in duration-200">
+              <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
+                <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                  <h3 className="text-xl font-bold text-navy-950">Edit Homepage Banner</h3>
+                  <button onClick={() => setEditingBanner(null)} className="p-2 rounded-full hover:bg-slate-200 transition-colors">
+                    <X className="w-5 h-5 text-slate-500" />
+                  </button>
+                </div>
+
+                <form 
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    updateBanner(editingBanner.id, editingBanner);
+                    setEditingBanner(null);
+                    showToast('Banner updated successfully');
+                  }}
+                  className="p-6 space-y-4 overflow-y-auto"
+                >
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Banner Title *</label>
+                    <input
+                      type="text"
+                      required
+                      value={editingBanner.title}
+                      onChange={(e) => setEditingBanner({ ...editingBanner, title: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Short Description *</label>
+                    <textarea
+                      required
+                      rows={2}
+                      value={editingBanner.description}
+                      onChange={(e) => setEditingBanner({ ...editingBanner, description: e.target.value })}
+                      className="w-full px-3.5 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Image URL *</label>
+                    <input
+                      type="url"
+                      required
+                      value={editingBanner.imageUrl}
+                      onChange={(e) => setEditingBanner({ ...editingBanner, imageUrl: fixGoogleDriveLink(e.target.value) })}
+                      className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm"
+                    />
+                    <p className="text-[10px] text-slate-500 mt-1">Direct link or Google Drive link (automatically fixed).</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Action Link (Optional)</label>
+                    <input
+                      type="text"
+                      value={editingBanner.link}
+                      onChange={(e) => setEditingBanner({ ...editingBanner, link: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm"
+                    />
+                  </div>
+
+                  <div className="pt-2 flex justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setEditingBanner(null)}
+                      className="px-5 py-2.5 rounded-xl font-bold text-sm text-slate-600 hover:bg-slate-200 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-6 py-2.5 rounded-xl font-bold text-sm bg-brand-500 text-white hover:bg-brand-600 shadow-md"
+                    >
+                      Save Changes
+                    </button>
+                  </div>
+                </form>
               </div>
             </div>
           )}
