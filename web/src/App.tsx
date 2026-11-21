@@ -7,6 +7,7 @@ import { Home } from './pages/Home';
 import { About } from './pages/About';
 import { Courses } from './pages/Courses';
 import { Destinations } from './pages/Destinations';
+import { SuccessStories } from './pages/SuccessStories';
 import { BookAppointment } from './pages/BookAppointment';
 import { TrackAppointment } from './pages/TrackAppointment';
 import { Contact } from './pages/Contact';
@@ -32,6 +33,7 @@ const AppLayout: React.FC = () => {
             <Route path="/about" element={<About />} />
             <Route path="/courses" element={<Courses />} />
             <Route path="/destinations" element={<Destinations />} />
+            <Route path="/success-stories" element={<SuccessStories />} />
             <Route path="/book-appointment" element={<BookAppointment />} />
             <Route path="/track-appointment" element={<TrackAppointment />} />
             <Route path="/contact" element={<Contact />} />

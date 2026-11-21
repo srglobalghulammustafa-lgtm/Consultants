@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Shield, Lock, AlertCircle, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Shield, Lock, AlertCircle, ArrowRight, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 import { useSiteSettings } from '../context/SettingsContext';
 
 export const AdminLogin: React.FC = () => {
-  const [pin, setPin] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(false);
   const [renewedNotice, setRenewedNotice] = useState(false);
   const navigate = useNavigate();
@@ -20,10 +21,15 @@ export const AdminLogin: React.FC = () => {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    const currentValidPin = settings.adminPin || localStorage.getItem('sr_global_admin_pin') || '1234';
-    
-    // Check dynamic PIN, or fallback master/default
-    if (pin === currentValidPin || pin === '1234' || pin === '0000') {
+    const currentValidPassword =
+      settings.adminPin || localStorage.getItem('sr_global_admin_pin') || '1234';
+
+    const isDefaultStillActive = currentValidPassword === '1234';
+    const isMatch =
+      password === currentValidPassword ||
+      (isDefaultStillActive && (password === '1234' || password === '0000'));
+
+    if (isMatch) {
       localStorage.setItem('sr_admin_auth', 'true');
       navigate('/admin/dashboard');
     } else {
@@ -46,36 +52,48 @@ export const AdminLogin: React.FC = () => {
         {renewedNotice && (
           <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2">
             <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
-            <span>Admin PIN was updated successfully. Please log in with your new PIN.</span>
+            <span>Staff password was updated successfully. Please log in with your new password.</span>
           </div>
         )}
 
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
-            <span>Invalid Staff PIN. Please check and try again.</span>
+            <span>Invalid Staff Password / PIN. Please check and try again.</span>
           </div>
         )}
 
         <form onSubmit={handleLogin} className="space-y-4 text-left">
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Enter 4-Digit Staff PIN</label>
+            <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+              Enter Staff Password or PIN
+            </label>
             <div className="relative">
               <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
-                type="password"
-                inputMode="numeric"
-                maxLength={6}
+                type={showPassword ? 'text' : 'password'}
                 required
-                value={pin}
+                autoComplete="current-password"
+                value={password}
                 onChange={(e) => {
-                  setPin(e.target.value);
+                  setPassword(e.target.value);
                   setError(false);
                 }}
-                placeholder="1234"
-                className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 text-center text-lg tracking-widest font-mono font-bold"
+                placeholder="Enter password or PIN"
+                className="w-full pl-10 pr-11 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm sm:text-base font-medium"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
+            <p className="text-[11px] text-slate-400 mt-1.5">
+              Supports letters, numbers, symbols, or mixed passwords of any length.
+            </p>
           </div>
 
           <button

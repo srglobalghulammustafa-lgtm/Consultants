@@ -68,3 +68,73 @@ export function getImageCandidateUrls(rawUrl?: string | null): string[] {
 
   return Array.from(new Set(candidates));
 }
+
+export interface ResolvedVideoSource {
+  isGoogleDrive: boolean;
+  driveId: string | null;
+  directUrls: string[];
+  embedPreviewUrl: string | null;
+  originalUrl: string;
+}
+
+/**
+ * Extracts YouTube video ID if a YouTube link is pasted.
+ */
+function extractYouTubeId(url: string): string | null {
+  const ytMatch = url.match(
+    /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{6,})/i
+  );
+  return ytMatch?.[1] || null;
+}
+
+/**
+ * Resolves a raw Google Drive, direct MP4/WebM, or YouTube video URL into
+ * playable direct HTML5 <video> candidates plus an interactive embed fallback.
+ */
+export function resolveVideoSources(rawUrl?: string | null): ResolvedVideoSource {
+  const trimmed = (rawUrl || '').trim();
+  if (!trimmed) {
+    return {
+      isGoogleDrive: false,
+      driveId: null,
+      directUrls: [],
+      embedPreviewUrl: null,
+      originalUrl: '',
+    };
+  }
+
+  const driveId = extractGoogleDriveFileId(trimmed);
+  if (driveId) {
+    return {
+      isGoogleDrive: true,
+      driveId,
+      directUrls: [
+        `https://drive.google.com/uc?export=download&id=${driveId}`,
+        `https://drive.usercontent.google.com/download?id=${driveId}&export=download`,
+        `https://drive.google.com/uc?id=${driveId}`,
+      ],
+      embedPreviewUrl: `https://drive.google.com/file/d/${driveId}/preview`,
+      originalUrl: trimmed,
+    };
+  }
+
+  const ytId = extractYouTubeId(trimmed);
+  if (ytId) {
+    return {
+      isGoogleDrive: false,
+      driveId: null,
+      directUrls: [],
+      embedPreviewUrl: `https://www.youtube.com/embed/${ytId}?rel=0`,
+      originalUrl: trimmed,
+    };
+  }
+
+  return {
+    isGoogleDrive: false,
+    driveId: null,
+    directUrls: [trimmed],
+    embedPreviewUrl: null,
+    originalUrl: trimmed,
+  };
+}
+

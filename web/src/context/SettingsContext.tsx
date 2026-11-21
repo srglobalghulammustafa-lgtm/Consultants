@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { SiteSettings, BroadcastNotification, TargetCountryOption } from '../types';
+import { SiteSettings, BroadcastNotification, TargetCountryOption, AboutConfig } from '../types';
 import { COMPANY_CONTACT, SITE_METRICS } from '../data/mockData';
 
 export const DEFAULT_TARGET_COUNTRIES: TargetCountryOption[] = [
@@ -29,6 +29,7 @@ const DEFAULT_SETTINGS: SiteSettings = {
       { id: '2', name: 'About Us', path: '/about', isVisible: true },
       { id: '3', name: 'Courses & Programs', path: '/courses', isVisible: true },
       { id: '4', name: 'Study Destinations', path: '/destinations', isVisible: true },
+      { id: '7', name: 'Success Stories', path: '/success-stories', isVisible: true },
       { id: '5', name: 'Track Status', path: '/track-appointment', isVisible: true },
       { id: '6', name: 'Contact Office', path: '/contact', isVisible: true },
     ],
@@ -52,6 +53,7 @@ const DEFAULT_SETTINGS: SiteSettings = {
     quickLinks: [
       { id: 'q1', label: 'Book Appointment', path: '/book-appointment' },
       { id: 'q2', label: 'Courses Catalog', path: '/courses' },
+      { id: 'q5', label: 'Success Stories', path: '/success-stories' },
       { id: 'q3', label: 'About Agency', path: '/about' },
       { id: 'q4', label: 'Contact Gujranwala', path: '/contact' },
     ],
@@ -85,6 +87,41 @@ const DEFAULT_SETTINGS: SiteSettings = {
     badgeText: 'Certified Education & Visa Counselors',
   },
   targetCountries: DEFAULT_TARGET_COUNTRIES,
+  about: {
+    heroEyebrow: 'About SR Global',
+    heroTitle: 'Empowering Pakistani Students to Excel Worldwide',
+    heroDescription:
+      'Founded with a vision of transparent, ethical, and high-standard foreign education counseling, SR Global Consultants has guided over 5,200 ambitious candidates to Australia, the UK, the USA, Canada, and Europe.',
+    customCards: [
+      {
+        id: 'about-card-desk',
+        order: 0,
+        layout: 'split',
+        theme: 'light',
+        badge: 'Gujranwala • Australia Desk',
+        title: 'Direct Institutional Liaison & Case Verification',
+        subtitle: 'Certified file auditing before embassy lodgement',
+        description:
+          'Every admission and visa file is reviewed end-to-end by our senior case officers in Gujranwala with live partner college follow-up in Australia and the UK.',
+        highlights: [
+          'Transparent institutional fee remittance',
+          'Genuine Student (GS) interview preparation',
+          'Post-visa settlement & accommodation briefing',
+        ],
+        mediaType: 'image',
+        mediaUrl: '/slide-academy.jpg',
+        ctaLabel: 'Book Consultation',
+        ctaLink: '/book-appointment',
+        showBadge: true,
+        showTitle: true,
+        showSubtitle: true,
+        showDescription: true,
+        showMedia: true,
+        showHighlights: true,
+        showCta: true,
+      },
+    ],
+  },
   adminPin: '1234',
   broadcastHistory: [],
 };
@@ -101,6 +138,7 @@ interface SettingsContextType {
   updateAppointmentConfig: (config: NonNullable<SiteSettings['appointmentConfig']>) => Promise<boolean>;
   updateHero: (config: NonNullable<SiteSettings['hero']>) => Promise<boolean>;
   updateTargetCountries: (countries: TargetCountryOption[]) => Promise<boolean>;
+  updateAboutConfig: (about: AboutConfig) => Promise<boolean>;
   updateAdminPin: (newPin: string) => Promise<boolean>;
   sendBroadcastNotification: (notif: Omit<BroadcastNotification, 'id' | 'created_at'>) => Promise<boolean>;
   deleteBroadcast: (id: string) => Promise<boolean>;
@@ -118,7 +156,20 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     try {
       const cached = localStorage.getItem(LOCAL_STORAGE_KEY);
       if (cached) {
-        return { ...DEFAULT_SETTINGS, ...JSON.parse(cached) };
+        const parsed = JSON.parse(cached);
+        const navLinks = Array.isArray(parsed?.header?.navLinks) ? [...parsed.header.navLinks] : DEFAULT_SETTINGS.header.navLinks;
+        if (!navLinks.some((l: any) => l.path === '/success-stories')) {
+          const destIdx = navLinks.findIndex((l: any) => l.path === '/destinations');
+          const storyItem = { id: '7', name: 'Success Stories', path: '/success-stories', isVisible: true };
+          if (destIdx >= 0) navLinks.splice(destIdx + 1, 0, storyItem);
+          else navLinks.push(storyItem);
+        }
+        return {
+          ...DEFAULT_SETTINGS,
+          ...parsed,
+          header: { ...DEFAULT_SETTINGS.header, ...(parsed.header || {}), navLinks },
+          about: parsed.about || DEFAULT_SETTINGS.about,
+        };
       }
     } catch (e) {
       console.warn('Could not read cached settings', e);
@@ -148,7 +199,16 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             if (row.setting_key === 'whatsapp_config' && row.setting_value) {
               liveMerged.whatsapp = { ...liveMerged.whatsapp, ...row.setting_value };
             } else if (row.setting_key === 'header_config' && row.setting_value) {
-              liveMerged.header = { ...liveMerged.header, ...row.setting_value };
+              const incomingLinks = Array.isArray(row.setting_value.navLinks)
+                ? [...row.setting_value.navLinks]
+                : [...DEFAULT_SETTINGS.header.navLinks];
+              if (!incomingLinks.some((l: any) => l.path === '/success-stories')) {
+                const destIdx = incomingLinks.findIndex((l: any) => l.path === '/destinations');
+                const storyItem = { id: '7', name: 'Success Stories', path: '/success-stories', isVisible: true };
+                if (destIdx >= 0) incomingLinks.splice(destIdx + 1, 0, storyItem);
+                else incomingLinks.push(storyItem);
+              }
+              liveMerged.header = { ...liveMerged.header, ...row.setting_value, navLinks: incomingLinks };
             } else if (row.setting_key === 'footer_config' && row.setting_value) {
               liveMerged.footer = { ...liveMerged.footer, ...row.setting_value };
             } else if (row.setting_key === 'metrics_config' && row.setting_value) {
@@ -186,6 +246,14 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                     isActive: c.isActive !== false,
                   }));
               }
+            } else if (row.setting_key === 'about_config' && row.setting_value) {
+              liveMerged.about = {
+                ...DEFAULT_SETTINGS.about,
+                ...row.setting_value,
+                customCards: Array.isArray(row.setting_value.customCards)
+                  ? row.setting_value.customCards
+                  : DEFAULT_SETTINGS.about?.customCards || [],
+              };
             } else if (row.setting_key === 'admin_security' && row.setting_value) {
               liveMerged.adminPin = row.setting_value.pin || row.setting_value;
             }
@@ -324,6 +392,22 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return true;
   };
 
+  const updateAboutConfig = async (about: AboutConfig) => {
+    const normalizedCards = (about.customCards || []).map((card, idx) => ({
+      ...card,
+      order: idx,
+    }));
+    const nextAbout: AboutConfig = {
+      ...about,
+      customCards: normalizedCards,
+    };
+    const next = { ...settings, about: nextAbout };
+    setSettings(next);
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(next));
+    await saveToSupabase('about_config', nextAbout);
+    return true;
+  };
+
   const updateAdminPin = async (newPin: string) => {
     const next = { ...settings, adminPin: newPin };
     setSettings(next);
@@ -435,6 +519,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         updateAppointmentConfig,
         updateHero,
         updateTargetCountries,
+        updateAboutConfig,
         updateAdminPin,
         sendBroadcastNotification,
         deleteBroadcast,

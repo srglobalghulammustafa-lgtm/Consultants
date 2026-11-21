@@ -2,17 +2,19 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   Calendar, ArrowRight, CheckCircle2, Award, Users, BookOpen, 
-  Send, Star, MapPin, Phone, Shield, Globe, Sparkles, Quote, GraduationCap 
+  Send, Star, MapPin, Phone, Shield, Globe, Sparkles, Quote, GraduationCap, X, Video as VideoIcon
 } from 'lucide-react';
 import { COMPANY_CONTACT } from '../data/mockData';
 import { supabase } from '../lib/supabase';
 import { HomeSliderBanner } from '../components/HomeSliderBanner';
 import { SmartImage } from '../components/SmartImage';
+import { SmartVideo } from '../components/SmartVideo';
 import { Reveal } from '../components/Reveal';
 import { usePageTransition } from '../components/PageTransition';
 import { useLiveData } from '../context/LiveDataContext';
 import { useSiteSettings, DEFAULT_TARGET_COUNTRIES } from '../context/SettingsContext';
 import { fetchUserLocationWithQuota } from '../lib/ipstack';
+import { Testimonial } from '../types';
 
 export const Home: React.FC = () => {
   const { destinations, testimonials } = useLiveData();
@@ -42,6 +44,21 @@ export const Home: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [selectedStory, setSelectedStory] = useState<Testimonial | null>(null);
+
+  useEffect(() => {
+    if (!selectedStory) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSelectedStory(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [selectedStory]);
 
   useEffect(() => {
     if (activeCountries.length > 0 && !activeCountries.some((c) => c.name === leadForm.destination)) {
@@ -158,7 +175,7 @@ export const Home: React.FC = () => {
                     className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-yellow-400 hover:bg-yellow-300 text-navy-950 font-bold px-6 sm:px-7 py-3.5 rounded-xl shadow-lg shadow-black/20 hover:scale-105 transition-all text-sm sm:text-base"
                   >
                     <Calendar className="w-5 h-5" />
-                    <span>Book Free Consultation</span>
+                    <span>Book Consultation</span>
                   </Link>
 
                   <Link
@@ -241,7 +258,7 @@ export const Home: React.FC = () => {
               <div className="bg-white rounded-2xl shadow-2xl p-5 sm:p-8 text-slate-800 border border-slate-100">
                 <div className="mb-5 sm:mb-6">
                   <span className="text-xs font-bold uppercase tracking-wider text-brand-600 bg-brand-50 px-2.5 py-1 rounded">Fast Response</span>
-                  <h3 className="text-xl sm:text-2xl font-bold text-navy-950 mt-2">Free Profile Assessment</h3>
+                  <h3 className="text-xl sm:text-2xl font-bold text-navy-950 mt-2">Online Profile Assessment</h3>
                   <p className="text-xs sm:text-sm text-slate-500">Get an evaluation from our senior counselors in Gujranwala.</p>
                 </div>
 
@@ -327,7 +344,7 @@ export const Home: React.FC = () => {
                       className="w-full bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white font-bold py-3 rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
                     >
                       <Send className="w-4 h-4" />
-                      <span>{submitting ? 'Submitting to CRM...' : 'Get Free Assessment Now'}</span>
+                      <span>{submitting ? 'Submitting to CRM...' : 'Submit Profile Assessment'}</span>
                     </button>
                   </form>
                 )}
@@ -542,14 +559,28 @@ export const Home: React.FC = () => {
               </span>
               <h2 className="text-2xl sm:text-4xl font-black text-navy-950 mt-3 font-serif">What Our Students Say</h2>
               <p className="text-slate-600 mt-2 sm:mt-3 text-sm sm:text-base">
-                Real visa-approved experiences from students across Pakistan who secured global admissions with SR Global Consultants.
+                Real visa-approved experiences from students across Pakistan. Click any card to view full details or watch video stories.
               </p>
+              <div className="mt-4">
+                <Link
+                  to="/success-stories"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigateWithTransition('/success-stories', 'Success Stories');
+                  }}
+                  className="inline-flex items-center gap-2 text-xs font-bold text-brand-700 hover:text-brand-800 bg-brand-50 hover:bg-brand-100 border border-brand-200 px-4 py-2 rounded-xl transition-colors"
+                >
+                  <span>Browse All Country-Wise Stories</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
             </div>
           </Reveal>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
             {testimonials.map((item, idx) => {
               const photoSrc = item.imageUrl || (item as any).imageurl;
+              const videoSrc = item.videoUrl || (item as any).videourl;
               const initials = (item.student_name || 'S')
                 .split(' ')
                 .map((n) => n[0])
@@ -559,11 +590,15 @@ export const Home: React.FC = () => {
 
               return (
                 <Reveal key={item.id} variant="fade-up" delay={Math.min(idx * 90, 450)} className="h-full">
-                  <div className="group relative bg-white rounded-3xl shadow-sm hover:shadow-xl border border-slate-200/90 hover:border-brand-300 overflow-hidden flex flex-col justify-between transition-all duration-300 hover:-translate-y-1.5 h-full">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedStory(item)}
+                    className="group relative w-full text-left bg-white rounded-3xl shadow-sm hover:shadow-xl border border-slate-200/90 hover:border-brand-300 overflow-hidden flex flex-col justify-between transition-all duration-300 hover:-translate-y-1.5 h-full cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  >
                     {/* Signature top gradient accent */}
                     <div className="h-1.5 w-full bg-gradient-to-r from-brand-500 via-sky-400 to-amber-400" />
 
-                    <div className="p-5 sm:p-7 flex-1 flex flex-col justify-between space-y-5 sm:space-y-6">
+                    <div className="p-5 sm:p-7 flex-1 flex flex-col justify-between space-y-5 sm:space-y-6 w-full">
                       {/* Student Header with Google Image Link Support */}
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-3.5 min-w-0">
@@ -600,6 +635,12 @@ export const Home: React.FC = () => {
                                   {item.year}
                                 </span>
                               )}
+                              {videoSrc && videoSrc.trim() && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-navy-950 text-white">
+                                  <VideoIcon className="w-3 h-3 text-brand-400" />
+                                  <span>Video</span>
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -622,29 +663,178 @@ export const Home: React.FC = () => {
                           </span>
                         </div>
 
-                        <p className="text-slate-700 text-sm leading-relaxed italic">
+                        <p className="text-slate-700 text-sm leading-relaxed italic line-clamp-4">
                           "{item.quote}"
                         </p>
                       </div>
                     </div>
 
                     {/* University Footer Bar */}
-                    <div className="px-7 py-4 bg-slate-50/90 border-t border-slate-100 flex items-center justify-between gap-2">
+                    <div className="px-5 sm:px-7 py-4 bg-slate-50/90 border-t border-slate-100 flex items-center justify-between gap-2 w-full">
                       <div className="flex items-center gap-2 min-w-0">
                         <GraduationCap className="w-4 h-4 text-brand-600 shrink-0" />
                         <span className="text-xs font-bold text-navy-950 truncate">{item.university}</span>
                       </div>
-                      <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider shrink-0">
-                        Alumni
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-brand-600 group-hover:translate-x-0.5 transition-transform shrink-0">
+                        <span>Details</span>
+                        <ArrowRight className="w-3 h-3" />
                       </span>
                     </div>
-                  </div>
+                  </button>
                 </Reveal>
               );
             })}
           </div>
         </div>
       </section>
+
+      {/* Interactive Student Story Popup Modal */}
+      {selectedStory && (
+        <div
+          className="fixed inset-0 z-[100] bg-navy-950/80 backdrop-blur-md flex items-center justify-center p-4 animate-remotion-backdrop"
+          onClick={() => setSelectedStory(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${selectedStory.student_name} Success Story`}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 animate-tab-reveal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="h-2 w-full bg-gradient-to-r from-brand-500 via-sky-400 to-amber-400" />
+
+            <div className="p-5 sm:p-8 space-y-5">
+              {/* Modal Header */}
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-center gap-4 min-w-0">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden ring-2 ring-brand-200 shadow-md bg-gradient-to-br from-brand-500 to-navy-950 flex items-center justify-center shrink-0">
+                    <SmartImage
+                      src={selectedStory.imageUrl || (selectedStory as any).imageurl}
+                      alt={selectedStory.student_name}
+                      className="w-full h-full object-cover"
+                      fallback={
+                        <span className="text-white font-black text-xl tracking-wider">
+                          {(selectedStory.student_name || 'S')
+                            .split(' ')
+                            .map((n) => n[0])
+                            .join('')
+                            .slice(0, 2)
+                            .toUpperCase()}
+                        </span>
+                      }
+                    />
+                  </div>
+                  <div className="min-w-0 space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200">
+                        <Globe className="w-3 h-3" />
+                        {selectedStory.country}
+                      </span>
+                      <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                        Visa Granted
+                      </span>
+                      {selectedStory.year && (
+                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                          {selectedStory.year}
+                        </span>
+                      )}
+                    </div>
+                    <h3 className="text-xl sm:text-2xl font-black text-navy-950 font-serif truncate">
+                      {selectedStory.student_name}
+                    </h3>
+                    <p className="text-xs sm:text-sm font-semibold text-brand-700 flex items-center gap-1.5 truncate">
+                      <GraduationCap className="w-4 h-4 shrink-0" />
+                      <span>{selectedStory.university}</span>
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedStory(null)}
+                  className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors shrink-0"
+                  aria-label="Close student story modal"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Meta Details */}
+              {(selectedStory.program || selectedStory.visaType) && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-2xl border border-slate-200 text-xs">
+                  {selectedStory.program && (
+                    <div>
+                      <span className="block text-[10px] font-bold uppercase text-slate-400">Course / Program</span>
+                      <span className="font-bold text-navy-950">{selectedStory.program}</span>
+                    </div>
+                  )}
+                  {selectedStory.visaType && (
+                    <div>
+                      <span className="block text-[10px] font-bold uppercase text-slate-400">Visa Category</span>
+                      <span className="font-bold text-emerald-700">{selectedStory.visaType}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Star rating + Quote + Full Story */}
+              <div className="space-y-3">
+                <div className="flex gap-1 text-amber-400">
+                  {[...Array(selectedStory.rating || 5)].map((_, i) => (
+                    <Star key={i} className="w-4 h-4 fill-current" />
+                  ))}
+                </div>
+                <p className="text-slate-700 text-sm sm:text-base leading-relaxed italic bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                  "{selectedStory.quote}"
+                </p>
+                {selectedStory.fullStory && (
+                  <p className="text-xs sm:text-sm text-slate-600 leading-relaxed whitespace-pre-line">
+                    {selectedStory.fullStory}
+                  </p>
+                )}
+              </div>
+
+              {/* Embedded Video Preview if attached */}
+              {(selectedStory.videoUrl || (selectedStory as any).videourl) && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-navy-950">
+                    <VideoIcon className="w-4 h-4 text-brand-500" />
+                    <span>Student Video Review</span>
+                  </div>
+                  <SmartVideo
+                    src={selectedStory.videoUrl || (selectedStory as any).videourl}
+                    poster={selectedStory.imageUrl || (selectedStory as any).imageurl}
+                    title={selectedStory.student_name}
+                  />
+                </div>
+              )}
+
+              {/* Modal Actions */}
+              <div className="pt-2 flex flex-col sm:flex-row gap-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const targetUrl = `/success-stories?story=${encodeURIComponent(selectedStory.id)}&country=${encodeURIComponent(selectedStory.country)}`;
+                    setSelectedStory(null);
+                    navigateWithTransition(targetUrl, `${selectedStory.student_name} Story`);
+                  }}
+                  className="flex-1 inline-flex items-center justify-center gap-2 bg-brand-500 hover:bg-brand-600 text-white font-bold py-3.5 px-5 rounded-xl shadow-md transition-all text-sm"
+                >
+                  <span>View More Details</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedStory(null)}
+                  className="px-5 py-3.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 6. OFFICE EMBED & MAP SECTION */}
       <section className="py-12 sm:py-16 bg-white border-t border-slate-200">

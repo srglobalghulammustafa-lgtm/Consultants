@@ -102,6 +102,10 @@ export interface Testimonial {
   rating: number;
   year?: string;
   imageUrl?: string;
+  videoUrl?: string;
+  program?: string;
+  visaType?: string;
+  fullStory?: string;
 }
 
 export interface WhatsAppConfig {
@@ -207,6 +211,40 @@ export interface TargetCountryOption {
   isActive: boolean;
 }
 
+export type AboutCardLayout = 'split' | 'featured' | 'compact';
+export type AboutCardTheme = 'light' | 'navy' | 'brand';
+export type AboutCardMediaType = 'none' | 'image' | 'video';
+
+export interface AboutCustomCard {
+  id: string;
+  order: number;
+  layout: AboutCardLayout;
+  theme: AboutCardTheme;
+  badge?: string;
+  title: string;
+  subtitle?: string;
+  description: string;
+  highlights?: string[];
+  mediaType: AboutCardMediaType;
+  mediaUrl?: string;
+  ctaLabel?: string;
+  ctaLink?: string;
+  showBadge: boolean;
+  showTitle: boolean;
+  showSubtitle: boolean;
+  showDescription: boolean;
+  showMedia: boolean;
+  showHighlights: boolean;
+  showCta: boolean;
+}
+
+export interface AboutConfig {
+  heroEyebrow?: string;
+  heroTitle?: string;
+  heroDescription?: string;
+  customCards: AboutCustomCard[];
+}
+
 export interface SiteSettings {
   whatsapp: WhatsAppConfig;
   header: HeaderConfig;
@@ -216,6 +254,7 @@ export interface SiteSettings {
   appointmentConfig?: AppointmentConfig;
   hero?: HeroConfig;
   targetCountries?: TargetCountryOption[];
+  about?: AboutConfig;
   adminPin?: string;
   activeBroadcast?: BroadcastNotification;
   broadcastHistory?: BroadcastNotification[];

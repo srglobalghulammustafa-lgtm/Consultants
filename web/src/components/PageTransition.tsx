@@ -22,6 +22,7 @@ const ROUTE_LABELS: Record<string, string> = {
   '/about': 'About Us',
   '/courses': 'Courses & Programs',
   '/destinations': 'Study Destinations',
+  '/success-stories': 'Success Stories',
   '/book-appointment': 'Book Consultation',
   '/track-appointment': 'Track Appointment',
   '/contact': 'Contact Office',
@@ -59,7 +60,8 @@ export const PageTransitionProvider: React.FC<{ children: React.ReactNode }> = (
       }
 
       clearTimers();
-      const resolvedLabel = label || ROUTE_LABELS[to] || 'Loading Page';
+      const basePath = to.split('?')[0];
+      const resolvedLabel = label || ROUTE_LABELS[to] || ROUTE_LABELS[basePath] || 'Loading Page';
       setTransitionLabel(resolvedLabel);
       setTransitionKey((k) => k + 1);
       setPhase('entering');

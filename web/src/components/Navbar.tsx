@@ -1,10 +1,52 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Phone, Mail, MapPin, Calendar, Menu, X, Bell, Volume2, Sparkles, ExternalLink } from 'lucide-react';
+import {
+  Phone,
+  Mail,
+  MapPin,
+  Calendar,
+  Menu,
+  X,
+  Bell,
+  Volume2,
+  Sparkles,
+  ExternalLink,
+  Home,
+  Info,
+  GraduationCap,
+  Globe,
+  Search,
+  ChevronRight,
+  Navigation,
+  Award
+} from 'lucide-react';
+import { Lottie } from 'lottie-react';
 import { useSiteSettings } from '../context/SettingsContext';
 import { playPremiumChime } from '../lib/audio';
 import { usePageTransition } from './PageTransition';
 import { SmartImage } from './SmartImage';
+import { SR_TRANSITION_LOTTIE } from '../lib/transitionLottie';
+
+const getNavItemMeta = (path: string) => {
+  switch (path) {
+    case '/':
+      return { icon: Home, subtitle: 'Overview & profile assessment' };
+    case '/about':
+      return { icon: Info, subtitle: 'Certified counselors & vision' };
+    case '/courses':
+      return { icon: GraduationCap, subtitle: 'Trade courses & degree pathways' };
+    case '/destinations':
+      return { icon: Globe, subtitle: 'Australia, UK, USA, Canada & EU' };
+    case '/success-stories':
+      return { icon: Award, subtitle: 'Country-wise visas & student videos' };
+    case '/track-appointment':
+      return { icon: Search, subtitle: 'Check appointment ID live' };
+    case '/contact':
+      return { icon: MapPin, subtitle: 'Gujranwala & Australia offices' };
+    default:
+      return { icon: Navigation, subtitle: 'Explore page details' };
+  }
+};
 
 export const Navbar: React.FC = () => {
   const { navigateWithTransition } = usePageTransition();
@@ -126,6 +168,7 @@ export const Navbar: React.FC = () => {
         { name: 'About Us', path: '/about' },
         { name: 'Courses & Programs', path: '/courses' },
         { name: 'Study Destinations', path: '/destinations' },
+        { name: 'Success Stories', path: '/success-stories' },
         { name: 'Track Status', path: '/track-appointment' },
         { name: 'Contact Office', path: '/contact' }
       ];
@@ -142,7 +185,36 @@ export const Navbar: React.FC = () => {
     });
   };
 
+  // Lock body scroll & wire Escape / desktop resize cleanup when mobile slider is open
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsOpen(false);
+      }
+    };
+
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) {
+        setIsOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('resize', handleResize);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [isOpen]);
+
   return (
+    <>
     <header
       className={`sticky top-0 z-50 w-full bg-navy-950 text-white shadow-xl shadow-navy-950/30 transition-transform duration-300 ease-out will-change-transform ${
         isHeaderVisible ? 'translate-y-0' : '-translate-y-full'
@@ -435,67 +507,171 @@ export const Navbar: React.FC = () => {
 
       {/* Signature Aegean Cyan & Amber gradient accent strip */}
       <div className="h-[2px] w-full bg-gradient-to-r from-brand-500 via-amber-400 to-brand-500 shadow-sm" />
+    </header>
 
-      {/* Mobile Navigation Drawer */}
-      {isOpen && (
-        <div className="lg:hidden bg-navy-950 border-b border-white/15 px-4 pt-3 pb-5 space-y-1.5 shadow-2xl max-h-[calc(100vh-110px)] overflow-y-auto animate-tab-reveal">
-          <div className="flex items-center justify-between px-2 pb-2 mb-1 border-b border-white/10">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-              Navigation Menu
-            </span>
-            <span className="bg-brand-500/20 text-brand-300 border border-brand-400/30 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">
-              Pakistan • Australia
-            </span>
+    {/* Mobile Lottie + Remotion Slide-Over Navigation Drawer (Rendered outside transformed header) */}
+    {isOpen && (
+      <div className="lg:hidden fixed inset-0 z-[95]" role="dialog" aria-modal="true" aria-label="Mobile Navigation">
+        {/* Frosted backdrop */}
+        <div
+          className="fixed inset-0 bg-navy-950/80 backdrop-blur-md animate-remotion-backdrop"
+          onClick={() => setIsOpen(false)}
+          aria-hidden="true"
+        />
+
+        {/* Slide-in Kinetic Panel */}
+        <aside className="fixed top-0 right-0 bottom-0 w-[88vw] max-w-[390px] bg-gradient-to-b from-navy-950 via-[#0d2240] to-navy-950 text-white border-l border-brand-400/25 shadow-2xl flex flex-col overflow-hidden animate-remotion-drawer">
+          {/* Ambient radial glow */}
+          <div className="absolute -top-20 -right-16 w-64 h-64 rounded-full bg-brand-500/20 blur-3xl pointer-events-none" />
+          <div className="absolute bottom-12 -left-16 w-56 h-56 rounded-full bg-amber-400/10 blur-3xl pointer-events-none" />
+
+          {/* Drawer Hero Header with Live Lottie Orbital Ring & Transparent Logo */}
+          <div className="relative px-4 pt-4 pb-3 border-b border-white/10 flex items-center justify-between gap-2 shrink-0">
+            <Link
+              to="/"
+              onClick={(e) => handleHeaderNavClick(e, '/', 'Home')}
+              className="flex items-center gap-2.5 min-w-0"
+            >
+              <div className="relative w-16 h-16 flex items-center justify-center shrink-0 animate-remotion-logo">
+                <Lottie
+                  src={SR_TRANSITION_LOTTIE}
+                  loop
+                  autoplay
+                  className="w-16 h-16"
+                />
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <SmartImage
+                    src={header.logoUrl || '/logo.png'}
+                    alt="SR Global Consultants Logo"
+                    className="h-8 w-auto object-contain drop-shadow-[0_0_12px_rgba(0,159,227,0.55)]"
+                    fallback={
+                      <img
+                        src="/logo.png"
+                        alt="SR Global Consultants Logo"
+                        className="h-8 w-auto object-contain drop-shadow-[0_0_12px_rgba(0,159,227,0.55)]"
+                      />
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-serif font-black text-base text-white tracking-wider truncate">
+                    SR GLOBAL
+                  </span>
+                </div>
+                <span className="inline-block bg-brand-500/20 text-brand-300 border border-brand-400/30 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider mt-0.5">
+                  Pakistan • Australia
+                </span>
+              </div>
+            </Link>
+
+            <button
+              type="button"
+              onClick={() => setIsOpen(false)}
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl bg-white/10 hover:bg-white/20 text-slate-200 hover:text-white border border-white/15 transition-colors shrink-0"
+              aria-label="Close navigation slider"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
 
-          {navLinks.map((link) => {
-            const isActive = location.pathname === link.path;
-            return (
-              <Link
-                key={link.path}
-                to={link.path}
-                onClick={(e) => handleHeaderNavClick(e, link.path, link.name)}
-                className={`flex items-center justify-between px-3.5 py-3 rounded-xl text-sm font-semibold transition-colors ${
-                  isActive
-                    ? 'bg-brand-500/20 text-brand-300 font-bold border border-brand-400/30'
-                    : 'text-slate-200 hover:bg-white/10 hover:text-white'
-                }`}
-              >
-                <span>{link.name}</span>
-                {isActive && <span className="w-2 h-2 rounded-full bg-brand-400" />}
-              </Link>
-            );
-          })}
+          {/* Remotion Sweeping Highlight Bar */}
+          <div className="relative h-[2px] w-full bg-white/10 overflow-hidden shrink-0">
+            <div className="absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-brand-400 to-amber-300 animate-remotion-sweep" />
+          </div>
 
-          <div className="pt-3 space-y-2.5 border-t border-white/10 mt-2">
+          {/* Staggered Remotion Page Cards */}
+          <nav className="relative flex-1 overflow-y-auto px-4 py-4 space-y-2.5">
+            <div className="flex items-center justify-between px-1 pb-1">
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-300/90">
+                Explore Pages
+              </span>
+              <span className="text-[10px] font-medium text-slate-400">
+                {navLinks.length} Sections
+              </span>
+            </div>
+
+            {navLinks.map((link, idx) => {
+              const isActive = location.pathname === link.path;
+              const { icon: Icon, subtitle } = getNavItemMeta(link.path);
+
+              return (
+                <Link
+                  key={link.path}
+                  to={link.path}
+                  onClick={(e) => handleHeaderNavClick(e, link.path, link.name)}
+                  style={{ animationDelay: `${70 + idx * 55}ms` }}
+                  className={`group flex items-center gap-3 p-3 rounded-2xl border transition-all animate-remotion-drawer-item ${
+                    isActive
+                      ? 'bg-gradient-to-r from-brand-500/25 via-brand-500/15 to-transparent border-brand-400/50 shadow-lg shadow-brand-500/10'
+                      : 'bg-white/[0.04] hover:bg-white/[0.09] border-white/10 hover:border-brand-400/30'
+                  }`}
+                >
+                  <div
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 ${
+                      isActive
+                        ? 'bg-brand-500 text-white shadow-md shadow-brand-500/30'
+                        : 'bg-white/10 text-brand-300'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <div className={`text-sm font-bold truncate ${isActive ? 'text-white' : 'text-slate-100'}`}>
+                      {link.name}
+                    </div>
+                    <div className="text-[11px] text-slate-400 truncate">
+                      {subtitle}
+                    </div>
+                  </div>
+
+                  <ChevronRight
+                    className={`w-4 h-4 shrink-0 transition-transform group-hover:translate-x-0.5 ${
+                      isActive ? 'text-brand-300' : 'text-slate-500 group-hover:text-slate-300'
+                    }`}
+                  />
+                </Link>
+              );
+            })}
+          </nav>
+
+          {/* Bottom Staggered Action Dock (Honest Consultation Wording — Zero "Free" Word) */}
+          <div
+            style={{ animationDelay: '340ms' }}
+            className="relative px-4 pt-3 pb-5 border-t border-white/10 bg-slate-950/60 backdrop-blur-md space-y-2.5 shrink-0 animate-remotion-drawer-cta"
+          >
             <Link
               to="/book-appointment"
               onClick={(e) => handleHeaderNavClick(e, '/book-appointment', 'Book Consultation')}
-              className="w-full flex items-center justify-center gap-2 bg-brand-500 hover:bg-brand-600 text-white py-3.5 rounded-xl font-bold shadow-md text-sm"
+              className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-brand-500 to-brand-600 hover:from-brand-400 hover:to-brand-500 text-white py-3.5 rounded-2xl font-bold shadow-lg shadow-brand-500/25 text-sm transition-all active:scale-[0.99]"
             >
               <Calendar className="w-4 h-4" />
-              <span>Book Free Consultation</span>
+              <span>Book Consultation Appointment</span>
             </Link>
 
             <div className="grid grid-cols-2 gap-2 text-xs">
               <a
                 href={`tel:${header.phonePakistan}`}
-                className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/15 text-slate-100 font-semibold"
+                className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/15 border border-white/10 text-slate-100 font-semibold transition-colors"
               >
                 <Phone className="w-3.5 h-3.5 text-green-400 shrink-0" />
                 <span className="truncate">Call PK Office</span>
               </a>
               <a
                 href={`tel:${header.phoneAustralia}`}
-                className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/15 text-slate-100 font-semibold"
+                className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/15 border border-white/10 text-slate-100 font-semibold transition-colors"
               >
                 <Phone className="w-3.5 h-3.5 text-brand-400 shrink-0" />
                 <span className="truncate">Call AU Office</span>
               </a>
             </div>
           </div>
-        </div>
-      )}
-    </header>
+        </aside>
+      </div>
+    )}
+    </>
   );
 };

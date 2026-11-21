@@ -7,7 +7,7 @@ import {
   LayoutDashboard, BookOpen, Star, Settings, ExternalLink, Copy, Check,
   ChevronRight, MapPin, Mail, AlertCircle, Eye, EyeOff, Activity,
   Navigation, ShieldAlert, X, Send, Bell, Volume2, StickyNote, Image as ImageIcon,
-  Flag, ArrowUp, ArrowDown
+  Flag, ArrowUp, ArrowDown, Layers, Film
 } from 'lucide-react';
 import { useSiteSettings, DEFAULT_TARGET_COUNTRIES } from '../context/SettingsContext';
 import { useLiveData } from '../context/LiveDataContext';
@@ -15,8 +15,10 @@ import { Lead, Appointment, Destination, Course, Testimonial, Banner, TargetCoun
 import { fetchUserLocationWithQuota } from '../lib/ipstack';
 import { normalizeGoogleImageUrl } from '../lib/imageUtils';
 import { SmartImage } from '../components/SmartImage';
+import { SmartVideo } from '../components/SmartVideo';
 import { AdminFloatingNotepad } from '../components/AdminFloatingNotepad';
 import { AdminAppointmentController } from '../components/AdminAppointmentController';
+import { AdminAboutBuilder } from '../components/AdminAboutBuilder';
 
 const fixGoogleDriveLink = (url: string): string => normalizeGoogleImageUrl(url);
 
@@ -44,7 +46,7 @@ export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { 
     settings, updateWhatsApp, updateHeader, updateFooter, 
-    updateMetrics, updateIpstack, updateAppointmentConfig, updateHero, updateTargetCountries, updateAdminPin, 
+    updateMetrics, updateIpstack, updateAppointmentConfig, updateHero, updateAboutConfig, updateTargetCountries, updateAdminPin, 
     sendBroadcastNotification, deleteBroadcast, clearBroadcastHistory,
     resetIpstackQuota, isSyncing, isLiveSupabase 
   } = useSiteSettings();
@@ -59,7 +61,7 @@ export const AdminDashboard: React.FC = () => {
   } = useLiveData();
 
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'leads' | 'appointments' | 'destinations' | 'countries' | 'courses' | 'testimonials' | 'whatsapp' | 'broadcast' | 'header' | 'footer' | 'banners' | 'ipstack' | 'security' | 'database'
+    'overview' | 'leads' | 'appointments' | 'destinations' | 'countries' | 'courses' | 'testimonials' | 'whatsapp' | 'broadcast' | 'header' | 'footer' | 'about' | 'banners' | 'ipstack' | 'security' | 'database'
   >('overview');
 
   const mobileTabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -76,6 +78,7 @@ export const AdminDashboard: React.FC = () => {
       | 'broadcast'
       | 'header'
       | 'footer'
+      | 'about'
       | 'banners'
       | 'ipstack'
       | 'security'
@@ -109,10 +112,13 @@ export const AdminDashboard: React.FC = () => {
   const [editingTestimonial, setEditingTestimonial] = useState<Testimonial | null>(null);
   const [editingBanner, setEditingBanner] = useState<Banner | null>(null);
 
-  // Admin PIN Renewal State
+  // Admin Password / PIN Renewal State
   const [currentPinInput, setCurrentPinInput] = useState('');
   const [newPinInput, setNewPinInput] = useState('');
   const [confirmPinInput, setConfirmPinInput] = useState('');
+  const [showCurrentPin, setShowCurrentPin] = useState(false);
+  const [showNewPin, setShowNewPin] = useState(false);
+  const [showConfirmPin, setShowConfirmPin] = useState(false);
   const [pinError, setPinError] = useState<string | null>(null);
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -166,6 +172,11 @@ export const AdminDashboard: React.FC = () => {
     quote: '',
     rating: 5,
     imageUrl: '',
+    videoUrl: '',
+    program: '',
+    visaType: '',
+    year: '',
+    fullStory: '',
   });
 
   // Local editing states for settings
@@ -276,7 +287,7 @@ export const AdminDashboard: React.FC = () => {
     setNewCountryName('');
     setNewCountryVisaLabel('');
     await updateTargetCountries(nextList);
-    showToast(`Added "${trimmedName}" to Free Assessment & Booking forms!`);
+    showToast(`Added "${trimmedName}" to Profile Assessment & Booking forms!`);
   };
 
   const handleSaveAllTargetCountries = async () => {
@@ -407,30 +418,34 @@ export const AdminDashboard: React.FC = () => {
     }
   };
 
-  // Renew Admin PIN with Auto Logout
+  // Renew Admin Password / PIN with Auto Logout
   const handleRenewPin = async (e: React.FormEvent) => {
     e.preventDefault();
     setPinError(null);
 
     const activePin = settings.adminPin || localStorage.getItem('sr_global_admin_pin') || '1234';
-    if (currentPinInput !== activePin && currentPinInput !== '1234' && currentPinInput !== '0000') {
-      setPinError('Current Staff PIN is incorrect. Please verify and try again.');
+    const isDefaultActive = activePin === '1234';
+    const currentValid =
+      currentPinInput === activePin || (isDefaultActive && currentPinInput === '0000');
+
+    if (!currentValid) {
+      setPinError('Current Staff Password / PIN is incorrect. Please verify and try again.');
       return;
     }
 
     if (!newPinInput || newPinInput.length < 4) {
-      setPinError('New PIN must be at least 4 characters long.');
+      setPinError('New password must be at least 4 characters long.');
       return;
     }
 
     if (newPinInput !== confirmPinInput) {
-      setPinError('New PIN and Confirm PIN do not match.');
+      setPinError('New password and confirmation do not match.');
       return;
     }
 
     await updateAdminPin(newPinInput);
-    showToast('Admin PIN updated successfully! Logging out for security...');
-    
+    showToast('Staff password updated successfully! Logging out for security...');
+
     // Auto logout immediately
     setTimeout(() => {
       localStorage.removeItem('sr_admin_auth');
@@ -466,15 +481,25 @@ export const AdminDashboard: React.FC = () => {
     showToast('Leads CSV exported successfully!');
   };
 
-  // Copy Supabase SQL schema
-  const copySupabaseSql = () => {
-    const sqlText = `-- ========================================================================
--- SR Global Consultants - Production Supabase Schema
--- Run this once in your Supabase SQL Editor
+  // Full Production & Future-Ready Supabase SQL Schema
+  const fullSupabaseSql = `-- ========================================================================
+-- SR Global Consultants - Complete Production & Future-Ready Supabase SQL
+-- Safe to run multiple times (Idempotent: CREATE IF NOT EXISTS + ALTER ADD)
+-- Run this in Supabase Dashboard -> SQL Editor -> New query
 -- ========================================================================
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
--- 0. Broadcasts Table (New Dedicated Table)
+-- Helper Trigger Function for automatic updated_at timestamps
+CREATE OR REPLACE FUNCTION public.sr_set_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 1. BROADCAST ALERTS TABLE
 CREATE TABLE IF NOT EXISTS public.broadcasts (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     title TEXT NOT NULL,
@@ -483,9 +508,15 @@ CREATE TABLE IF NOT EXISTS public.broadcasts (
     link TEXT,
     play_sound BOOLEAN DEFAULT FALSE,
     is_active BOOLEAN DEFAULT TRUE,
+    metadata JSONB DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+ALTER TABLE public.broadcasts ADD COLUMN IF NOT EXISTS link TEXT;
+ALTER TABLE public.broadcasts ADD COLUMN IF NOT EXISTS play_sound BOOLEAN DEFAULT FALSE;
+ALTER TABLE public.broadcasts ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
+ALTER TABLE public.broadcasts ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb;
 
+-- 2. STUDENT LEADS / PROFILE ASSESSMENTS TABLE
 CREATE TABLE IF NOT EXISTS public.leads (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     full_name TEXT NOT NULL,
@@ -503,9 +534,23 @@ CREATE TABLE IF NOT EXISTS public.leads (
     latitude DOUBLE PRECISION,
     longitude DOUBLE PRECISION,
     location_data JSONB,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    metadata JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'Website Quick Form';
+ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS notes TEXT;
+ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS city TEXT;
+ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS region_name TEXT;
+ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS country_name TEXT;
+ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS ip_address TEXT;
+ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;
+ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;
+ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS location_data JSONB;
+ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb;
+ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
 
+-- 3. CONSULTATION APPOINTMENTS TABLE
 CREATE TABLE IF NOT EXISTS public.appointments (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     appointment_code TEXT,
@@ -519,26 +564,33 @@ CREATE TABLE IF NOT EXISTS public.appointments (
     status TEXT NOT NULL DEFAULT 'Pending',
     message TEXT,
     notes TEXT,
+    metadata JSONB DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
-
--- Ensure columns exist on pre-existing tables
 ALTER TABLE public.appointments ADD COLUMN IF NOT EXISTS appointment_code TEXT;
+ALTER TABLE public.appointments ADD COLUMN IF NOT EXISTS message TEXT;
 ALTER TABLE public.appointments ADD COLUMN IF NOT EXISTS notes TEXT;
+ALTER TABLE public.appointments ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb;
 ALTER TABLE public.appointments ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
 
--- Persistent Admin Floating Notepad Table
+-- 4. ADMIN FLOATING NOTEPAD TABLE
 CREATE TABLE IF NOT EXISTS public.admin_notes (
     id TEXT PRIMARY KEY,
     title TEXT NOT NULL DEFAULT 'Untitled Note',
     content TEXT NOT NULL DEFAULT '',
     color TEXT NOT NULL DEFAULT 'amber',
     is_pinned BOOLEAN DEFAULT FALSE,
+    metadata JSONB DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+ALTER TABLE public.admin_notes ADD COLUMN IF NOT EXISTS color TEXT NOT NULL DEFAULT 'amber';
+ALTER TABLE public.admin_notes ADD COLUMN IF NOT EXISTS is_pinned BOOLEAN DEFAULT FALSE;
+ALTER TABLE public.admin_notes ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb;
+ALTER TABLE public.admin_notes ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
 
+-- 5. COURSES & TRADE PATHWAYS TABLE
 CREATE TABLE IF NOT EXISTS public.courses (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     title TEXT NOT NULL,
@@ -549,10 +601,19 @@ CREATE TABLE IF NOT EXISTS public.courses (
     intake_months TEXT NOT NULL,
     description TEXT NOT NULL,
     career_paths TEXT,
+    "imageUrl" TEXT,
     is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    metadata JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS career_paths TEXT;
+ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS "imageUrl" TEXT;
+ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
+ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb;
+ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
 
+-- 6. STUDY DESTINATIONS TABLE
 CREATE TABLE IF NOT EXISTS public.destinations (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     country_name TEXT NOT NULL UNIQUE,
@@ -565,13 +626,22 @@ CREATE TABLE IF NOT EXISTS public.destinations (
     overview TEXT NOT NULL,
     visa_process TEXT NOT NULL,
     admission_requirements TEXT NOT NULL,
+    top_universities TEXT,
+    flag TEXT DEFAULT '🌏',
     "imageUrl" TEXT,
     is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    metadata JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
-
+ALTER TABLE public.destinations ADD COLUMN IF NOT EXISTS top_universities TEXT;
+ALTER TABLE public.destinations ADD COLUMN IF NOT EXISTS flag TEXT DEFAULT '🌏';
 ALTER TABLE public.destinations ADD COLUMN IF NOT EXISTS "imageUrl" TEXT;
+ALTER TABLE public.destinations ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
+ALTER TABLE public.destinations ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb;
+ALTER TABLE public.destinations ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
 
+-- 7. STUDENT SUCCESS STORIES & VIDEO TESTIMONIALS TABLE
 CREATE TABLE IF NOT EXISTS public.testimonials (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     student_name TEXT NOT NULL,
@@ -579,30 +649,117 @@ CREATE TABLE IF NOT EXISTS public.testimonials (
     country TEXT NOT NULL,
     quote TEXT NOT NULL,
     "imageUrl" TEXT,
+    "videoUrl" TEXT,
+    program TEXT,
+    "visaType" TEXT,
+    year TEXT,
+    "fullStory" TEXT,
     rating INT DEFAULT 5,
     is_featured BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    sort_order INT DEFAULT 0,
+    metadata JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
-
 ALTER TABLE public.testimonials ADD COLUMN IF NOT EXISTS "imageUrl" TEXT;
+ALTER TABLE public.testimonials ADD COLUMN IF NOT EXISTS "videoUrl" TEXT;
+ALTER TABLE public.testimonials ADD COLUMN IF NOT EXISTS program TEXT;
+ALTER TABLE public.testimonials ADD COLUMN IF NOT EXISTS "visaType" TEXT;
+ALTER TABLE public.testimonials ADD COLUMN IF NOT EXISTS year TEXT;
+ALTER TABLE public.testimonials ADD COLUMN IF NOT EXISTS "fullStory" TEXT;
+ALTER TABLE public.testimonials ADD COLUMN IF NOT EXISTS rating INT DEFAULT 5;
+ALTER TABLE public.testimonials ADD COLUMN IF NOT EXISTS is_featured BOOLEAN DEFAULT TRUE;
+ALTER TABLE public.testimonials ADD COLUMN IF NOT EXISTS sort_order INT DEFAULT 0;
+ALTER TABLE public.testimonials ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb;
+ALTER TABLE public.testimonials ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
 
+-- 8. HOMEPAGE BANNERS TABLE
 CREATE TABLE IF NOT EXISTS public.banners (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     title TEXT NOT NULL,
     description TEXT,
     "imageUrl" TEXT NOT NULL,
     link TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    sort_order INT DEFAULT 0,
+    metadata JSONB DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+ALTER TABLE public.banners ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
+ALTER TABLE public.banners ADD COLUMN IF NOT EXISTS sort_order INT DEFAULT 0;
+ALTER TABLE public.banners ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb;
 
-CREATE TABLE IF NOT EXISTS public.site_settings (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    setting_key TEXT NOT NULL UNIQUE,
-    setting_value JSONB NOT NULL,
+-- 9. DYNAMIC ABOUT US CUSTOM CARDS TABLE (Optional Relational Mirror for Future Queries)
+CREATE TABLE IF NOT EXISTS public.about_cards (
+    id TEXT PRIMARY KEY,
+    sort_order INT NOT NULL DEFAULT 0,
+    layout TEXT NOT NULL DEFAULT 'split',
+    theme TEXT NOT NULL DEFAULT 'light',
+    badge TEXT,
+    title TEXT NOT NULL,
+    subtitle TEXT,
+    description TEXT,
+    highlights JSONB DEFAULT '[]'::jsonb,
+    media_type TEXT NOT NULL DEFAULT 'image',
+    media_url TEXT,
+    cta_label TEXT,
+    cta_link TEXT,
+    visibility_flags JSONB DEFAULT '{}'::jsonb,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Enable RLS
+-- 10. GLOBAL SITE SETTINGS & JSONB FEATURE CONFIGS
+-- Stores: header_config, footer_config, whatsapp_config, metrics_config,
+-- ipstack_config, appointment_config, hero_config, target_countries_config,
+-- about_config (Drag & Drop Builder), story_extras_config, admin_security
+CREATE TABLE IF NOT EXISTS public.site_settings (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    setting_key TEXT NOT NULL UNIQUE,
+    setting_value JSONB NOT NULL DEFAULT '{}'::jsonb,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 11. FUTURE-PROOF CRM AUDIT / ACTIVITY LOGS TABLE
+CREATE TABLE IF NOT EXISTS public.activity_logs (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    actor TEXT DEFAULT 'Admin',
+    action TEXT NOT NULL,
+    entity_type TEXT,
+    entity_id TEXT,
+    details JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Performance Indexes
+CREATE INDEX IF NOT EXISTS idx_leads_created_at ON public.leads (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_leads_status ON public.leads (status);
+CREATE INDEX IF NOT EXISTS idx_appointments_date ON public.appointments (appointment_date, status);
+CREATE INDEX IF NOT EXISTS idx_testimonials_country ON public.testimonials (country);
+CREATE INDEX IF NOT EXISTS idx_courses_country_cat ON public.courses (country, category_slug);
+CREATE INDEX IF NOT EXISTS idx_broadcasts_active ON public.broadcasts (is_active, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_site_settings_key ON public.site_settings (setting_key);
+
+-- Automatic updated_at triggers
+DROP TRIGGER IF EXISTS trg_leads_updated_at ON public.leads;
+CREATE TRIGGER trg_leads_updated_at BEFORE UPDATE ON public.leads FOR EACH ROW EXECUTE FUNCTION public.sr_set_updated_at();
+DROP TRIGGER IF EXISTS trg_appointments_updated_at ON public.appointments;
+CREATE TRIGGER trg_appointments_updated_at BEFORE UPDATE ON public.appointments FOR EACH ROW EXECUTE FUNCTION public.sr_set_updated_at();
+DROP TRIGGER IF EXISTS trg_admin_notes_updated_at ON public.admin_notes;
+CREATE TRIGGER trg_admin_notes_updated_at BEFORE UPDATE ON public.admin_notes FOR EACH ROW EXECUTE FUNCTION public.sr_set_updated_at();
+DROP TRIGGER IF EXISTS trg_courses_updated_at ON public.courses;
+CREATE TRIGGER trg_courses_updated_at BEFORE UPDATE ON public.courses FOR EACH ROW EXECUTE FUNCTION public.sr_set_updated_at();
+DROP TRIGGER IF EXISTS trg_destinations_updated_at ON public.destinations;
+CREATE TRIGGER trg_destinations_updated_at BEFORE UPDATE ON public.destinations FOR EACH ROW EXECUTE FUNCTION public.sr_set_updated_at();
+DROP TRIGGER IF EXISTS trg_testimonials_updated_at ON public.testimonials;
+CREATE TRIGGER trg_testimonials_updated_at BEFORE UPDATE ON public.testimonials FOR EACH ROW EXECUTE FUNCTION public.sr_set_updated_at();
+DROP TRIGGER IF EXISTS trg_about_cards_updated_at ON public.about_cards;
+CREATE TRIGGER trg_about_cards_updated_at BEFORE UPDATE ON public.about_cards FOR EACH ROW EXECUTE FUNCTION public.sr_set_updated_at();
+DROP TRIGGER IF EXISTS trg_site_settings_updated_at ON public.site_settings;
+CREATE TRIGGER trg_site_settings_updated_at BEFORE UPDATE ON public.site_settings FOR EACH ROW EXECUTE FUNCTION public.sr_set_updated_at();
+
+-- Enable Row Level Security (RLS) on all tables
 ALTER TABLE public.leads ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.appointments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.admin_notes ENABLE ROW LEVEL SECURITY;
@@ -611,64 +768,48 @@ ALTER TABLE public.destinations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.testimonials ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.banners ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.broadcasts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.about_cards ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.site_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.activity_logs ENABLE ROW LEVEL SECURITY;
 
--- Public & Admin Access Policies (Idempotent)
-DROP POLICY IF EXISTS "Public read active courses" ON public.courses;
-CREATE POLICY "Public read active courses" ON public.courses FOR SELECT USING (TRUE);
-
-DROP POLICY IF EXISTS "Public read active destinations" ON public.destinations;
-CREATE POLICY "Public read active destinations" ON public.destinations FOR SELECT USING (TRUE);
-
-DROP POLICY IF EXISTS "Public read testimonials" ON public.testimonials;
-CREATE POLICY "Public read testimonials" ON public.testimonials FOR SELECT USING (TRUE);
-
-DROP POLICY IF EXISTS "Public read banners" ON public.banners;
-CREATE POLICY "Public read banners" ON public.banners FOR SELECT USING (TRUE);
-
-DROP POLICY IF EXISTS "Public read broadcasts" ON public.broadcasts;
-CREATE POLICY "Public read broadcasts" ON public.broadcasts FOR SELECT USING (TRUE);
-
-DROP POLICY IF EXISTS "Public read site settings" ON public.site_settings;
-CREATE POLICY "Public read site settings" ON public.site_settings FOR SELECT USING (TRUE);
-
-DROP POLICY IF EXISTS "Public can submit leads" ON public.leads;
-CREATE POLICY "Public can submit leads" ON public.leads FOR INSERT WITH CHECK (TRUE);
-
-DROP POLICY IF EXISTS "Public can book appointments" ON public.appointments;
-CREATE POLICY "Public can book appointments" ON public.appointments FOR INSERT WITH CHECK (TRUE);
-
-DROP POLICY IF EXISTS "Public check slot availability" ON public.appointments;
-CREATE POLICY "Public check slot availability" ON public.appointments FOR SELECT USING (TRUE);
-
-DROP POLICY IF EXISTS "Full access to site_settings" ON public.site_settings;
-CREATE POLICY "Full access to site_settings" ON public.site_settings FOR ALL USING (TRUE);
-
-DROP POLICY IF EXISTS "Full access to admin_notes" ON public.admin_notes;
-CREATE POLICY "Full access to admin_notes" ON public.admin_notes FOR ALL USING (TRUE);
-
-DROP POLICY IF EXISTS "Full access to courses" ON public.courses;
-CREATE POLICY "Full access to courses" ON public.courses FOR ALL USING (TRUE);
-
-DROP POLICY IF EXISTS "Full access to destinations" ON public.destinations;
-CREATE POLICY "Full access to destinations" ON public.destinations FOR ALL USING (TRUE);
-
-DROP POLICY IF EXISTS "Full access to testimonials" ON public.testimonials;
-CREATE POLICY "Full access to testimonials" ON public.testimonials FOR ALL USING (TRUE);
-
-DROP POLICY IF EXISTS "Full access to banners" ON public.banners;
-CREATE POLICY "Full access to banners" ON public.banners FOR ALL USING (TRUE);
-
-DROP POLICY IF EXISTS "Full access to broadcasts" ON public.broadcasts;
-CREATE POLICY "Full access to broadcasts" ON public.broadcasts FOR ALL USING (TRUE);
-
+-- Idempotent Public & Admin Policies (USING + WITH CHECK for SELECT/INSERT/UPDATE/DELETE/UPSERT)
 DROP POLICY IF EXISTS "Full access to leads" ON public.leads;
-CREATE POLICY "Full access to leads" ON public.leads FOR ALL USING (TRUE);
+CREATE POLICY "Full access to leads" ON public.leads FOR ALL USING (TRUE) WITH CHECK (TRUE);
 
 DROP POLICY IF EXISTS "Full access to appointments" ON public.appointments;
-CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING (TRUE);
+CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING (TRUE) WITH CHECK (TRUE);
+
+DROP POLICY IF EXISTS "Full access to admin_notes" ON public.admin_notes;
+CREATE POLICY "Full access to admin_notes" ON public.admin_notes FOR ALL USING (TRUE) WITH CHECK (TRUE);
+
+DROP POLICY IF EXISTS "Full access to courses" ON public.courses;
+CREATE POLICY "Full access to courses" ON public.courses FOR ALL USING (TRUE) WITH CHECK (TRUE);
+
+DROP POLICY IF EXISTS "Full access to destinations" ON public.destinations;
+CREATE POLICY "Full access to destinations" ON public.destinations FOR ALL USING (TRUE) WITH CHECK (TRUE);
+
+DROP POLICY IF EXISTS "Full access to testimonials" ON public.testimonials;
+CREATE POLICY "Full access to testimonials" ON public.testimonials FOR ALL USING (TRUE) WITH CHECK (TRUE);
+
+DROP POLICY IF EXISTS "Full access to banners" ON public.banners;
+CREATE POLICY "Full access to banners" ON public.banners FOR ALL USING (TRUE) WITH CHECK (TRUE);
+
+DROP POLICY IF EXISTS "Full access to broadcasts" ON public.broadcasts;
+CREATE POLICY "Full access to broadcasts" ON public.broadcasts FOR ALL USING (TRUE) WITH CHECK (TRUE);
+
+DROP POLICY IF EXISTS "Full access to about_cards" ON public.about_cards;
+CREATE POLICY "Full access to about_cards" ON public.about_cards FOR ALL USING (TRUE) WITH CHECK (TRUE);
+
+DROP POLICY IF EXISTS "Full access to site_settings" ON public.site_settings;
+CREATE POLICY "Full access to site_settings" ON public.site_settings FOR ALL USING (TRUE) WITH CHECK (TRUE);
+
+DROP POLICY IF EXISTS "Full access to activity_logs" ON public.activity_logs;
+CREATE POLICY "Full access to activity_logs" ON public.activity_logs FOR ALL USING (TRUE) WITH CHECK (TRUE);
 `;
-    navigator.clipboard.writeText(sqlText);
+
+  // Copy Supabase SQL schema
+  const copySupabaseSql = () => {
+    navigator.clipboard.writeText(fullSupabaseSql);
     setCopiedSql(true);
     setTimeout(() => setCopiedSql(false), 3000);
     showToast('Complete Supabase SQL schema copied to clipboard!');
@@ -785,6 +926,7 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
             { id: 'ipstack' as const, label: 'IPstack', badge: `${ipstackUsed}/99`, icon: Navigation },
             { id: 'header' as const, label: 'Header', icon: Settings },
             { id: 'footer' as const, label: 'Footer', icon: Settings },
+            { id: 'about' as const, label: 'About Builder', count: settings.about?.customCards?.length || 0, icon: Layers },
             { id: 'banners' as const, label: 'Banners', icon: ImageIcon },
             { id: 'security' as const, label: 'Security', icon: ShieldCheck },
             { id: 'database' as const, label: 'SQL Setup', icon: Database },
@@ -1040,6 +1182,23 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
             >
               <Settings className="w-4 h-4 text-brand-500" />
               <span>Footer & Contacts</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('about')}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+                activeTab === 'about'
+                  ? 'bg-brand-50 text-brand-600 font-bold'
+                  : 'text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Layers className="w-4 h-4 text-brand-500" />
+                <span>About Us Builder</span>
+              </div>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-brand-100 text-brand-700 font-bold">
+                {settings.about?.customCards?.length || 0}
+              </span>
             </button>
 
             <button
@@ -1667,7 +1826,7 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
             </div>
           )}
 
-          {/* TAB: ADMIN SECURITY & PIN RENEWAL */}
+          {/* TAB: ADMIN SECURITY & PASSWORD RENEWAL */}
           {activeTab === 'security' && (
             <div className="space-y-6">
               <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
@@ -1676,10 +1835,10 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                     <span className="p-2 rounded-xl bg-red-100 text-red-600">
                       <ShieldCheck className="w-5 h-5" />
                     </span>
-                    <h2 className="text-xl font-bold text-navy-950">Admin Credentials & Security Renewal</h2>
+                    <h2 className="text-xl font-bold text-navy-950">Admin Password & Security Renewal</h2>
                   </div>
                   <p className="text-xs text-slate-500 mt-1">
-                    Update your staff login PIN. Saving a new PIN automatically syncs to cloud storage and logs out active sessions.
+                    Set any custom Staff Password or PIN using letters, numbers, symbols, or mixed characters of any length. Updates sync to Supabase cloud and end active sessions.
                   </p>
                 </div>
 
@@ -1690,50 +1849,100 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                   </div>
                 )}
 
-                <form onSubmit={handleRenewPin} className="space-y-5 max-w-md">
+                <form onSubmit={handleRenewPin} className="space-y-5 max-w-lg">
                   <div>
                     <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
-                      Current Staff PIN
+                      Current Staff Password / PIN
                     </label>
-                    <input
-                      type="password"
-                      required
-                      maxLength={6}
-                      value={currentPinInput}
-                      onChange={(e) => setCurrentPinInput(e.target.value)}
-                      placeholder="Default: 1234"
-                      className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-red-500 font-mono text-sm tracking-widest"
-                    />
+                    <div className="relative">
+                      <input
+                        type={showCurrentPin ? 'text' : 'password'}
+                        required
+                        autoComplete="current-password"
+                        value={currentPinInput}
+                        onChange={(e) => setCurrentPinInput(e.target.value)}
+                        placeholder="Default: 1234"
+                        className="w-full px-4 pr-11 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm font-medium"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowCurrentPin((prev) => !prev)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600"
+                        aria-label={showCurrentPin ? 'Hide current password' : 'Show current password'}
+                      >
+                        {showCurrentPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
                   </div>
 
                   <div>
                     <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
-                      New 4 to 6-Digit Staff PIN
+                      New Staff Password / PIN (Letters, Numbers, Symbols — Any Length)
                     </label>
-                    <input
-                      type="password"
-                      required
-                      maxLength={6}
-                      value={newPinInput}
-                      onChange={(e) => setNewPinInput(e.target.value)}
-                      placeholder="e.g. 8492"
-                      className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-red-500 font-mono text-sm tracking-widest"
-                    />
+                    <div className="relative">
+                      <input
+                        type={showNewPin ? 'text' : 'password'}
+                        required
+                        autoComplete="new-password"
+                        value={newPinInput}
+                        onChange={(e) => setNewPinInput(e.target.value)}
+                        placeholder="e.g. SRGlobal#Team2026 or any length password"
+                        className="w-full px-4 pr-11 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm font-medium"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPin((prev) => !prev)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600"
+                        aria-label={showNewPin ? 'Hide new password' : 'Show new password'}
+                      >
+                        {showNewPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+                      <span className="px-2 py-0.5 rounded-full bg-slate-100 font-semibold text-slate-700">
+                        Length: {newPinInput.length} chars
+                      </span>
+                      {/[a-zA-Z]/.test(newPinInput) && (
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold">
+                          Alphabets
+                        </span>
+                      )}
+                      {/\d/.test(newPinInput) && (
+                        <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-semibold">
+                          Numbers
+                        </span>
+                      )}
+                      {/[^a-zA-Z0-9]/.test(newPinInput) && (
+                        <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 font-semibold">
+                          Symbols
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div>
                     <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
-                      Confirm New Staff PIN
+                      Confirm New Staff Password / PIN
                     </label>
-                    <input
-                      type="password"
-                      required
-                      maxLength={6}
-                      value={confirmPinInput}
-                      onChange={(e) => setConfirmPinInput(e.target.value)}
-                      placeholder="Re-enter new PIN"
-                      className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-red-500 font-mono text-sm tracking-widest"
-                    />
+                    <div className="relative">
+                      <input
+                        type={showConfirmPin ? 'text' : 'password'}
+                        required
+                        autoComplete="new-password"
+                        value={confirmPinInput}
+                        onChange={(e) => setConfirmPinInput(e.target.value)}
+                        placeholder="Re-enter new password"
+                        className="w-full px-4 pr-11 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm font-medium"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPin((prev) => !prev)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600"
+                        aria-label={showConfirmPin ? 'Hide confirm password' : 'Show confirm password'}
+                      >
+                        {showConfirmPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
                   </div>
 
                   <div className="pt-2">
@@ -1743,7 +1952,7 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                       className="w-full inline-flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold px-6 py-3.5 rounded-xl shadow-md transition-all text-sm"
                     >
                       <Save className="w-4 h-4" />
-                      <span>{isSyncing ? 'Updating PIN...' : 'Renew PIN & Log Out'}</span>
+                      <span>{isSyncing ? 'Updating Password...' : 'Save New Password & Log Out'}</span>
                     </button>
                   </div>
                 </form>
@@ -1789,7 +1998,7 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                     <h2 className="text-xl font-bold text-navy-950">Form Target Countries Manager</h2>
                   </div>
                   <p className="text-xs text-slate-500 mt-1">
-                    Add unlimited Target Country names for both the <strong>Free Profile Assessment</strong> form (Homepage) and <strong>Book Consultation Appointment</strong> form.
+                    Add unlimited Target Country names for both the <strong>Online Profile Assessment</strong> form (Homepage) and <strong>Book Consultation Appointment</strong> form.
                   </p>
                 </div>
 
@@ -1998,7 +2207,7 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                      Free Profile Assessment (Homepage)
+                      Online Profile Assessment (Homepage)
                     </label>
                     <select className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm bg-slate-50">
                       {targetCountriesForm
@@ -2454,8 +2663,10 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
             <div className="space-y-6">
               <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                 <div>
-                  <h2 className="text-xl font-bold text-navy-950">Student Success Testimonials</h2>
-                  <p className="text-xs text-slate-500">Student quotes and star ratings displayed on homepage</p>
+                  <h2 className="text-xl font-bold text-navy-950">Student Success Stories & Reviews</h2>
+                  <p className="text-xs text-slate-500">
+                    Displayed on Homepage & country-wise Success Stories page (supports Google Drive photos & videos)
+                  </p>
                 </div>
 
                 <button
@@ -2463,7 +2674,7 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                   className="inline-flex items-center justify-center gap-1.5 bg-brand-500 hover:bg-brand-600 text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow-md transition-all w-full sm:w-auto"
                 >
                   <Plus className="w-4 h-4" />
-                  <span>Add Review</span>
+                  <span>Add Story / Review</span>
                 </button>
               </div>
 
@@ -2472,10 +2683,17 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                   <div key={t.id} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between space-y-4">
                     <div>
                       <div className="flex justify-between items-start mb-2">
-                        <div className="flex gap-1 text-yellow-400">
-                          {[...Array(t.rating || 5)].map((_, i) => (
-                            <Star key={i} className="w-4 h-4 fill-current" />
-                          ))}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <div className="flex gap-1 text-yellow-400">
+                            {[...Array(t.rating || 5)].map((_, i) => (
+                              <Star key={i} className="w-4 h-4 fill-current" />
+                            ))}
+                          </div>
+                          {t.videoUrl && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200 text-[10px] font-bold">
+                              <Film className="w-3 h-3" /> Video
+                            </span>
+                          )}
                         </div>
                         <div className="flex items-center gap-1">
                           <button
@@ -2497,7 +2715,26 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                           </button>
                         </div>
                       </div>
-                      <p className="text-xs text-slate-600 italic">"{t.quote}"</p>
+                      <p className="text-xs text-slate-600 italic line-clamp-4">"{t.quote}"</p>
+                      {(t.program || t.visaType || t.year) && (
+                        <div className="mt-2.5 flex flex-wrap gap-1.5">
+                          {t.program && (
+                            <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-semibold">
+                              {t.program}
+                            </span>
+                          )}
+                          {t.visaType && (
+                            <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-semibold">
+                              {t.visaType}
+                            </span>
+                          )}
+                          {t.year && (
+                            <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 text-[10px] font-semibold">
+                              {t.year}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     <div className="pt-3 border-t border-slate-100 flex items-center gap-2.5">
@@ -2529,16 +2766,23 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
               {/* Add Testimonial Modal */}
               {showAddTestimonialModal && (
                 <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-                  <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 space-y-4 shadow-2xl">
+                  <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
                     <div className="flex justify-between items-center border-b pb-3">
-                      <h3 className="font-bold text-lg text-navy-950">Add Student Review</h3>
+                      <h3 className="font-bold text-lg text-navy-950">Add Student Story & Video</h3>
                       <button onClick={() => setShowAddTestimonialModal(false)} className="text-slate-400 hover:text-slate-600">✕</button>
                     </div>
 
                     <form
                       onSubmit={(e) => {
                         e.preventDefault();
-                        addTestimonial(newTestimonial);
+                        addTestimonial({
+                          ...newTestimonial,
+                          videoUrl: newTestimonial.videoUrl.trim() || undefined,
+                          program: newTestimonial.program.trim() || undefined,
+                          visaType: newTestimonial.visaType.trim() || undefined,
+                          year: newTestimonial.year.trim() || undefined,
+                          fullStory: newTestimonial.fullStory.trim() || undefined,
+                        });
                         setShowAddTestimonialModal(false);
                         setNewTestimonial({
                           student_name: '',
@@ -2547,8 +2791,13 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                           quote: '',
                           rating: 5,
                           imageUrl: '',
+                          videoUrl: '',
+                          program: '',
+                          visaType: '',
+                          year: '',
+                          fullStory: '',
                         });
-                        showToast('Testimonial published live!');
+                        showToast('Student story published live!');
                       }}
                       className="space-y-3"
                     >
@@ -2589,9 +2838,31 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                             className="flex-1 px-3 py-2 rounded-xl border border-slate-300 text-sm"
                           />
                         </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                          Student Video URL (Google Drive Share Link or MP4)
+                        </label>
+                        <input
+                          type="text"
+                          value={newTestimonial.videoUrl || ''}
+                          onChange={(e) => setNewTestimonial({ ...newTestimonial, videoUrl: e.target.value.trim() })}
+                          placeholder="https://drive.google.com/file/d/.../view?usp=sharing"
+                          className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
+                        />
                         <p className="text-[10px] text-slate-500 mt-1">
-                          Paste any Google Drive share link (make sure Drive sharing is set to "Anyone with the link").
+                          Visitors can play/pause directly on the Success Stories page & student popup. Set Drive file access to "Anyone with the link".
                         </p>
+                        {newTestimonial.videoUrl && (
+                          <div className="mt-2 rounded-xl overflow-hidden border border-slate-200">
+                            <SmartVideo
+                              src={newTestimonial.videoUrl}
+                              poster={newTestimonial.imageUrl}
+                              title={`${newTestimonial.student_name || 'Student'} Video Preview`}
+                            />
+                          </div>
+                        )}
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -2619,10 +2890,43 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                         </div>
                       </div>
 
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Course / Program</label>
+                          <input
+                            type="text"
+                            value={newTestimonial.program}
+                            onChange={(e) => setNewTestimonial({ ...newTestimonial, program: e.target.value })}
+                            placeholder="Master of IT"
+                            className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Visa Type</label>
+                          <input
+                            type="text"
+                            value={newTestimonial.visaType}
+                            onChange={(e) => setNewTestimonial({ ...newTestimonial, visaType: e.target.value })}
+                            placeholder="Subclass 500"
+                            className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Intake / Year</label>
+                          <input
+                            type="text"
+                            value={newTestimonial.year}
+                            onChange={(e) => setNewTestimonial({ ...newTestimonial, year: e.target.value })}
+                            placeholder="2025 Intake"
+                            className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs"
+                          />
+                        </div>
+                      </div>
+
                       <div>
-                        <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Student Review / Quote</label>
+                        <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Short Quote (Homepage Card)</label>
                         <textarea
-                          rows={3}
+                          rows={2}
                           required
                           value={newTestimonial.quote}
                           onChange={(e) => setNewTestimonial({ ...newTestimonial, quote: e.target.value })}
@@ -2631,11 +2935,22 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                         />
                       </div>
 
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Detailed Full Story (Optional)</label>
+                        <textarea
+                          rows={3}
+                          value={newTestimonial.fullStory}
+                          onChange={(e) => setNewTestimonial({ ...newTestimonial, fullStory: e.target.value })}
+                          placeholder="Full background, scholarship/GS interview journey, and counselor guidance shown on Success Stories page..."
+                          className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs"
+                        />
+                      </div>
+
                       <button
                         type="submit"
                         className="w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 rounded-xl shadow-md transition-all"
                       >
-                        Publish Review
+                        Publish Story & Review
                       </button>
                     </form>
                   </div>
@@ -2756,7 +3071,7 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                       required
                       value={broadcastForm.title}
                       onChange={(e) => setBroadcastForm({ ...broadcastForm, title: e.target.value })}
-                      placeholder="e.g. Free Visa Counseling Seminar in Gujranwala Office"
+                      placeholder="e.g. Visa Counseling Seminar in Gujranwala Office"
                       className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm font-semibold"
                     />
                   </div>
@@ -3445,6 +3760,15 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
             </div>
           )}
 
+          {/* TAB: ABOUT US BUILDER */}
+          {activeTab === 'about' && (
+            <AdminAboutBuilder
+              aboutConfig={settings.about}
+              onSave={updateAboutConfig}
+              showToast={showToast}
+            />
+          )}
+
           {/* TAB: BANNERS */}
           {activeTab === 'banners' && (
             <div className="space-y-6">
@@ -3901,25 +4225,8 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                     </button>
                   </div>
 
-                  <div className="p-3 rounded-xl bg-navy-900 border border-navy-800 text-[11px] font-mono text-slate-300 max-h-48 overflow-y-auto">
-                    <code>
-                      {`-- SR Global Consultants Schema
-CREATE TABLE IF NOT EXISTS public.leads (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    full_name TEXT NOT NULL,
-    email TEXT NOT NULL,
-    phone TEXT NOT NULL,
-    destination TEXT NOT NULL,
-    course_interest TEXT,
-    status TEXT NOT NULL DEFAULT 'New',
-    city TEXT,
-    region_name TEXT,
-    country_name TEXT,
-    ip_address TEXT,
-    ...
-);
--- Click the button above to copy full script`}
-                    </code>
+                  <div className="p-3 rounded-xl bg-navy-900 border border-navy-800 text-[11px] font-mono text-slate-300 max-h-72 overflow-y-auto whitespace-pre">
+                    <code>{fullSupabaseSql}</code>
                   </div>
                 </div>
               </div>
@@ -4477,18 +4784,25 @@ CREATE TABLE IF NOT EXISTS public.leads (
       {/* POPUP / MODAL: EDIT TESTIMONIAL */}
       {editingTestimonial && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 space-y-4 shadow-2xl">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center border-b pb-3">
-              <h3 className="font-bold text-lg text-navy-950">Edit Testimonial Review</h3>
+              <h3 className="font-bold text-lg text-navy-950">Edit Student Story & Review</h3>
               <button onClick={() => setEditingTestimonial(null)} className="text-slate-400 hover:text-slate-600">✕</button>
             </div>
 
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                updateTestimonial(editingTestimonial.id, editingTestimonial);
+                updateTestimonial(editingTestimonial.id, {
+                  ...editingTestimonial,
+                  videoUrl: editingTestimonial.videoUrl?.trim() || undefined,
+                  program: editingTestimonial.program?.trim() || undefined,
+                  visaType: editingTestimonial.visaType?.trim() || undefined,
+                  year: editingTestimonial.year?.trim() || undefined,
+                  fullStory: editingTestimonial.fullStory?.trim() || undefined,
+                });
                 setEditingTestimonial(null);
-                showToast(`Review for ${editingTestimonial.student_name} updated!`);
+                showToast(`Story for ${editingTestimonial.student_name} updated!`);
               }}
               className="space-y-3"
             >
@@ -4524,12 +4838,56 @@ CREATE TABLE IF NOT EXISTS public.leads (
                 </div>
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Course / Program</label>
+                  <input
+                    type="text"
+                    value={editingTestimonial.program || ''}
+                    onChange={(e) => setEditingTestimonial({ ...editingTestimonial, program: e.target.value })}
+                    placeholder="Master of IT"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Visa Type</label>
+                  <input
+                    type="text"
+                    value={editingTestimonial.visaType || ''}
+                    onChange={(e) => setEditingTestimonial({ ...editingTestimonial, visaType: e.target.value })}
+                    placeholder="Subclass 500"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Intake / Year</label>
+                  <input
+                    type="text"
+                    value={editingTestimonial.year || ''}
+                    onChange={(e) => setEditingTestimonial({ ...editingTestimonial, year: e.target.value })}
+                    placeholder="2025 Intake"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs"
+                  />
+                </div>
+              </div>
+
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Student Review Quote</label>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Short Review Quote</label>
                 <textarea
-                  rows={3}
+                  rows={2}
                   value={editingTestimonial.quote}
                   onChange={(e) => setEditingTestimonial({ ...editingTestimonial, quote: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Detailed Full Story</label>
+                <textarea
+                  rows={3}
+                  value={editingTestimonial.fullStory || ''}
+                  onChange={(e) => setEditingTestimonial({ ...editingTestimonial, fullStory: e.target.value })}
+                  placeholder="Extended story shown on the Success Stories page..."
                   className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs"
                 />
               </div>
@@ -4559,6 +4917,28 @@ CREATE TABLE IF NOT EXISTS public.leads (
                     className="flex-1 px-3 py-2 rounded-xl border border-slate-300 text-sm"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                  Student Video URL (Google Drive Share Link or MP4)
+                </label>
+                <input
+                  type="text"
+                  value={editingTestimonial.videoUrl || ''}
+                  onChange={(e) => setEditingTestimonial({ ...editingTestimonial, videoUrl: e.target.value.trim() })}
+                  placeholder="https://drive.google.com/file/d/.../view?usp=sharing"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
+                />
+                {editingTestimonial.videoUrl && (
+                  <div className="mt-2 rounded-xl overflow-hidden border border-slate-200">
+                    <SmartVideo
+                      src={editingTestimonial.videoUrl}
+                      poster={editingTestimonial.imageUrl}
+                      title={`${editingTestimonial.student_name} Video Preview`}
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="pt-2 flex justify-end gap-2">

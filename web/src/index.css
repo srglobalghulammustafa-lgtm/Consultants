@@ -97,6 +97,48 @@
   }
 }
 
+@keyframes remotionBackdropIn {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes remotionDrawerSlideIn {
+  0% {
+    opacity: 0.4;
+    transform: translate3d(100%, 0, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes remotionDrawerItemIn {
+  0% {
+    opacity: 0;
+    transform: translate3d(26px, 0, 0) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes remotionDrawerCtaIn {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 18px, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
 .animate-remotion-page {
   animation: remotionPageEnter 0.68s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
@@ -121,13 +163,33 @@
   animation: heroSlowZoom 26s ease-in-out infinite;
 }
 
+.animate-remotion-backdrop {
+  animation: remotionBackdropIn 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-remotion-drawer {
+  animation: remotionDrawerSlideIn 0.44s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-remotion-drawer-item {
+  animation: remotionDrawerItemIn 0.48s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-remotion-drawer-cta {
+  animation: remotionDrawerCtaIn 0.52s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-remotion-page,
   .animate-remotion-logo,
   .animate-remotion-sweep,
   .animate-remotion-progress,
   .animate-tab-reveal,
-  .animate-hero-zoom {
+  .animate-hero-zoom,
+  .animate-remotion-backdrop,
+  .animate-remotion-drawer,
+  .animate-remotion-drawer-item,
+  .animate-remotion-drawer-cta {
     animation: none !important;
   }
 }
