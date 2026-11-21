@@ -127,12 +127,12 @@ export const PageTransitionProvider: React.FC<{ children: React.ReactNode }> = (
               <SmartImage
                 src={logoSrc}
                 alt="SR Global Consultants"
-                className="h-20 sm:h-24 w-auto object-contain bg-white/95 px-3 py-2 rounded-xl shadow-2xl"
+                className="h-24 sm:h-28 w-auto object-contain drop-shadow-[0_0_24px_rgba(0,159,227,0.5)]"
                 fallback={
                   <img
                     src="/logo.png"
                     alt="SR Global Consultants"
-                    className="h-20 sm:h-24 w-auto object-contain bg-white/95 px-3 py-2 rounded-xl shadow-2xl"
+                    className="h-24 sm:h-28 w-auto object-contain drop-shadow-[0_0_24px_rgba(0,159,227,0.5)]"
                   />
                 }
               />

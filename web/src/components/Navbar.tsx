@@ -12,10 +12,13 @@ export const Navbar: React.FC = () => {
   const [showBellDropdown, setShowBellDropdown] = useState(false);
   const [dismissedBannerId, setDismissedBannerId] = useState<string | null>(null);
   const [lastChimedId, setLastChimedId] = useState<string | null>(null);
+  const [isHeaderVisible, setIsHeaderVisible] = useState(true);
 
   const desktopBellRef = useRef<HTMLButtonElement>(null);
   const mobileBellRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
+  const lastScrollYRef = useRef(0);
+  const tickingRef = useRef(false);
 
   useEffect(() => {
     const handleClickOutside = (event: PointerEvent) => {
@@ -39,11 +42,60 @@ export const Navbar: React.FC = () => {
   const activeBroadcast = settings.activeBroadcast;
   const broadcastHistory = settings.broadcastHistory || [];
 
-  // Close menus on route change
+  // Close menus & reveal header on route change
   useEffect(() => {
     setIsOpen(false);
     setShowBellDropdown(false);
+    setIsHeaderVisible(true);
+    lastScrollYRef.current = Math.max(window.scrollY || 0, 0);
   }, [location.pathname]);
+
+  // Complete scroll-hide logic: hide header smoothly when scrolling down, reveal on scroll up or near top
+  useEffect(() => {
+    if (isOpen || showBellDropdown) {
+      setIsHeaderVisible(true);
+    }
+
+    const updateHeaderVisibility = () => {
+      const currentScrollY = Math.max(window.scrollY || window.pageYOffset || 0, 0);
+
+      if (isOpen || showBellDropdown) {
+        setIsHeaderVisible(true);
+        lastScrollYRef.current = currentScrollY;
+        tickingRef.current = false;
+        return;
+      }
+
+      if (currentScrollY <= 72) {
+        setIsHeaderVisible(true);
+        lastScrollYRef.current = currentScrollY;
+        tickingRef.current = false;
+        return;
+      }
+
+      const delta = currentScrollY - lastScrollYRef.current;
+      if (Math.abs(delta) >= 8) {
+        if (delta > 0 && currentScrollY > 96) {
+          setIsHeaderVisible(false);
+        } else if (delta < 0) {
+          setIsHeaderVisible(true);
+        }
+        lastScrollYRef.current = currentScrollY;
+      }
+
+      tickingRef.current = false;
+    };
+
+    const handleScroll = () => {
+      if (!tickingRef.current) {
+        tickingRef.current = true;
+        window.requestAnimationFrame(updateHeaderVisibility);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [isOpen, showBellDropdown]);
 
   const handleHeaderNavClick = (
     e: React.MouseEvent<HTMLAnchorElement>,
@@ -82,6 +134,7 @@ export const Navbar: React.FC = () => {
 
   const toggleBell = () => {
     setIsOpen(false);
+    setIsHeaderVisible(true);
     setShowBellDropdown((prev) => {
       const next = !prev;
       if (next) playPremiumChime();
@@ -90,7 +143,11 @@ export const Navbar: React.FC = () => {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full shadow-md bg-white">
+    <header
+      className={`sticky top-0 z-50 w-full bg-navy-950 text-white shadow-xl shadow-navy-950/30 transition-transform duration-300 ease-out will-change-transform ${
+        isHeaderVisible ? 'translate-y-0' : '-translate-y-full'
+      }`}
+    >
       {/* Broadcast Announcement Header Banner (if broadcast active) */}
       {hasActiveBroadcast && (
         <div
@@ -138,7 +195,7 @@ export const Navbar: React.FC = () => {
       )}
 
       {/* Top Contact / Utility Strip */}
-      <div className="bg-navy-950 text-white text-[11px] sm:text-xs py-1.5 sm:py-2 px-4 sm:px-6 lg:px-10 border-b border-navy-800">
+      <div className="bg-slate-950/60 text-slate-200 text-[11px] sm:text-xs py-1.5 sm:py-2 px-4 sm:px-6 lg:px-10 border-b border-white/10">
         <div className="max-w-[1536px] mx-auto flex justify-between items-center gap-2">
           <div className="flex items-center gap-3 sm:gap-4 text-slate-300 min-w-0">
             <span className="flex items-center gap-1.5 min-w-0">
@@ -174,7 +231,7 @@ export const Navbar: React.FC = () => {
       {/* Main Navbar */}
       <div className="relative max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-10">
         <div className="flex justify-between items-center h-16 sm:h-20 gap-2">
-          {/* Official Logo Brand */}
+          {/* Official Transparent Brand Logo */}
           <Link
             to="/"
             onClick={(e) => handleHeaderNavClick(e, '/', 'Home')}
@@ -183,25 +240,25 @@ export const Navbar: React.FC = () => {
             <SmartImage
               src={header.logoUrl || '/logo.png'}
               alt="SR Global Consultants Logo"
-              className="h-11 sm:h-14 w-auto object-contain group-hover:scale-105 transition-transform shrink-0"
+              className="h-11 sm:h-14 w-auto object-contain group-hover:scale-105 transition-transform shrink-0 drop-shadow-[0_2px_10px_rgba(0,159,227,0.35)]"
               fallback={
                 <img
                   src="/logo.png"
                   alt="SR Global Consultants Logo"
-                  className="h-11 sm:h-14 w-auto object-contain group-hover:scale-105 transition-transform shrink-0"
+                  className="h-11 sm:h-14 w-auto object-contain group-hover:scale-105 transition-transform shrink-0 drop-shadow-[0_2px_10px_rgba(0,159,227,0.35)]"
                 />
               }
             />
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
-                <span className="font-serif font-black text-lg sm:text-xl text-navy-950 tracking-wider whitespace-nowrap">
+                <span className="font-serif font-black text-lg sm:text-xl text-white tracking-wider whitespace-nowrap">
                   SR GLOBAL
                 </span>
                 <span className="hidden sm:inline-block bg-brand-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider whitespace-nowrap">
                   Pakistan • Australia
                 </span>
               </div>
-              <p className="text-[10px] sm:text-[11px] font-semibold tracking-widest text-brand-600 uppercase leading-tight">
+              <p className="text-[10px] sm:text-[11px] font-semibold tracking-widest text-brand-400 uppercase leading-tight">
                 — CONSULTANTS —
               </p>
             </div>
@@ -218,8 +275,8 @@ export const Navbar: React.FC = () => {
                   onClick={(e) => handleHeaderNavClick(e, link.path, link.name)}
                   className={`px-3 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
                     isActive
-                      ? 'text-brand-600 bg-brand-50 font-bold shadow-sm'
-                      : 'text-slate-700 hover:text-brand-600 hover:bg-slate-50'
+                      ? 'text-brand-300 bg-white/10 border border-brand-400/30 font-bold shadow-sm'
+                      : 'text-slate-200 hover:text-white hover:bg-white/10'
                   }`}
                 >
                   {link.name}
@@ -234,13 +291,13 @@ export const Navbar: React.FC = () => {
               ref={desktopBellRef}
               type="button"
               onClick={toggleBell}
-              className="relative p-2.5 rounded-xl bg-slate-100 hover:bg-brand-50 text-slate-700 hover:text-brand-600 transition-colors border border-slate-200"
+              className="relative p-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-slate-200 hover:text-white transition-colors border border-white/15"
               title="View Broadcast Notifications"
               aria-label="Toggle notifications"
             >
               <Bell className="w-5 h-5" />
               {broadcastHistory.length > 0 && (
-                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white ring-2 ring-white">
+                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white ring-2 ring-navy-950">
                   {broadcastHistory.length}
                 </span>
               )}
@@ -249,7 +306,7 @@ export const Navbar: React.FC = () => {
             <Link
               to="/book-appointment"
               onClick={(e) => handleHeaderNavClick(e, '/book-appointment', 'Book Consultation')}
-              className="inline-flex items-center gap-2 bg-brand-500 hover:bg-brand-600 text-white px-5 py-2.5 rounded-xl font-semibold shadow-md shadow-brand-500/20 hover:shadow-lg transition-all whitespace-nowrap"
+              className="inline-flex items-center gap-2 bg-brand-500 hover:bg-brand-600 text-white px-5 py-2.5 rounded-xl font-semibold shadow-md shadow-brand-500/25 hover:shadow-lg transition-all whitespace-nowrap"
             >
               <Calendar className="w-4 h-4" />
               <span>Book Appointment</span>
@@ -271,12 +328,12 @@ export const Navbar: React.FC = () => {
               ref={mobileBellRef}
               type="button"
               onClick={toggleBell}
-              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl bg-slate-100 hover:bg-brand-50 text-slate-700 border border-slate-200 relative transition-colors"
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl bg-white/10 hover:bg-white/15 text-slate-200 border border-white/15 relative transition-colors"
               aria-label="Toggle notifications"
             >
               <Bell className="w-5 h-5" />
               {broadcastHistory.length > 0 && (
-                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white ring-2 ring-white">
+                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white ring-2 ring-navy-950">
                   {broadcastHistory.length}
                 </span>
               )}
@@ -286,9 +343,10 @@ export const Navbar: React.FC = () => {
               type="button"
               onClick={() => {
                 setShowBellDropdown(false);
+                setIsHeaderVisible(true);
                 setIsOpen((prev) => !prev);
               }}
-              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl text-slate-700 hover:text-brand-600 hover:bg-slate-100 border border-transparent hover:border-slate-200 focus:outline-none transition-colors"
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl text-slate-200 hover:text-white hover:bg-white/10 border border-white/10 focus:outline-none transition-colors"
               aria-label="Toggle navigation menu"
               aria-expanded={isOpen}
             >
@@ -301,7 +359,7 @@ export const Navbar: React.FC = () => {
         {showBellDropdown && (
           <div
             ref={popoverRef}
-            className="absolute left-3 right-3 sm:left-auto sm:right-6 lg:right-10 top-full mt-2 sm:w-96 bg-white rounded-2xl shadow-2xl border border-slate-200 py-3 z-50 animate-tab-reveal"
+            className="absolute left-3 right-3 sm:left-auto sm:right-6 lg:right-10 top-full mt-2 sm:w-96 bg-white text-slate-900 rounded-2xl shadow-2xl border border-slate-200 py-3 z-50 animate-tab-reveal"
           >
             <div className="px-4 pb-2.5 border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -380,12 +438,12 @@ export const Navbar: React.FC = () => {
 
       {/* Mobile Navigation Drawer */}
       {isOpen && (
-        <div className="lg:hidden bg-white border-b border-slate-200 px-4 pt-3 pb-5 space-y-1.5 shadow-2xl max-h-[calc(100vh-110px)] overflow-y-auto animate-tab-reveal">
-          <div className="flex items-center justify-between px-2 pb-2 mb-1 border-b border-slate-100">
+        <div className="lg:hidden bg-navy-950 border-b border-white/15 px-4 pt-3 pb-5 space-y-1.5 shadow-2xl max-h-[calc(100vh-110px)] overflow-y-auto animate-tab-reveal">
+          <div className="flex items-center justify-between px-2 pb-2 mb-1 border-b border-white/10">
             <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
               Navigation Menu
             </span>
-            <span className="bg-brand-50 text-brand-700 border border-brand-200 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">
+            <span className="bg-brand-500/20 text-brand-300 border border-brand-400/30 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">
               Pakistan • Australia
             </span>
           </div>
@@ -399,17 +457,17 @@ export const Navbar: React.FC = () => {
                 onClick={(e) => handleHeaderNavClick(e, link.path, link.name)}
                 className={`flex items-center justify-between px-3.5 py-3 rounded-xl text-sm font-semibold transition-colors ${
                   isActive
-                    ? 'bg-brand-50 text-brand-700 font-bold border border-brand-200'
-                    : 'text-slate-800 hover:bg-slate-50 hover:text-brand-600'
+                    ? 'bg-brand-500/20 text-brand-300 font-bold border border-brand-400/30'
+                    : 'text-slate-200 hover:bg-white/10 hover:text-white'
                 }`}
               >
                 <span>{link.name}</span>
-                {isActive && <span className="w-2 h-2 rounded-full bg-brand-500" />}
+                {isActive && <span className="w-2 h-2 rounded-full bg-brand-400" />}
               </Link>
             );
           })}
 
-          <div className="pt-3 space-y-2.5 border-t border-slate-100 mt-2">
+          <div className="pt-3 space-y-2.5 border-t border-white/10 mt-2">
             <Link
               to="/book-appointment"
               onClick={(e) => handleHeaderNavClick(e, '/book-appointment', 'Book Consultation')}
@@ -422,16 +480,16 @@ export const Navbar: React.FC = () => {
             <div className="grid grid-cols-2 gap-2 text-xs">
               <a
                 href={`tel:${header.phonePakistan}`}
-                className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-slate-100 text-slate-700 font-semibold"
+                className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/15 text-slate-100 font-semibold"
               >
-                <Phone className="w-3.5 h-3.5 text-green-600 shrink-0" />
+                <Phone className="w-3.5 h-3.5 text-green-400 shrink-0" />
                 <span className="truncate">Call PK Office</span>
               </a>
               <a
                 href={`tel:${header.phoneAustralia}`}
-                className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-slate-100 text-slate-700 font-semibold"
+                className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/15 text-slate-100 font-semibold"
               >
-                <Phone className="w-3.5 h-3.5 text-brand-600 shrink-0" />
+                <Phone className="w-3.5 h-3.5 text-brand-400 shrink-0" />
                 <span className="truncate">Call AU Office</span>
               </a>
             </div>

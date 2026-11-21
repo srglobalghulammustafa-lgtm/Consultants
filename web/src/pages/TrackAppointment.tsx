@@ -228,14 +228,29 @@ export const TrackAppointment: React.FC = () => {
                 <div className="pt-2 flex flex-col sm:flex-row gap-3">
                   <a
                     href={`https://wa.me/${whatsappPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
-                      `Hello SR Global Consultants! My Appointment Reference ID is ${result.appointment_code || result.id}. I am checking the status of my appointment booked for ${result.appointment_date} at ${result.time_slot}.`
+                      [
+                        'Hello SR Global Consultants!',
+                        '',
+                        result.status === 'Pending'
+                          ? 'I have booked an appointment and would like to know the consultation fee and payment details so I can pay and confirm my appointment.'
+                          : 'I am following up regarding my scheduled consultation appointment.',
+                        '',
+                        '*Appointment Details:*',
+                        `• Reference ID: ${result.appointment_code || result.id}`,
+                        `• Name: ${result.client_name}`,
+                        `• Target Country: ${result.destination}`,
+                        `• Date: ${result.appointment_date}`,
+                        `• Time Slot: ${result.time_slot}`,
+                        `• Mode: ${result.mode} Consultation`,
+                        `• Current Status: ${result.status}`
+                      ].join('\n')
                     )}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex-1 bg-[#25D366] hover:bg-[#20ba5a] text-white font-bold py-3.5 px-6 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 text-sm"
                   >
                     <MessageCircle className="w-5 h-5 fill-current" />
-                    <span>Chat with Counselor on WhatsApp</span>
+                    <span>{result.status === 'Pending' ? 'Ask Fee & Confirm on WhatsApp' : 'Chat with Counselor on WhatsApp'}</span>
                   </a>
 
                   <button

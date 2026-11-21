@@ -229,14 +229,31 @@ export const BookAppointment: React.FC = () => {
             <div className="pt-4 space-y-3">
               <a
                 href={`https://wa.me/${targetWhatsAppNumber.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
-                  `Hello SR Global Consultants! My Appointment Reference ID is ${successData.appointment_code || 'SRG-APT-8492'}. I have booked for ${successData.appointment_date} at ${successData.time_slot}. I would like to pay the consultation fee and get my slot confirmed.`
+                  [
+                    'Hello SR Global Consultants!',
+                    '',
+                    'I have booked a consultation appointment on your website. Please share the consultation fee and payment details so I can pay and confirm my appointment.',
+                    '',
+                    '*Appointment Details:*',
+                    `• Reference ID: ${successData.appointment_code || 'SRG-APT-8492'}`,
+                    `• Client Name: ${successData.client_name || 'Applicant'}`,
+                    successData.phone ? `• Phone: ${successData.phone}` : null,
+                    `• Target Country: ${successData.destination || 'Australia'}`,
+                    `• Date: ${successData.appointment_date}`,
+                    `• Time Slot: ${successData.time_slot}`,
+                    `• Mode: ${successData.mode} Consultation`,
+                    '',
+                    'Kindly let me know the consultation fee amount and payment instructions so I can pay and get my slot confirmed. Thank you!'
+                  ]
+                    .filter((line): line is string => line !== null)
+                    .join('\n')
                 )}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full bg-[#25D366] hover:bg-[#20ba5a] text-white font-bold py-4 px-6 rounded-2xl shadow-lg shadow-green-500/20 transition-all flex items-center justify-center gap-2 text-base"
               >
                 <MessageCircle className="w-5 h-5 fill-current" />
-                <span>Pay Fee & Confirm on WhatsApp</span>
+                <span>Ask Fee & Confirm on WhatsApp</span>
               </a>
 
               <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
