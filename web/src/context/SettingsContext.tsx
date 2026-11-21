@@ -65,6 +65,13 @@ const DEFAULT_SETTINGS: SiteSettings = {
   },
   appointmentConfig: {
     maxPerDay: 10,
+    blockedDates: [],
+    blockedSlots: {},
+  },
+  hero: {
+    bannerImageUrl: '/hero-banner.jpg',
+    overlayOpacity: 0.72,
+    badgeText: 'Certified Education & Visa Counselors',
   },
   adminPin: '1234',
   broadcastHistory: [],
@@ -79,7 +86,8 @@ interface SettingsContextType {
   updateFooter: (config: SiteSettings['footer']) => Promise<boolean>;
   updateMetrics: (config: SiteSettings['metrics']) => Promise<boolean>;
   updateIpstack: (config: SiteSettings['ipstack']) => Promise<boolean>;
-  updateAppointmentConfig: (config: { maxPerDay: number }) => Promise<boolean>;
+  updateAppointmentConfig: (config: NonNullable<SiteSettings['appointmentConfig']>) => Promise<boolean>;
+  updateHero: (config: NonNullable<SiteSettings['hero']>) => Promise<boolean>;
   updateAdminPin: (newPin: string) => Promise<boolean>;
   sendBroadcastNotification: (notif: Omit<BroadcastNotification, 'id' | 'created_at'>) => Promise<boolean>;
   deleteBroadcast: (id: string) => Promise<boolean>;
@@ -135,10 +143,22 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             } else if (row.setting_key === 'ipstack_config' && row.setting_value) {
               liveMerged.ipstack = { ...liveMerged.ipstack, ...row.setting_value };
             } else if (row.setting_key === 'appointment_config' && row.setting_value) {
-              liveMerged.appointmentConfig = { ...liveMerged.appointmentConfig, ...row.setting_value };
+              liveMerged.appointmentConfig = {
+                maxPerDay: 10,
+                blockedDates: [],
+                blockedSlots: {},
+                ...liveMerged.appointmentConfig,
+                ...row.setting_value,
+              };
+            } else if (row.setting_key === 'hero_config' && row.setting_value) {
+              liveMerged.hero = {
+                bannerImageUrl: '/hero-banner.jpg',
+                overlayOpacity: 0.72,
+                ...liveMerged.hero,
+                ...row.setting_value,
+              };
             } else if (row.setting_key === 'admin_security' && row.setting_value) {
               liveMerged.adminPin = row.setting_value.pin || row.setting_value;
-              liveMerged.activeBroadcast = row.setting_value;
             }
           });
 
@@ -238,11 +258,24 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return true;
   };
 
-  const updateAppointmentConfig = async (config: { maxPerDay: number }) => {
-    const next = { ...settings, appointmentConfig: config };
+  const updateAppointmentConfig = async (config: NonNullable<SiteSettings['appointmentConfig']>) => {
+    const mergedConfig = {
+      maxPerDay: config.maxPerDay ?? settings.appointmentConfig?.maxPerDay ?? 10,
+      blockedDates: config.blockedDates ?? settings.appointmentConfig?.blockedDates ?? [],
+      blockedSlots: config.blockedSlots ?? settings.appointmentConfig?.blockedSlots ?? {},
+    };
+    const next = { ...settings, appointmentConfig: mergedConfig };
     setSettings(next);
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(next));
-    await saveToSupabase('appointment_config', config);
+    await saveToSupabase('appointment_config', mergedConfig);
+    return true;
+  };
+
+  const updateHero = async (config: NonNullable<SiteSettings['hero']>) => {
+    const next = { ...settings, hero: config };
+    setSettings(next);
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(next));
+    await saveToSupabase('hero_config', config);
     return true;
   };
 
@@ -355,6 +388,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         updateMetrics,
         updateIpstack,
         updateAppointmentConfig,
+        updateHero,
         updateAdminPin,
         sendBroadcastNotification,
         deleteBroadcast,

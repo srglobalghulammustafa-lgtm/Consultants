@@ -6,23 +6,18 @@ import {
   ShieldCheck, ArrowRight, Filter, Save, Plus, Globe, Sparkles,
   LayoutDashboard, BookOpen, Star, Settings, ExternalLink, Copy, Check,
   ChevronRight, MapPin, Mail, AlertCircle, Eye, EyeOff, Activity,
-  Navigation, ShieldAlert, X, Send, Bell, Volume2
+  Navigation, ShieldAlert, X, Send, Bell, Volume2, StickyNote, Image as ImageIcon
 } from 'lucide-react';
 import { useSiteSettings } from '../context/SettingsContext';
 import { useLiveData } from '../context/LiveDataContext';
 import { Lead, Appointment, Destination, Course, Testimonial, Banner } from '../types';
 import { fetchUserLocationWithQuota } from '../lib/ipstack';
+import { normalizeGoogleImageUrl } from '../lib/imageUtils';
+import { SmartImage } from '../components/SmartImage';
+import { AdminFloatingNotepad } from '../components/AdminFloatingNotepad';
+import { AdminAppointmentController } from '../components/AdminAppointmentController';
 
-const fixGoogleDriveLink = (url: string): string => {
-  if (!url) return '';
-  // Handles: /file/d/ID/view, open?id=ID, uc?id=ID
-  const driveRegex = /drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?id=)([a-zA-Z0-9_-]+)/;
-  const match = url.match(driveRegex);
-  if (match && match[1]) {
-    return `https://drive.google.com/uc?id=${match[1]}`;
-  }
-  return url;
-};
+const fixGoogleDriveLink = (url: string): string => normalizeGoogleImageUrl(url);
 
 const WORLD_FLAGS = [
   { emoji: '🇦🇺', name: 'Australia' },
@@ -48,7 +43,7 @@ export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { 
     settings, updateWhatsApp, updateHeader, updateFooter, 
-    updateMetrics, updateIpstack, updateAppointmentConfig, updateAdminPin, 
+    updateMetrics, updateIpstack, updateAppointmentConfig, updateHero, updateAdminPin, 
     sendBroadcastNotification, deleteBroadcast, clearBroadcastHistory,
     resetIpstackQuota, isSyncing, isLiveSupabase 
   } = useSiteSettings();
@@ -59,7 +54,7 @@ export const AdminDashboard: React.FC = () => {
     addDestination, updateDestination, deleteDestination,
     addTestimonial, updateTestimonial, deleteTestimonial,
     addBanner, updateBanner, deleteBanner,
-    updateLeadStatus, deleteLead, updateAppointmentStatus, deleteAppointment, refreshData, isSupabaseConnected
+    updateLeadStatus, deleteLead, addAppointment, updateAppointmentStatus, rescheduleAppointment, deleteAppointment, refreshData, isSupabaseConnected
   } = useLiveData();
 
   const [activeTab, setActiveTab] = useState<
@@ -150,6 +145,21 @@ export const AdminDashboard: React.FC = () => {
   const [metricsForm, setMetricsForm] = useState({ ...settings.metrics });
   const [ipstackForm, setIpstackForm] = useState({ ...settings.ipstack });
   const [maxPerDayInput, setMaxPerDayInput] = useState<number>(settings.appointmentConfig?.maxPerDay || 10);
+  const [showNotepad, setShowNotepad] = useState<boolean>(true);
+  const [heroForm, setHeroForm] = useState({
+    bannerImageUrl: settings.hero?.bannerImageUrl || '/hero-banner.jpg',
+    overlayOpacity: settings.hero?.overlayOpacity ?? 0.72,
+    badgeText: settings.hero?.badgeText || 'Certified Education & Visa Counselors',
+  });
+
+  const handleSaveHero = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await updateHero({
+      ...heroForm,
+      bannerImageUrl: normalizeGoogleImageUrl(heroForm.bannerImageUrl) || '/hero-banner.jpg',
+    });
+    showToast('Homepage Hero Banner image & styling published live!');
+  };
 
   const handleSaveMaxPerDay = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -157,7 +167,11 @@ export const AdminDashboard: React.FC = () => {
       showToast('Daily appointment limit must be at least 1 per day');
       return;
     }
-    await updateAppointmentConfig({ maxPerDay: maxPerDayInput });
+    await updateAppointmentConfig({
+      maxPerDay: maxPerDayInput,
+      blockedDates: settings.appointmentConfig?.blockedDates || [],
+      blockedSlots: settings.appointmentConfig?.blockedSlots || {},
+    });
     showToast(`Daily appointment booking limit updated to ${maxPerDayInput} per day!`);
   };
   const [broadcastForm, setBroadcastForm] = useState({
@@ -340,6 +354,7 @@ CREATE TABLE IF NOT EXISTS public.leads (
 
 CREATE TABLE IF NOT EXISTS public.appointments (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    appointment_code TEXT,
     client_name TEXT NOT NULL,
     email TEXT NOT NULL,
     phone TEXT NOT NULL,
@@ -349,7 +364,25 @@ CREATE TABLE IF NOT EXISTS public.appointments (
     mode TEXT NOT NULL DEFAULT 'Office',
     status TEXT NOT NULL DEFAULT 'Pending',
     message TEXT,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Ensure columns exist on pre-existing tables
+ALTER TABLE public.appointments ADD COLUMN IF NOT EXISTS appointment_code TEXT;
+ALTER TABLE public.appointments ADD COLUMN IF NOT EXISTS notes TEXT;
+ALTER TABLE public.appointments ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+
+-- Persistent Admin Floating Notepad Table
+CREATE TABLE IF NOT EXISTS public.admin_notes (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL DEFAULT 'Untitled Note',
+    content TEXT NOT NULL DEFAULT '',
+    color TEXT NOT NULL DEFAULT 'amber',
+    is_pinned BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS public.courses (
@@ -383,6 +416,8 @@ CREATE TABLE IF NOT EXISTS public.destinations (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+ALTER TABLE public.destinations ADD COLUMN IF NOT EXISTS "imageUrl" TEXT;
+
 CREATE TABLE IF NOT EXISTS public.testimonials (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     student_name TEXT NOT NULL,
@@ -394,6 +429,8 @@ CREATE TABLE IF NOT EXISTS public.testimonials (
     is_featured BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+ALTER TABLE public.testimonials ADD COLUMN IF NOT EXISTS "imageUrl" TEXT;
 
 CREATE TABLE IF NOT EXISTS public.banners (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -414,6 +451,7 @@ CREATE TABLE IF NOT EXISTS public.site_settings (
 -- Enable RLS
 ALTER TABLE public.leads ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.appointments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.admin_notes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.courses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.destinations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.testimonials ENABLE ROW LEVEL SECURITY;
@@ -421,7 +459,7 @@ ALTER TABLE public.banners ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.broadcasts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.site_settings ENABLE ROW LEVEL SECURITY;
 
--- Public Access Policies
+-- Public & Admin Access Policies (Idempotent)
 DROP POLICY IF EXISTS "Public read active courses" ON public.courses;
 CREATE POLICY "Public read active courses" ON public.courses FOR SELECT USING (TRUE);
 
@@ -451,6 +489,9 @@ CREATE POLICY "Public check slot availability" ON public.appointments FOR SELECT
 
 DROP POLICY IF EXISTS "Full access to site_settings" ON public.site_settings;
 CREATE POLICY "Full access to site_settings" ON public.site_settings FOR ALL USING (TRUE);
+
+DROP POLICY IF EXISTS "Full access to admin_notes" ON public.admin_notes;
+CREATE POLICY "Full access to admin_notes" ON public.admin_notes FOR ALL USING (TRUE);
 
 DROP POLICY IF EXISTS "Full access to courses" ON public.courses;
 CREATE POLICY "Full access to courses" ON public.courses FOR ALL USING (TRUE);
@@ -521,6 +562,19 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
               <Database className="w-3.5 h-3.5" />
               <span>{isLiveSupabase || isSupabaseConnected ? 'Live Supabase Connected' : 'Local Fallback Mode'}</span>
             </div>
+
+            <button
+              onClick={() => setShowNotepad((v) => !v)}
+              className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors ${
+                showNotepad
+                  ? 'bg-amber-400 text-navy-950 border-amber-300'
+                  : 'bg-white/10 hover:bg-white/20 text-amber-300 border-white/15'
+              }`}
+              title="Toggle Floating Admin Notepad"
+            >
+              <StickyNote className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Notepad</span>
+            </button>
 
             <button
               onClick={() => {
@@ -1339,140 +1393,29 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
             </div>
           )}
 
-          {/* TAB 3: APPOINTMENTS */}
+          {/* TAB 3: APPOINTMENTS (UNIFIED CALENDAR + TABLE CONTROLLER) */}
           {activeTab === 'appointments' && (
-            <div className="space-y-6">
-              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                  <h2 className="text-xl font-bold text-navy-950">Booked Counseling Appointments</h2>
-                  <p className="text-xs text-slate-500">Scheduled office walk-ins and Zoom sessions with students</p>
-                </div>
-
-                {/* Daily Quota Configuration Control */}
-                <form onSubmit={handleSaveMaxPerDay} className="flex items-center gap-2.5 bg-slate-50 p-2.5 rounded-2xl border border-slate-200">
-                  <div className="text-xs font-bold text-slate-700 whitespace-nowrap">
-                    Max / Day:
-                  </div>
-                  <input
-                    type="number"
-                    min={1}
-                    max={50}
-                    value={maxPerDayInput}
-                    onChange={(e) => setMaxPerDayInput(Number(e.target.value))}
-                    className="w-16 px-2.5 py-1.5 rounded-xl border border-slate-300 font-bold text-xs text-center"
-                  />
-                  <button
-                    type="submit"
-                    disabled={isSyncing}
-                    className="inline-flex items-center gap-1 bg-brand-500 hover:bg-brand-600 text-white font-bold px-3 py-1.5 rounded-xl text-xs shadow-sm transition-all"
-                  >
-                    <Save className="w-3.5 h-3.5" />
-                    <span>Save Limit</span>
-                  </button>
-                </form>
-              </div>
-
-              <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                        <th className="py-3.5 px-4">Ref Code</th>
-                        <th className="py-3.5 px-4">Client Name</th>
-                        <th className="py-3.5 px-4">Contact</th>
-                        <th className="py-3.5 px-4">Date & Time</th>
-                        <th className="py-3.5 px-4">Mode</th>
-                        <th className="py-3.5 px-4">Destination</th>
-                        <th className="py-3.5 px-4">Status</th>
-                        <th className="py-3.5 px-4">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 text-sm">
-                      {appointments.length === 0 ? (
-                        <tr>
-                          <td colSpan={8} className="py-8 text-center text-slate-400 text-xs">
-                            No active appointment bookings yet.
-                          </td>
-                        </tr>
-                      ) : (
-                        appointments.map((appt) => (
-                          <tr key={appt.id} className="hover:bg-slate-50/70 transition-colors">
-                            <td className="py-3.5 px-4 font-mono font-bold text-xs text-brand-600">
-                              {appt.appointment_code || `SRG-APT-${appt.id.slice(0, 4)}`}
-                            </td>
-                            <td className="py-3.5 px-4 font-bold text-navy-950">{appt.client_name}</td>
-                            <td className="py-3.5 px-4 text-xs font-mono">
-                              <div>{appt.phone}</div>
-                              <div className="text-slate-400">{appt.email}</div>
-                            </td>
-                            <td className="py-3.5 px-4 text-xs">
-                              <div className="font-semibold text-slate-800">{appt.appointment_date}</div>
-                              <div className="text-slate-500">{appt.time_slot}</div>
-                            </td>
-                            <td className="py-3.5 px-4">
-                              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                                appt.mode === 'Office' ? 'bg-orange-50 text-orange-700' : 'bg-blue-50 text-blue-700'
-                              }`}>
-                                {appt.mode}
-                              </span>
-                            </td>
-                            <td className="py-3.5 px-4 text-xs font-medium text-slate-700">{appt.destination}</td>
-                            <td className="py-3.5 px-4">
-                              <select
-                                value={appt.status}
-                                onChange={(e) => {
-                                  updateAppointmentStatus(appt.id, e.target.value as any);
-                                  showToast(`Appointment status updated to ${e.target.value}`);
-                                }}
-                                className={`text-xs font-bold px-2.5 py-1 rounded-lg border focus:outline-none ${
-                                  appt.status === 'Confirmed'
-                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                    : appt.status === 'Completed'
-                                    ? 'bg-blue-50 text-blue-700 border-blue-200'
-                                    : appt.status === 'Cancelled'
-                                    ? 'bg-red-50 text-red-700 border-red-200'
-                                    : 'bg-amber-50 text-amber-700 border-amber-200'
-                                }`}
-                              >
-                                <option value="Pending">Pending Fee</option>
-                                <option value="Confirmed">Confirmed</option>
-                                <option value="Completed">Completed</option>
-                                <option value="Cancelled">Cancelled</option>
-                              </select>
-                            </td>
-                            <td className="py-3.5 px-4 flex items-center gap-2">
-                              <button
-                                onClick={() => {
-                                  setSelectedAppointment(appt);
-                                  setModalApptNotes(appt.notes || '');
-                                  setModalApptStatus(appt.status);
-                                }}
-                                className="inline-flex items-center gap-1 text-xs font-bold text-brand-600 bg-brand-50 hover:bg-brand-100 px-2.5 py-1 rounded-lg transition-colors"
-                              >
-                                <Eye className="w-3.5 h-3.5" />
-                                <span>Inspect</span>
-                              </button>
-                              <button
-                                onClick={() => {
-                                  if (window.confirm(`Are you sure you want to delete appointment for ${appt.client_name}?`)) {
-                                    deleteAppointment(appt.id);
-                                    showToast('Appointment deleted successfully');
-                                  }
-                                }}
-                                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                title="Delete Appointment"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
+            <AdminAppointmentController
+              appointments={appointments}
+              maxPerDay={settings.appointmentConfig?.maxPerDay || 10}
+              blockedDates={settings.appointmentConfig?.blockedDates || []}
+              blockedSlots={settings.appointmentConfig?.blockedSlots || {}}
+              isSyncing={isSyncing}
+              onSaveConfig={async (nextCfg) => {
+                setMaxPerDayInput(nextCfg.maxPerDay);
+                await updateAppointmentConfig(nextCfg);
+              }}
+              onUpdateStatus={updateAppointmentStatus}
+              onReschedule={rescheduleAppointment}
+              onAddAppointment={addAppointment}
+              onDeleteAppointment={deleteAppointment}
+              onInspect={(appt) => {
+                setSelectedAppointment(appt);
+                setModalApptNotes(appt.notes || '');
+                setModalApptStatus(appt.status);
+              }}
+              onNotify={showToast}
+            />
           )}
 
           {/* TAB 4: DESTINATIONS */}
@@ -1891,11 +1834,20 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                       <p className="text-xs text-slate-600 italic">"{t.quote}"</p>
                     </div>
 
-                    <div className="pt-3 border-t border-slate-100 flex items-center gap-2">
-                      {t.imageUrl ? (
-                        <img src={t.imageUrl} alt={t.student_name} className="w-8 h-8 rounded-full object-cover border border-slate-100" />
+                    <div className="pt-3 border-t border-slate-100 flex items-center gap-2.5">
+                      {(t.imageUrl || (t as any).imageurl) ? (
+                        <SmartImage
+                          src={t.imageUrl || (t as any).imageurl}
+                          alt={t.student_name}
+                          className="w-10 h-10 rounded-xl object-cover border border-slate-200 shrink-0"
+                          fallback={
+                            <div className="w-10 h-10 rounded-xl bg-brand-50 border border-brand-200 flex items-center justify-center text-xs font-bold text-brand-700 uppercase shrink-0">
+                              {t.student_name[0]}
+                            </div>
+                          }
+                        />
                       ) : (
-                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-400 uppercase">
+                        <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500 uppercase shrink-0">
                           {t.student_name[0]}
                         </div>
                       )}
@@ -1922,6 +1874,14 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                         e.preventDefault();
                         addTestimonial(newTestimonial);
                         setShowAddTestimonialModal(false);
+                        setNewTestimonial({
+                          student_name: '',
+                          university: '',
+                          country: 'Australia',
+                          quote: '',
+                          rating: 5,
+                          imageUrl: '',
+                        });
                         showToast('Testimonial published live!');
                       }}
                       className="space-y-3"
@@ -1939,15 +1899,33 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                       </div>
 
                       <div>
-                        <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Student Photo URL (Google Drive Link)</label>
-                        <input
-                          type="url"
-                          required
-                          value={newTestimonial.imageUrl || ''}
-                          onChange={(e) => setNewTestimonial({ ...newTestimonial, imageUrl: fixGoogleDriveLink(e.target.value) })}
-                          placeholder="https://drive.google.com/..."
-                          className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
-                        />
+                        <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                          Student Photo URL (Google Drive or Web Link)
+                        </label>
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-11 h-11 rounded-xl border border-slate-200 bg-slate-50 overflow-hidden flex items-center justify-center shrink-0">
+                            {newTestimonial.imageUrl ? (
+                              <SmartImage
+                                src={newTestimonial.imageUrl}
+                                alt="Preview"
+                                className="w-full h-full object-cover"
+                                fallback={<span className="text-[10px] font-bold text-slate-400">Preview</span>}
+                              />
+                            ) : (
+                              <span className="text-[10px] font-bold text-slate-400">Photo</span>
+                            )}
+                          </div>
+                          <input
+                            type="text"
+                            value={newTestimonial.imageUrl || ''}
+                            onChange={(e) => setNewTestimonial({ ...newTestimonial, imageUrl: fixGoogleDriveLink(e.target.value) })}
+                            placeholder="https://drive.google.com/file/d/.../view"
+                            className="flex-1 px-3 py-2 rounded-xl border border-slate-300 text-sm"
+                          />
+                        </div>
+                        <p className="text-[10px] text-slate-500 mt-1">
+                          Paste any Google Drive share link (make sure Drive sharing is set to "Anyone with the link").
+                        </p>
                       </div>
 
                       <div className="grid grid-cols-2 gap-3">
@@ -2691,10 +2669,90 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
           {/* TAB: BANNERS */}
           {activeTab === 'banners' && (
             <div className="space-y-6">
-               <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex justify-between items-center">
+              {/* Main Hero Background Banner Settings */}
+              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-5">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <span className="p-2 rounded-xl bg-brand-50 text-brand-600">
+                      <ImageIcon className="w-5 h-5" />
+                    </span>
+                    <div>
+                      <h3 className="text-lg font-bold text-navy-950">Homepage Primary Hero Banner Image</h3>
+                      <p className="text-xs text-slate-500">
+                        Configure the main top hero backdrop image & contrast overlay (defaults to built-in campus art).
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setHeroForm({
+                        bannerImageUrl: '/hero-banner.jpg',
+                        overlayOpacity: 0.72,
+                        badgeText: 'Certified Education & Visa Counselors',
+                      })
+                    }
+                    className="text-xs font-bold px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700"
+                  >
+                    Restore Default Image
+                  </button>
+                </div>
+
+                <form onSubmit={handleSaveHero} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                  <div className="md:col-span-5">
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                      Hero Background Image URL (Direct or Google Drive)
+                    </label>
+                    <input
+                      type="text"
+                      value={heroForm.bannerImageUrl}
+                      onChange={(e) => setHeroForm({ ...heroForm, bannerImageUrl: fixGoogleDriveLink(e.target.value) })}
+                      placeholder="/hero-banner.jpg or https://drive.google.com/..."
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-mono"
+                    />
+                  </div>
+
+                  <div className="md:col-span-4">
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Hero Top Pill Badge</label>
+                    <input
+                      type="text"
+                      value={heroForm.badgeText}
+                      onChange={(e) => setHeroForm({ ...heroForm, badgeText: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-semibold"
+                    />
+                  </div>
+
+                  <div className="md:col-span-3 flex items-center gap-3">
+                    <div className="flex-1">
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                        Tint ({Math.round(heroForm.overlayOpacity * 100)}%)
+                      </label>
+                      <input
+                        type="range"
+                        min={0.35}
+                        max={0.92}
+                        step={0.05}
+                        value={heroForm.overlayOpacity}
+                        onChange={(e) => setHeroForm({ ...heroForm, overlayOpacity: Number(e.target.value) })}
+                        className="w-full accent-brand-500"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={isSyncing}
+                      className="inline-flex items-center gap-1.5 bg-brand-500 hover:bg-brand-600 text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow-sm shrink-0"
+                    >
+                      <Save className="w-3.5 h-3.5" />
+                      <span>Publish</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex justify-between items-center">
                 <div>
-                  <h2 className="text-xl font-bold text-navy-950">Homepage Banner Management</h2>
-                  <p className="text-xs text-slate-500">Add or manage hero banners displayed on the homepage slider.</p>
+                  <h2 className="text-xl font-bold text-navy-950">Homepage Highlight Slider Banners</h2>
+                  <p className="text-xs text-slate-500">Add or manage rotating promotional slides displayed below the hero.</p>
                 </div>
                 <button 
                   onClick={() => setShowAddBannerModal(true)}
@@ -2720,18 +2778,24 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                        {banners.length === 0 ? (
                          <tr>
                            <td colSpan={4} className="px-6 py-12 text-center text-slate-400 text-sm">
-                             No custom banners added. The homepage will use default slides.
+                             No custom banners added. The homepage will use built-in curated campus slides.
                            </td>
                          </tr>
                        ) : (
                          banners.map((banner) => (
                            <tr key={banner.id} className="hover:bg-slate-50 transition-colors">
                              <td className="px-6 py-4">
-                               <img 
+                               <SmartImage 
                                  src={banner.imageUrl} 
                                  alt={banner.title} 
                                  className="w-24 h-14 object-cover rounded-lg border border-slate-200" 
-                                 onError={(e) => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&q=80&w=400'; }}
+                                 fallback={
+                                   <img
+                                     src="/slide-australia.jpg"
+                                     alt={banner.title}
+                                     className="w-24 h-14 object-cover rounded-lg border border-slate-200"
+                                   />
+                                 }
                                />
                              </td>
                              <td className="px-6 py-4">
@@ -3640,14 +3704,30 @@ CREATE TABLE IF NOT EXISTS public.leads (
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Student Photo URL (Optional)</label>
-                <input
-                  type="url"
-                  value={editingTestimonial.imageUrl || ''}
-                  onChange={(e) => setEditingTestimonial({ ...editingTestimonial, imageUrl: fixGoogleDriveLink(e.target.value) })}
-                  placeholder="https://drive.google.com/uc?id=..."
-                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
-                />
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                  Student Photo URL (Google Drive or Web Link)
+                </label>
+                <div className="flex items-center gap-2.5">
+                  <div className="w-11 h-11 rounded-xl border border-slate-200 bg-slate-50 overflow-hidden flex items-center justify-center shrink-0">
+                    {editingTestimonial.imageUrl ? (
+                      <SmartImage
+                        src={editingTestimonial.imageUrl}
+                        alt="Preview"
+                        className="w-full h-full object-cover"
+                        fallback={<span className="text-[10px] font-bold text-slate-400">Preview</span>}
+                      />
+                    ) : (
+                      <span className="text-[10px] font-bold text-slate-400">Photo</span>
+                    )}
+                  </div>
+                  <input
+                    type="text"
+                    value={editingTestimonial.imageUrl || ''}
+                    onChange={(e) => setEditingTestimonial({ ...editingTestimonial, imageUrl: fixGoogleDriveLink(e.target.value) })}
+                    placeholder="https://drive.google.com/file/d/.../view"
+                    className="flex-1 px-3 py-2 rounded-xl border border-slate-300 text-sm"
+                  />
+                </div>
               </div>
 
               <div className="pt-2 flex justify-end gap-2">
@@ -3669,6 +3749,13 @@ CREATE TABLE IF NOT EXISTS public.leads (
           </div>
         </div>
       )}
+
+      {/* Persistent, Draggable, Resizable Floating Admin Notepad */}
+      <AdminFloatingNotepad
+        isOpen={showNotepad}
+        onClose={() => setShowNotepad(false)}
+        onOpen={() => setShowNotepad(true)}
+      />
     </div>
   );
 };

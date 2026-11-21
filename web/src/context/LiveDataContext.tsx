@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Course, Destination, Testimonial, Lead, Appointment, Banner } from '../types';
 import { COURSES, DESTINATIONS, TESTIMONIALS } from '../data/mockData';
+import { normalizeGoogleImageUrl } from '../lib/imageUtils';
 
 interface LiveDataContextType {
   courses: Course[];
@@ -40,6 +41,7 @@ interface LiveDataContextType {
   updateLeadStatus: (id: string, status: Lead['status'], notes?: string) => Promise<boolean>;
   deleteLead: (id: string) => Promise<boolean>;
   updateAppointmentStatus: (id: string, status: Appointment['status'], notes?: string) => Promise<boolean>;
+  rescheduleAppointment: (id: string, appointment_date: string, time_slot: string, mode?: Appointment['mode'], notes?: string) => Promise<boolean>;
   deleteAppointment: (id: string) => Promise<boolean>;
 }
 
@@ -156,15 +158,16 @@ export const LiveDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // Banner operations
   const addBanner = async (newBanner: Omit<Banner, 'id'>) => {
+    const normalizedImage = normalizeGoogleImageUrl(newBanner.imageUrl);
     const tempId = `temp-${Date.now()}`;
-    const bannerWithId = { ...newBanner, id: tempId };
+    const bannerWithId = { ...newBanner, imageUrl: normalizedImage, id: tempId };
     setBanners((prev) => [...prev, bannerWithId]);
 
     try {
       const { data, error } = await supabase.from('banners').insert([{
         title: newBanner.title,
         description: newBanner.description,
-        imageUrl: newBanner.imageUrl,
+        imageUrl: normalizedImage,
         link: newBanner.link
       }]).select().single();
       if (!error && data) {
@@ -178,12 +181,11 @@ export const LiveDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const updateBanner = async (id: string, updated: Partial<Banner>) => {
-    setBanners((prev) => prev.map((b) => (b.id === id ? { ...b, ...updated } : b)));
+    const normalizedImage = updated.imageUrl !== undefined ? normalizeGoogleImageUrl(updated.imageUrl) : undefined;
+    const nextUpdated = normalizedImage !== undefined ? { ...updated, imageUrl: normalizedImage } : updated;
+    setBanners((prev) => prev.map((b) => (b.id === id ? { ...b, ...nextUpdated } : b)));
     try {
-      const payload: any = { ...updated };
-      // Map imageUrl to both cases just in case, or use explicit one
-      if (updated.imageUrl) payload.imageUrl = updated.imageUrl;
-      
+      const payload: any = { ...nextUpdated };
       await supabase.from('banners').update(payload).eq('id', id);
     } catch (e) {
       console.warn('Sync notice for updateBanner:', e);
@@ -290,8 +292,9 @@ export const LiveDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // Testimonial operations
   const addTestimonial = async (newItem: Omit<Testimonial, 'id'>) => {
+    const normalizedImage = normalizeGoogleImageUrl(newItem.imageUrl);
     const tempId = `temp-${Date.now()}`;
-    const itemWithId = { ...newItem, id: tempId, student_name: newItem.student_name };
+    const itemWithId = { ...newItem, imageUrl: normalizedImage, id: tempId, student_name: newItem.student_name };
     setTestimonials((prev) => [itemWithId, ...prev]);
 
     try {
@@ -301,7 +304,7 @@ export const LiveDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         country: newItem.country,
         quote: newItem.quote,
         rating: newItem.rating,
-        imageUrl: newItem.imageUrl
+        imageUrl: normalizedImage || null
       }]).select().single();
       if (!error && data) {
         setTestimonials((prev) => prev.map((t) => (t.id === tempId ? data : t)));
@@ -313,11 +316,11 @@ export const LiveDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const updateTestimonial = async (id: string, updated: Partial<Testimonial>) => {
-    setTestimonials((prev) => prev.map((t) => (t.id === id ? { ...t, ...updated } : t)));
+    const normalizedImage = updated.imageUrl !== undefined ? normalizeGoogleImageUrl(updated.imageUrl) : undefined;
+    const nextUpdated = normalizedImage !== undefined ? { ...updated, imageUrl: normalizedImage } : updated;
+    setTestimonials((prev) => prev.map((t) => (t.id === id ? { ...t, ...nextUpdated } : t)));
     try {
-      const payload: any = { ...updated };
-      if (updated.imageUrl) payload.imageUrl = updated.imageUrl;
-
+      const payload: any = { ...nextUpdated };
       await supabase.from('testimonials').update(payload).eq('id', id);
     } catch (e) {
       console.warn('Sync notice for updateTestimonial:', e);
@@ -416,6 +419,44 @@ export const LiveDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return true;
   };
 
+  const rescheduleAppointment = async (
+    id: string,
+    appointment_date: string,
+    time_slot: string,
+    mode?: Appointment['mode'],
+    notes?: string
+  ) => {
+    setAppointments((prev) =>
+      prev.map((a) =>
+        a.id === id
+          ? {
+              ...a,
+              appointment_date,
+              time_slot,
+              mode: mode || a.mode,
+              status: 'Rescheduled',
+              notes: notes !== undefined ? notes : a.notes,
+            }
+          : a
+      )
+    );
+    try {
+      await supabase
+        .from('appointments')
+        .update({
+          appointment_date,
+          time_slot,
+          ...(mode ? { mode } : {}),
+          status: 'Rescheduled',
+          ...(notes !== undefined ? { notes } : {}),
+        })
+        .eq('id', id);
+    } catch (e) {
+      console.warn('Sync notice for rescheduleAppointment:', e);
+    }
+    return true;
+  };
+
   const deleteLead = async (id: string) => {
     setLeads((prev) => prev.filter((l) => l.id !== id));
     try {
@@ -465,6 +506,7 @@ export const LiveDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         addAppointment,
         getAppointmentByCodeOrPhone,
         updateAppointmentStatus,
+        rescheduleAppointment,
         deleteAppointment,
       }}
     >

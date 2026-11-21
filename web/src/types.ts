@@ -178,6 +178,24 @@ export interface IpstackConfig {
 
 export interface AppointmentConfig {
   maxPerDay: number;
+  blockedDates?: string[];
+  blockedSlots?: Record<string, string[]>;
+}
+
+export interface HeroConfig {
+  bannerImageUrl: string;
+  overlayOpacity: number;
+  badgeText?: string;
+}
+
+export interface AdminNote {
+  id: string;
+  title: string;
+  content: string;
+  color: 'amber' | 'sky' | 'emerald' | 'rose';
+  is_pinned: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface SiteSettings {
@@ -187,6 +205,7 @@ export interface SiteSettings {
   metrics: CompanyMetrics;
   ipstack: IpstackConfig;
   appointmentConfig?: AppointmentConfig;
+  hero?: HeroConfig;
   adminPin?: string;
   activeBroadcast?: BroadcastNotification;
   broadcastHistory?: BroadcastNotification[];

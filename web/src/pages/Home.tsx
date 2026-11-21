@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   Calendar, ArrowRight, CheckCircle2, Award, Users, BookOpen, 
-  Send, Star, MapPin, Phone, Shield, Globe, Sparkles 
+  Send, Star, MapPin, Phone, Shield, Globe, Sparkles, Quote, GraduationCap 
 } from 'lucide-react';
 import { COMPANY_CONTACT } from '../data/mockData';
 import { supabase } from '../lib/supabase';
 import { HomeSliderBanner } from '../components/HomeSliderBanner';
+import { SmartImage } from '../components/SmartImage';
 import { useLiveData } from '../context/LiveDataContext';
 import { useSiteSettings } from '../context/SettingsContext';
 import { fetchUserLocationWithQuota } from '../lib/ipstack';
@@ -15,6 +16,8 @@ export const Home: React.FC = () => {
   const { destinations, testimonials } = useLiveData();
   const { settings } = useSiteSettings();
   const metrics = settings.metrics;
+  const heroImageUrl = settings.hero?.bannerImageUrl || '/hero-banner.jpg';
+  const heroOverlayOpacity = settings.hero?.overlayOpacity ?? 0.72;
 
   const [leadForm, setLeadForm] = useState({
     name: '',
@@ -87,17 +90,31 @@ export const Home: React.FC = () => {
 
   return (
     <div className="min-h-screen">
-      {/* 1. HERO SECTION (Aegean Cyan matching official signage) */}
-      <section className="relative bg-gradient-to-br from-brand-500 via-brand-600 to-navy-950 text-white overflow-hidden py-20 lg:py-28">
-        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]" />
+      {/* 1. HERO SECTION (Aegean Cyan & Editorial Campus Photography Banner) */}
+      <section className="relative bg-navy-950 text-white overflow-hidden py-20 lg:py-28">
+        {/* Background Hero Banner Image with slow ambient zoom */}
+        <div className="absolute inset-0 z-0 overflow-hidden">
+          <SmartImage
+            src={heroImageUrl}
+            alt="SR Global Consultants International Education Campus"
+            className="w-full h-full object-cover object-center animate-hero-zoom"
+          />
+          {/* Layered Aegean Cyan -> Deep Navy atmospheric scrim for high-contrast typography */}
+          <div
+            className="absolute inset-0 bg-gradient-to-br from-brand-600 via-brand-700 to-navy-950"
+            style={{ opacity: heroOverlayOpacity }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-navy-950/80 via-navy-950/35 to-transparent" />
+          <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:18px_18px]" />
+        </div>
         
         <div className="max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-12 xl:px-16 relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
             {/* Left Content */}
             <div className="lg:col-span-7 space-y-6">
-              <div className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/20 text-xs font-bold tracking-wide uppercase">
+              <div className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/25 text-xs font-bold tracking-wide uppercase shadow-sm">
                 <Sparkles className="w-3.5 h-3.5 text-yellow-300" />
-                <span>Certified Education & Visa Counselors</span>
+                <span>{settings.hero?.badgeText || 'Certified Education & Visa Counselors'}</span>
               </div>
 
               <h1 className="font-serif text-4xl sm:text-5xl lg:text-6xl font-black leading-tight tracking-tight">
@@ -417,48 +434,116 @@ export const Home: React.FC = () => {
         </div>
       </section>
 
-      {/* 5. TESTIMONIALS */}
-      <section className="py-20 bg-slate-50">
+      {/* 5. SUCCESS STORIES / TESTIMONIALS */}
+      <section className="py-20 bg-gradient-to-b from-slate-50 to-white">
         <div className="max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-12 xl:px-16">
           <div className="text-center max-w-3xl mx-auto mb-14">
-            <span className="text-xs font-bold tracking-widest text-brand-600 uppercase bg-brand-50 px-3 py-1 rounded-full">Success Stories</span>
-            <h2 className="text-3xl sm:text-4xl font-bold text-navy-950 mt-3">What Our Students Say</h2>
-            <p className="text-slate-600 mt-3 text-base">Real experiences from Pakistani students who secured admissions and visas with SR Global.</p>
+            <span className="inline-flex items-center gap-1.5 text-xs font-bold tracking-widest text-brand-700 uppercase bg-brand-50 border border-brand-200 px-3.5 py-1.5 rounded-full">
+              <Sparkles className="w-3.5 h-3.5 text-brand-500" />
+              <span>Success Stories</span>
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-black text-navy-950 mt-3 font-serif">What Our Students Say</h2>
+            <p className="text-slate-600 mt-3 text-base">
+              Real visa-approved experiences from students across Pakistan who secured global admissions with SR Global Consultants.
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {testimonials.map((item) => (
-              <div key={item.id} className="bg-white p-7 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between hover:shadow-md transition-shadow">
-                <div>
-                  <div className="flex gap-1 text-yellow-400 mb-4">
-                    {[...Array(item.rating)].map((_, i) => (
-                      <Star key={i} className="w-4 h-4 fill-current" />
-                    ))}
-                  </div>
-                  <p className="text-slate-700 text-sm italic leading-relaxed mb-6">
-                    "{item.quote}"
-                  </p>
-                </div>
-                <div className="pt-4 border-t border-slate-100 flex items-center gap-3">
-                  {(item.imageUrl || (item as any).imageurl) ? (
-                    <img 
-                      src={item.imageUrl || (item as any).imageurl} 
-                      alt={item.student_name} 
-                      className="w-10 h-10 rounded-full object-cover border border-slate-100 shadow-sm"
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                    />
-                  ) : (
-                    <div className="w-10 h-10 rounded-full bg-brand-500 text-white font-bold flex items-center justify-center">
-                      {item.student_name[0]}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {testimonials.map((item) => {
+              const photoSrc = item.imageUrl || (item as any).imageurl;
+              const initials = (item.student_name || 'S')
+                .split(' ')
+                .map((n) => n[0])
+                .join('')
+                .slice(0, 2)
+                .toUpperCase();
+
+              return (
+                <div
+                  key={item.id}
+                  className="group relative bg-white rounded-3xl shadow-sm hover:shadow-xl border border-slate-200/90 hover:border-brand-300 overflow-hidden flex flex-col justify-between transition-all duration-300 hover:-translate-y-1"
+                >
+                  {/* Signature top gradient accent */}
+                  <div className="h-1.5 w-full bg-gradient-to-r from-brand-500 via-sky-400 to-amber-400" />
+
+                  <div className="p-7 flex-1 flex flex-col justify-between space-y-6">
+                    {/* Student Header with Google Image Link Support */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3.5 min-w-0">
+                        <div className="relative shrink-0">
+                          <div className="w-16 h-16 rounded-2xl overflow-hidden ring-2 ring-brand-100 group-hover:ring-brand-400 transition-all shadow-md bg-gradient-to-br from-brand-500 to-navy-950 flex items-center justify-center">
+                            <SmartImage
+                              src={photoSrc}
+                              alt={item.student_name}
+                              className="w-full h-full object-cover"
+                              fallback={
+                                <span className="text-white font-black text-lg tracking-wider select-none">
+                                  {initials}
+                                </span>
+                              }
+                            />
+                          </div>
+                          <span
+                            title="Verified Student Visa"
+                            className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-emerald-500 text-white border-2 border-white flex items-center justify-center shadow"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                          </span>
+                        </div>
+
+                        <div className="min-w-0">
+                          <h5 className="font-bold text-base text-navy-950 truncate">{item.student_name}</h5>
+                          <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                            <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200">
+                              <Globe className="w-3 h-3" />
+                              {item.country}
+                            </span>
+                            {item.year && (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                                {item.year}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="w-9 h-9 rounded-xl bg-brand-50/70 text-brand-500 flex items-center justify-center shrink-0">
+                        <Quote className="w-4 h-4 fill-current opacity-80" />
+                      </div>
                     </div>
-                  )}
-                  <div>
-                    <h5 className="font-bold text-sm text-navy-950">{item.student_name}</h5>
-                    <p className="text-xs text-slate-500">{item.university} • {item.country}</p>
+
+                    {/* Star Rating & Quote */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex gap-1 text-amber-400">
+                          {[...Array(item.rating || 5)].map((_, i) => (
+                            <Star key={i} className="w-4 h-4 fill-current" />
+                          ))}
+                        </div>
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                          Visa Granted
+                        </span>
+                      </div>
+
+                      <p className="text-slate-700 text-sm leading-relaxed italic">
+                        "{item.quote}"
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* University Footer Bar */}
+                  <div className="px-7 py-4 bg-slate-50/90 border-t border-slate-100 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <GraduationCap className="w-4 h-4 text-brand-600 shrink-0" />
+                      <span className="text-xs font-bold text-navy-950 truncate">{item.university}</span>
+                    </div>
+                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider shrink-0">
+                      Alumni
+                    </span>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>

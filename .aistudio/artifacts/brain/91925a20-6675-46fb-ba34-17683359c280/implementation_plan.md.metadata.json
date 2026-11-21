@@ -1,6 +1,0 @@
-{
-  "summary":  "### Implementation Plan - Google Drive Image Fix & Save Reliability\n\n1. **Robust Link Converter**: Upgrade the `fixGoogleDriveLink` utility in `AdminDashboard.tsx` with a regex to handle all Google Drive sharing formats (file/d, open?id, uc?id).\n2. **Database Field Mapping**: \n   - Update `LiveDataContext.tsx` to handle case-insensitive field names from Supabase (`imageurl` vs `imageUrl`).\n   - Ensure `addDestination`, `addTestimonial`, and `update` functions explicitly map fields to avoid case mismatch errors.\n3. **Admin UI Improvements**:\n   - Apply the fix logic to **Banners**, **Destinations**, and **Testimonials** in both Add and Edit modals.\n   - Add a fallback mechanism in public views to ensure images show a placeholder if the link is broken.\n4. **SQL Schema Correction**: Update the provided SQL script to use quoted identifiers (`\"imageUrl\"`) to ensure Supabase preserves the camelCase naming used in the application code.\n",
-  "updatedAt":  "2026-11-09T09:06:09.676333362Z",
-  "requestFeedback":  true,
-  "userFacing":  true
-}

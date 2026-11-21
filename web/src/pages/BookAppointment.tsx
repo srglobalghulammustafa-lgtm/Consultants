@@ -34,7 +34,10 @@ export const BookAppointment: React.FC = () => {
   const [copiedCode, setCopiedCode] = useState(false);
 
   const maxDailyLimit = settings.appointmentConfig?.maxPerDay || 10;
-  const isDailyLimitReached = bookedSlots.length >= maxDailyLimit;
+  const blockedDates = settings.appointmentConfig?.blockedDates || [];
+  const blockedSlotsForDate = settings.appointmentConfig?.blockedSlots?.[selectedDate] || [];
+  const isDateBlocked = blockedDates.includes(selectedDate);
+  const isDailyLimitReached = isDateBlocked || bookedSlots.length >= maxDailyLimit;
 
   // Check double-booking availability on date change
   useEffect(() => {
@@ -45,7 +48,7 @@ export const BookAppointment: React.FC = () => {
           .from('appointments')
           .select('time_slot, status')
           .eq('appointment_date', selectedDate)
-          .in('status', ['Confirmed', 'Pending']);
+          .in('status', ['Confirmed', 'Pending', 'Rescheduled']);
 
         if (!error && data) {
           const occupied = data.map((item: any) => item.time_slot);
@@ -66,6 +69,10 @@ export const BookAppointment: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isDateBlocked) {
+      setErrorMessage(`Bookings are closed by office administration for ${selectedDate}. Please choose another date.`);
+      return;
+    }
     if (isDailyLimitReached) {
       setErrorMessage(`Daily booking limit reached for ${selectedDate} (Maximum ${maxDailyLimit} appointments/day allowed). Please choose a different date.`);
       return;
@@ -74,8 +81,8 @@ export const BookAppointment: React.FC = () => {
       setErrorMessage('Please select an available consultation time slot.');
       return;
     }
-    if (bookedSlots.includes(selectedSlot)) {
-      setErrorMessage(`The slot '${selectedSlot}' is already booked. Please pick another slot.`);
+    if (bookedSlots.includes(selectedSlot) || blockedSlotsForDate.includes(selectedSlot)) {
+      setErrorMessage(`The slot '${selectedSlot}' is unavailable. Please pick another slot.`);
       return;
     }
 
@@ -268,7 +275,12 @@ export const BookAppointment: React.FC = () => {
                     onChange={(e) => setSelectedDate(e.target.value)}
                     className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm font-semibold"
                   />
-                  {isDailyLimitReached ? (
+                  {isDateBlocked ? (
+                    <p className="text-xs font-bold text-red-600 mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      This date is closed for bookings by administration. Please pick another date.
+                    </p>
+                  ) : isDailyLimitReached ? (
                     <p className="text-xs font-bold text-red-600 mt-1 flex items-center gap-1">
                       <AlertCircle className="w-3.5 h-3.5" />
                       Daily quota reached for this date. Please pick another date.
@@ -284,7 +296,9 @@ export const BookAppointment: React.FC = () => {
                   </label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
                     {TIME_SLOTS.map((slot) => {
-                      const isOccupied = bookedSlots.includes(slot);
+                      const isBooked = bookedSlots.includes(slot);
+                      const isBlocked = isDateBlocked || blockedSlotsForDate.includes(slot);
+                      const isOccupied = isBooked || isBlocked;
                       const isSelected = selectedSlot === slot;
 
                       return (
@@ -302,7 +316,11 @@ export const BookAppointment: React.FC = () => {
                           }`}
                         >
                           <span>{slot}</span>
-                          {isOccupied && <span className="text-[9px] uppercase font-bold text-red-500">Booked</span>}
+                          {isBlocked ? (
+                            <span className="text-[9px] uppercase font-bold text-red-500">Closed</span>
+                          ) : isBooked ? (
+                            <span className="text-[9px] uppercase font-bold text-red-500">Booked</span>
+                          ) : null}
                         </button>
                       );
                     })}

@@ -16,6 +16,7 @@ import { AdminDashboard } from './pages/AdminDashboard';
 import { NotFound } from './pages/NotFound';
 import { SettingsProvider } from './context/SettingsContext';
 import { LiveDataProvider } from './context/LiveDataContext';
+import { PageTransitionProvider } from './components/PageTransition';
 
 const AppLayout: React.FC = () => {
   const location = useLocation();
@@ -25,21 +26,23 @@ const AppLayout: React.FC = () => {
     <div className="flex flex-col min-h-screen">
       {!isAdmin && <Navbar />}
       <main className="flex-grow">
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/courses" element={<Courses />} />
-          <Route path="/destinations" element={<Destinations />} />
-          <Route path="/book-appointment" element={<BookAppointment />} />
-          <Route path="/track-appointment" element={<TrackAppointment />} />
-          <Route path="/contact" element={<Contact />} />
-          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-          <Route path="/terms" element={<Terms />} />
-          <Route path="/admin" element={<AdminLogin />} />
-          <Route path="/admin/login" element={<AdminLogin />} />
-          <Route path="/admin/dashboard" element={<AdminDashboard />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <div key={location.pathname} className={!isAdmin ? 'animate-remotion-page' : undefined}>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/courses" element={<Courses />} />
+            <Route path="/destinations" element={<Destinations />} />
+            <Route path="/book-appointment" element={<BookAppointment />} />
+            <Route path="/track-appointment" element={<TrackAppointment />} />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/admin" element={<AdminLogin />} />
+            <Route path="/admin/login" element={<AdminLogin />} />
+            <Route path="/admin/dashboard" element={<AdminDashboard />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </div>
       </main>
       {!isAdmin && <Footer />}
       <FloatingWhatsApp />
@@ -52,7 +55,9 @@ export const App: React.FC = () => {
     <BrowserRouter>
       <SettingsProvider>
         <LiveDataProvider>
-          <AppLayout />
+          <PageTransitionProvider>
+            <AppLayout />
+          </PageTransitionProvider>
         </LiveDataProvider>
       </SettingsProvider>
     </BrowserRouter>

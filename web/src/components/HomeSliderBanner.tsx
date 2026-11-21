@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, ArrowRight, Sparkles, CheckCircle2 } from 'lucide-react';
 import { useLiveData } from '../context/LiveDataContext';
+import { SmartImage } from './SmartImage';
 
 interface Slide {
   id: string;
@@ -24,7 +25,8 @@ const MOCK_SLIDES: Slide[] = [
     highlight: 'Sydney • Melbourne • Brisbane • Perth',
     ctaText: 'Explore Australia Programs',
     ctaLink: '/destinations',
-    gradient: 'from-navy-950 via-brand-700 to-brand-500'
+    gradient: 'from-navy-950/90 via-brand-800/80 to-brand-600/75',
+    bgImage: '/slide-australia.jpg'
   },
   {
     id: 'uk',
@@ -34,7 +36,8 @@ const MOCK_SLIDES: Slide[] = [
     highlight: 'September & January Intakes Now Open',
     ctaText: 'Book UK Counseling',
     ctaLink: '/book-appointment',
-    gradient: 'from-brand-700 via-brand-600 to-emerald-700'
+    gradient: 'from-navy-950/90 via-brand-700/80 to-emerald-800/75',
+    bgImage: '/slide-academy.jpg'
   },
   {
     id: 'trade',
@@ -44,7 +47,8 @@ const MOCK_SLIDES: Slide[] = [
     highlight: 'Fast Job Market Absorption & PR Pathways',
     ctaText: 'Browse Trade Courses',
     ctaLink: '/courses',
-    gradient: 'from-navy-900 via-navy-800 to-brand-600'
+    gradient: 'from-navy-950/90 via-navy-900/80 to-brand-700/75',
+    bgImage: '/hero-banner.jpg'
   },
   {
     id: 'ielts-pte',
@@ -54,7 +58,8 @@ const MOCK_SLIDES: Slide[] = [
     highlight: 'Guaranteed Band 7.0+ & PTE 65+ Training',
     ctaText: 'Register for Demo Class',
     ctaLink: '/book-appointment',
-    gradient: 'from-emerald-800 via-emerald-700 to-navy-900'
+    gradient: 'from-emerald-950/90 via-emerald-800/80 to-navy-950/75',
+    bgImage: '/slide-academy.jpg'
   }
 ];
 
@@ -73,20 +78,21 @@ export const HomeSliderBanner: React.FC = () => {
         highlight: 'SR Global Consultants • Gujranwala',
         ctaText: 'Learn More',
         ctaLink: b.link || '/destinations',
-        gradient: 'from-brand-600 via-brand-700 to-navy-950',
-        bgImage: b.imageUrl
+        gradient: 'from-navy-950/90 via-brand-800/80 to-brand-600/75',
+        bgImage: b.imageUrl || (b as any).imageurl || '/slide-australia.jpg'
       }))
     : MOCK_SLIDES;
 
   useEffect(() => {
-    if (isPaused) return;
+    if (isPaused || activeSlides.length <= 1) return;
     const interval = setInterval(() => {
       setCurrent((prev) => (prev + 1) % activeSlides.length);
     }, 6000);
     return () => clearInterval(interval);
   }, [isPaused, activeSlides.length]);
 
-  const slide = activeSlides[current];
+  const safeIndex = activeSlides.length > 0 ? current % activeSlides.length : 0;
+  const slide = activeSlides[safeIndex];
 
   if (!slide) return null;
 
@@ -96,17 +102,16 @@ export const HomeSliderBanner: React.FC = () => {
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
-      <div className={`relative overflow-hidden rounded-3xl text-white shadow-2xl p-8 sm:p-12 transition-all duration-700 border border-white/10 min-h-[340px] flex items-center ${!slide.bgImage ? `bg-gradient-to-r ${slide.gradient}` : ''}`}>
-        {/* Background Image if exists */}
+      <div className="relative overflow-hidden rounded-3xl text-white shadow-2xl p-8 sm:p-12 transition-all duration-700 border border-white/15 min-h-[340px] flex items-center bg-navy-950">
+        {/* Background Image with smooth zoom & multi-endpoint Google Drive support */}
         {(slide.bgImage || (slide as any).bgimage) && (
           <>
-            <img 
+            <SmartImage 
               src={slide.bgImage || (slide as any).bgimage} 
               alt={slide.title} 
-              className="absolute inset-0 w-full h-full object-cover" 
-              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              className="absolute inset-0 w-full h-full object-cover object-center animate-hero-zoom"
             />
-            <div className={`absolute inset-0 bg-gradient-to-r ${slide.gradient} opacity-85`} />
+            <div className={`absolute inset-0 bg-gradient-to-r ${slide.gradient}`} />
           </>
         )}
 

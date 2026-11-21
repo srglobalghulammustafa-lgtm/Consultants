@@ -3,8 +3,10 @@ import { Link, useLocation } from 'react-router-dom';
 import { Phone, Mail, MapPin, Calendar, Menu, X, Bell, Volume2, Sparkles, ExternalLink } from 'lucide-react';
 import { useSiteSettings } from '../context/SettingsContext';
 import { playPremiumChime } from '../lib/audio';
+import { usePageTransition } from './PageTransition';
 
 export const Navbar: React.FC = () => {
+  const { navigateWithTransition } = usePageTransition();
   const [isOpen, setIsOpen] = useState(false);
   const [showBellDropdown, setShowBellDropdown] = useState(false);
   const [dismissedBannerId, setDismissedBannerId] = useState<string | null>(null);
@@ -22,10 +24,21 @@ export const Navbar: React.FC = () => {
   }, []);
 
   const location = useLocation();
-  const { settings, clearBroadcastHistory } = useSiteSettings();
+  const { settings } = useSiteSettings();
   const header = settings.header;
   const activeBroadcast = settings.activeBroadcast;
   const broadcastHistory = settings.broadcastHistory || [];
+
+  const handleHeaderNavClick = (
+    e: React.MouseEvent<HTMLAnchorElement>,
+    path: string,
+    label?: string
+  ) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+    e.preventDefault();
+    setIsOpen(false);
+    navigateWithTransition(path, label);
+  };
 
   // Play audio chime when a new urgent or sound-enabled broadcast arrives
   useEffect(() => {
@@ -125,7 +138,11 @@ export const Navbar: React.FC = () => {
       <div className="max-w-[98%] xl:max-w-[96%] mx-auto">
         <div className="flex justify-between items-center h-20">
           {/* Official Logo Brand */}
-          <Link to="/" className="flex items-center gap-3 group">
+          <Link
+            to="/"
+            onClick={(e) => handleHeaderNavClick(e, '/', 'Home')}
+            className="flex items-center gap-3 group"
+          >
             <img 
               src="/logo.png" 
               alt="SR Global Consultants Logo" 
@@ -150,9 +167,10 @@ export const Navbar: React.FC = () => {
                 <Link
                   key={link.path}
                   to={link.path}
-                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  onClick={(e) => handleHeaderNavClick(e, link.path, link.name)}
+                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                     isActive
-                      ? 'text-brand-600 bg-brand-50 font-bold'
+                      ? 'text-brand-600 bg-brand-50 font-bold shadow-sm'
                       : 'text-slate-700 hover:text-brand-600 hover:bg-slate-50'
                   }`}
                 >
@@ -245,6 +263,7 @@ export const Navbar: React.FC = () => {
 
             <Link
               to="/book-appointment"
+              onClick={(e) => handleHeaderNavClick(e, '/book-appointment', 'Book Consultation')}
               className="inline-flex items-center gap-2 bg-brand-500 hover:bg-brand-600 text-white px-5 py-2.5 rounded-xl font-semibold shadow-md shadow-brand-500/20 hover:shadow-lg transition-all"
             >
               <Calendar className="w-4 h-4" />
@@ -287,7 +306,7 @@ export const Navbar: React.FC = () => {
             <Link
               key={link.path}
               to={link.path}
-              onClick={() => setIsOpen(false)}
+              onClick={(e) => handleHeaderNavClick(e, link.path, link.name)}
               className="block px-3 py-2.5 rounded-lg text-base font-medium text-slate-800 hover:bg-brand-50 hover:text-brand-600"
             >
               {link.name}
@@ -296,7 +315,7 @@ export const Navbar: React.FC = () => {
           <div className="pt-2">
             <Link
               to="/book-appointment"
-              onClick={() => setIsOpen(false)}
+              onClick={(e) => handleHeaderNavClick(e, '/book-appointment', 'Book Consultation')}
               className="w-full flex items-center justify-center gap-2 bg-brand-500 hover:bg-brand-600 text-white py-3 rounded-xl font-semibold shadow-md"
             >
               <Calendar className="w-4 h-4" />
