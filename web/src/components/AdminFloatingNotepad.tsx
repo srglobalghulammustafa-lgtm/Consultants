@@ -12,6 +12,8 @@ import {
   CheckCircle2,
   Cloud,
   MoveDiagonal2,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AdminNote } from '../types';
@@ -103,6 +105,10 @@ export const AdminFloatingNotepad: React.FC<AdminFloatingNotepadProps> = ({
   const [activeNoteId, setActiveNoteId] = useState<string>(() => notes[0]?.id || '');
   const [searchQuery, setSearchQuery] = useState('');
   const [syncStatus, setSyncStatus] = useState<'saved' | 'syncing' | 'local'>('saved');
+  const [isMobileView, setIsMobileView] = useState<boolean>(() =>
+    typeof window !== 'undefined' ? window.innerWidth < 640 : false
+  );
+  const [isMobileExpanded, setIsMobileExpanded] = useState<boolean>(false);
 
   const [prefs, setPrefs] = useState<WindowPrefs>(() => {
     try {
@@ -135,7 +141,7 @@ export const AdminFloatingNotepad: React.FC<AdminFloatingNotepadProps> = ({
     origH: 440,
   });
 
-  // Load persisted notes from Supabase on mount (merge safely so local notes are never silently dropped)
+  // Load persisted notes from Supabase on mount
   useEffect(() => {
     let mounted = true;
     const loadRemoteNotes = async () => {
@@ -157,7 +163,6 @@ export const AdminFloatingNotepad: React.FC<AdminFloatingNotepadProps> = ({
           return;
         }
 
-        // Fallback check in site_settings ('admin_notepad') if admin_notes table isn't created yet
         const { data: settingRow } = await supabase
           .from('site_settings')
           .select('setting_value')
@@ -185,13 +190,14 @@ export const AdminFloatingNotepad: React.FC<AdminFloatingNotepadProps> = ({
     };
   }, []);
 
-  // Persist window preferences and clamp inside viewport on resize
+  // Persist window preferences and track viewport width
   useEffect(() => {
     localStorage.setItem(WINDOW_PREFS_KEY, JSON.stringify(prefs));
   }, [prefs]);
 
   useEffect(() => {
     const handleViewportResize = () => {
+      setIsMobileView(window.innerWidth < 640);
       setPrefs((prev) => ({
         ...prev,
         width: Math.min(prev.width, Math.max(280, window.innerWidth - 24)),
@@ -204,9 +210,10 @@ export const AdminFloatingNotepad: React.FC<AdminFloatingNotepadProps> = ({
     return () => window.removeEventListener('resize', handleViewportResize);
   }, []);
 
-  // Pointer drag & resize listeners
+  // Desktop pointer drag & resize listeners
   useEffect(() => {
     const onPointerMove = (e: PointerEvent) => {
+      if (isMobileView) return;
       const state = dragStateRef.current;
       if (!state.type) return;
 
@@ -236,7 +243,7 @@ export const AdminFloatingNotepad: React.FC<AdminFloatingNotepadProps> = ({
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', onPointerUp);
     };
-  }, [prefs.width]);
+  }, [prefs.width, isMobileView]);
 
   const persistNotesToCloud = async (nextNotes: AdminNote[], deletedId?: string) => {
     setSyncStatus('syncing');
@@ -251,7 +258,6 @@ export const AdminFloatingNotepad: React.FC<AdminFloatingNotepadProps> = ({
           .upsert(nextNotes, { onConflict: 'id' });
 
         if (!upsertErr) {
-          // Also keep site_settings fallback synced silently
           await supabase
             .from('site_settings')
             .upsert(
@@ -267,7 +273,6 @@ export const AdminFloatingNotepad: React.FC<AdminFloatingNotepadProps> = ({
         }
       }
 
-      // If admin_notes table does not exist yet, persist inside site_settings seamlessly
       const { error: settingsErr } = await supabase
         .from('site_settings')
         .upsert(
@@ -370,10 +375,10 @@ export const AdminFloatingNotepad: React.FC<AdminFloatingNotepadProps> = ({
     return (
       <button
         onClick={onOpen}
-        className="fixed bottom-6 left-6 z-40 inline-flex items-center gap-2.5 bg-navy-950 hover:bg-navy-900 text-white px-4 py-3 rounded-2xl shadow-2xl border border-amber-400/50 transition-all hover:scale-105"
+        className="fixed bottom-4 left-4 sm:bottom-6 sm:left-6 z-40 inline-flex items-center gap-2 sm:gap-2.5 bg-navy-950 hover:bg-navy-900 text-white px-3.5 py-2.5 sm:px-4 sm:py-3 rounded-2xl shadow-2xl border border-amber-400/50 transition-all hover:scale-105"
         title="Open Floating Admin Notepad"
       >
-        <span className="w-7 h-7 rounded-xl bg-amber-400 text-navy-950 flex items-center justify-center">
+        <span className="w-7 h-7 rounded-xl bg-amber-400 text-navy-950 flex items-center justify-center shrink-0">
           <StickyNote className="w-4 h-4" />
         </span>
         <div className="text-left">
@@ -387,11 +392,16 @@ export const AdminFloatingNotepad: React.FC<AdminFloatingNotepadProps> = ({
   if (prefs.isMinimized) {
     return (
       <div
-        style={{ left: prefs.x, top: prefs.y }}
-        className="fixed z-50 bg-navy-950 text-white rounded-2xl shadow-2xl border border-amber-400/60 px-3.5 py-2.5 flex items-center gap-3 select-none"
+        style={isMobileView ? undefined : { left: prefs.x, top: prefs.y }}
+        className={
+          isMobileView
+            ? 'fixed bottom-3 inset-x-3 z-50 bg-navy-950 text-white rounded-2xl shadow-2xl border border-amber-400/60 px-4 py-3 flex items-center justify-between gap-3 select-none'
+            : 'fixed z-50 bg-navy-950 text-white rounded-2xl shadow-2xl border border-amber-400/60 px-3.5 py-2.5 flex items-center gap-3 select-none'
+        }
       >
         <div
           onPointerDown={(e) => {
+            if (isMobileView) return;
             dragStateRef.current = {
               type: 'drag',
               startX: e.clientX,
@@ -402,46 +412,61 @@ export const AdminFloatingNotepad: React.FC<AdminFloatingNotepadProps> = ({
               origH: prefs.height,
             };
           }}
-          className="flex items-center gap-2 cursor-move"
-          title="Drag floating notepad"
+          onClick={() => {
+            if (isMobileView) setPrefs((p) => ({ ...p, isMinimized: false }));
+          }}
+          className={`flex items-center gap-2 ${isMobileView ? 'cursor-pointer flex-1' : 'cursor-move'}`}
+          title={isMobileView ? 'Tap to expand notepad' : 'Drag floating notepad'}
         >
-          <GripHorizontal className="w-4 h-4 text-amber-400" />
+          {!isMobileView && <GripHorizontal className="w-4 h-4 text-amber-400" />}
           <StickyNote className="w-4 h-4 text-amber-300" />
           <span className="text-xs font-bold">Notepad ({notes.length})</span>
         </div>
 
-        <button
-          onClick={() => setPrefs((p) => ({ ...p, isMinimized: false }))}
-          className="p-1 rounded-lg hover:bg-white/10 text-slate-200"
-          title="Expand Notepad"
-        >
-          <Maximize2 className="w-3.5 h-3.5" />
-        </button>
-        <button
-          onClick={onClose}
-          className="p-1 rounded-lg hover:bg-white/10 text-slate-300"
-          title="Dock to corner"
-        >
-          <X className="w-3.5 h-3.5" />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setPrefs((p) => ({ ...p, isMinimized: false }))}
+            className="p-1.5 rounded-lg hover:bg-white/10 text-slate-200"
+            title="Expand Notepad"
+          >
+            <Maximize2 className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg hover:bg-white/10 text-slate-300"
+            title="Dock to corner"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
     <div
-      style={{
-        left: prefs.x,
-        top: prefs.y,
-        width: prefs.width,
-        height: prefs.height,
-      }}
-      className="fixed z-50 bg-white rounded-3xl shadow-2xl border border-slate-300 flex flex-col overflow-hidden ring-1 ring-black/5"
+      style={
+        isMobileView
+          ? undefined
+          : {
+              left: prefs.x,
+              top: prefs.y,
+              width: prefs.width,
+              height: prefs.height,
+            }
+      }
+      className={
+        isMobileView
+          ? `fixed inset-x-2.5 bottom-2.5 z-50 ${
+              isMobileExpanded ? 'h-[78vh]' : 'h-[54vh]'
+            } max-h-[82vh] bg-white rounded-3xl shadow-2xl border border-slate-300 flex flex-col overflow-hidden ring-1 ring-black/10 transition-[height] duration-200`
+          : 'fixed z-50 bg-white rounded-3xl shadow-2xl border border-slate-300 flex flex-col overflow-hidden ring-1 ring-black/5'
+      }
     >
-      {/* Draggable Header Bar */}
+      {/* Header Bar (Draggable on desktop, Bottom Sheet Bar on mobile) */}
       <div
         onPointerDown={(e) => {
-          if ((e.target as HTMLElement).closest('button')) return;
+          if (isMobileView || (e.target as HTMLElement).closest('button')) return;
           dragStateRef.current = {
             type: 'drag',
             startX: e.clientX,
@@ -452,19 +477,27 @@ export const AdminFloatingNotepad: React.FC<AdminFloatingNotepadProps> = ({
             origH: prefs.height,
           };
         }}
-        onDoubleClick={() =>
+        onDoubleClick={() => {
+          if (isMobileView) {
+            setIsMobileExpanded((v) => !v);
+            return;
+          }
           setPrefs((p) => ({
             ...p,
             width: p.width > 480 ? 390 : 540,
             height: p.height > 520 ? 440 : 560,
-          }))
-        }
-        className="bg-navy-950 text-white px-4 py-3 flex items-center justify-between cursor-move select-none shrink-0"
+          }));
+        }}
+        className={`bg-navy-950 text-white px-3.5 sm:px-4 py-3 flex items-center justify-between select-none shrink-0 ${
+          isMobileView ? '' : 'cursor-move'
+        }`}
       >
         <div className="flex items-center gap-2 min-w-0">
-          <GripHorizontal className="w-4 h-4 text-amber-400 shrink-0" />
+          <GripHorizontal className="hidden sm:block w-4 h-4 text-amber-400 shrink-0" />
           <StickyNote className="w-4 h-4 text-amber-300 shrink-0" />
-          <span className="text-xs font-bold tracking-wide truncate">Admin Persistent Notepad</span>
+          <span className="text-xs font-bold tracking-wide truncate">
+            {isMobileView ? 'Admin Notepad' : 'Admin Persistent Notepad'}
+          </span>
           <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-emerald-300 shrink-0">
             {syncStatus === 'syncing' ? (
               <span>Saving…</span>
@@ -486,15 +519,27 @@ export const AdminFloatingNotepad: React.FC<AdminFloatingNotepadProps> = ({
           <button
             type="button"
             onClick={handleAddNote}
-            className="p-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-navy-950 font-bold transition-colors"
+            className="p-2 sm:p-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-navy-950 font-bold transition-colors"
             title="New Persistent Note"
           >
             <Plus className="w-3.5 h-3.5" />
           </button>
+
+          {isMobileView && (
+            <button
+              type="button"
+              onClick={() => setIsMobileExpanded((v) => !v)}
+              className="p-2 rounded-lg hover:bg-white/10 text-slate-200"
+              title={isMobileExpanded ? 'Compact height' : 'Expand sheet height'}
+            >
+              {isMobileExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
+            </button>
+          )}
+
           <button
             type="button"
             onClick={() => setPrefs((p) => ({ ...p, isMinimized: true }))}
-            className="p-1.5 rounded-lg hover:bg-white/10 text-slate-300"
+            className="p-2 sm:p-1.5 rounded-lg hover:bg-white/10 text-slate-300"
             title="Minimize Notepad"
           >
             <Minimize2 className="w-3.5 h-3.5" />
@@ -502,7 +547,7 @@ export const AdminFloatingNotepad: React.FC<AdminFloatingNotepadProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-white/10 text-slate-300"
+            className="p-2 sm:p-1.5 rounded-lg hover:bg-white/10 text-slate-300"
             title="Hide to Corner Button (Notes Stay Saved)"
           >
             <X className="w-3.5 h-3.5" />
@@ -512,7 +557,7 @@ export const AdminFloatingNotepad: React.FC<AdminFloatingNotepadProps> = ({
 
       {/* Note Tabs Strip + Search */}
       <div className="bg-slate-50 border-b border-slate-200 px-3 py-2 space-y-2 shrink-0">
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar">
           {sortedNotes.map((n) => {
             const st = COLOR_STYLES[n.color || 'amber'];
             const isSelected = activeNote?.id === n.id;
@@ -521,7 +566,7 @@ export const AdminFloatingNotepad: React.FC<AdminFloatingNotepadProps> = ({
                 key={n.id}
                 type="button"
                 onClick={() => setActiveNoteId(n.id)}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border whitespace-nowrap transition-all ${
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 sm:py-1 rounded-lg text-[11px] font-bold border whitespace-nowrap transition-all shrink-0 ${
                   isSelected
                     ? `${st.bg} ${st.border} text-navy-950 shadow-sm`
                     : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
@@ -529,7 +574,7 @@ export const AdminFloatingNotepad: React.FC<AdminFloatingNotepadProps> = ({
               >
                 <span className={`w-2 h-2 rounded-full ${st.dot}`} />
                 {n.is_pinned && <Pin className="w-2.5 h-2.5 text-amber-600" />}
-                <span className="max-w-[100px] truncate">{n.title || 'Untitled'}</span>
+                <span className="max-w-[110px] truncate">{n.title || 'Untitled'}</span>
               </button>
             );
           })}
@@ -543,7 +588,7 @@ export const AdminFloatingNotepad: React.FC<AdminFloatingNotepadProps> = ({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Filter saved notes..."
-              className="w-full pl-8 pr-3 py-1 rounded-lg border border-slate-200 bg-white text-[11px] focus:outline-none focus:ring-1 focus:ring-brand-500"
+              className="w-full pl-8 pr-3 py-1.5 sm:py-1 rounded-lg border border-slate-200 bg-white text-xs sm:text-[11px] focus:outline-none focus:ring-1 focus:ring-brand-500"
             />
           </div>
         )}
@@ -551,62 +596,64 @@ export const AdminFloatingNotepad: React.FC<AdminFloatingNotepadProps> = ({
 
       {/* Active Note Editor */}
       {activeNote && (
-        <div className={`flex-1 flex flex-col p-3.5 gap-2.5 overflow-hidden ${activeStyle.bg}`}>
-          <div className="flex items-center gap-2">
+        <div className={`flex-1 flex flex-col p-3 sm:p-3.5 gap-2.5 overflow-hidden ${activeStyle.bg}`}>
+          <div className="flex flex-wrap items-center gap-2">
             <input
               type="text"
               value={activeNote.title}
               onChange={(e) => handleUpdateActiveNote({ title: e.target.value })}
               placeholder="Note title..."
-              className="flex-1 bg-white/80 px-2.5 py-1.5 rounded-xl border border-slate-200/80 text-xs font-bold text-navy-950 focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="flex-1 min-w-[140px] bg-white/85 px-3 py-1.5 rounded-xl border border-slate-200/80 text-xs font-bold text-navy-950 focus:outline-none focus:ring-2 focus:ring-brand-500"
             />
 
-            {/* Color Picker Dots */}
-            <div className="flex items-center gap-1 bg-white/80 px-2 py-1.5 rounded-xl border border-slate-200/80">
-              {(Object.keys(COLOR_STYLES) as AdminNote['color'][]).map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => handleUpdateActiveNote({ color: c })}
-                  className={`w-3.5 h-3.5 rounded-full ${COLOR_STYLES[c].dot} ${
-                    activeNote.color === c ? `ring-2 ring-offset-1 ${COLOR_STYLES[c].activeRing}` : 'opacity-65 hover:opacity-100'
-                  }`}
-                  title={`Set ${c} theme`}
-                />
-              ))}
+            {/* Color Picker Dots & Actions */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              <div className="flex items-center gap-1.5 bg-white/85 px-2 py-1.5 rounded-xl border border-slate-200/80">
+                {(Object.keys(COLOR_STYLES) as AdminNote['color'][]).map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => handleUpdateActiveNote({ color: c })}
+                    className={`w-3.5 h-3.5 rounded-full ${COLOR_STYLES[c].dot} ${
+                      activeNote.color === c ? `ring-2 ring-offset-1 ${COLOR_STYLES[c].activeRing}` : 'opacity-65 hover:opacity-100'
+                    }`}
+                    title={`Set ${c} theme`}
+                  />
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => handleUpdateActiveNote({ is_pinned: !activeNote.is_pinned })}
+                className={`p-1.5 rounded-xl border transition-colors ${
+                  activeNote.is_pinned
+                    ? 'bg-amber-200/80 border-amber-300 text-amber-900'
+                    : 'bg-white/85 border-slate-200 text-slate-400 hover:text-slate-700'
+                }`}
+                title={activeNote.is_pinned ? 'Unpin note' : 'Pin note to front'}
+              >
+                <Pin className="w-3.5 h-3.5" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleDeleteNote(activeNote.id)}
+                className="p-1.5 rounded-xl bg-white/85 border border-slate-200 text-slate-400 hover:text-red-600 hover:border-red-200 transition-colors"
+                title="Delete this note manually"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
             </div>
-
-            <button
-              type="button"
-              onClick={() => handleUpdateActiveNote({ is_pinned: !activeNote.is_pinned })}
-              className={`p-1.5 rounded-xl border transition-colors ${
-                activeNote.is_pinned
-                  ? 'bg-amber-200/80 border-amber-300 text-amber-900'
-                  : 'bg-white/80 border-slate-200 text-slate-400 hover:text-slate-700'
-              }`}
-              title={activeNote.is_pinned ? 'Unpin note' : 'Pin note to front'}
-            >
-              <Pin className="w-3.5 h-3.5" />
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleDeleteNote(activeNote.id)}
-              className="p-1.5 rounded-xl bg-white/80 border border-slate-200 text-slate-400 hover:text-red-600 hover:border-red-200 transition-colors"
-              title="Delete this note manually"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
           </div>
 
           <textarea
             value={activeNote.content}
             onChange={(e) => handleUpdateActiveNote({ content: e.target.value })}
             placeholder="Type counselor reminders, visa checklists, call back numbers, or fee notes here. Nothing is ever cleared automatically — it stays saved until you remove it."
-            className="flex-1 w-full resize-none bg-white/85 rounded-2xl border border-slate-200/90 p-3 text-xs sm:text-sm text-slate-800 leading-relaxed focus:outline-none focus:ring-2 focus:ring-brand-500"
+            className="flex-1 w-full resize-none bg-white/90 rounded-2xl border border-slate-200/90 p-3 text-xs sm:text-sm text-slate-800 leading-relaxed focus:outline-none focus:ring-2 focus:ring-brand-500"
           />
 
-          {/* Footer info + Resize Handle */}
+          {/* Footer info + Desktop Resize Handle */}
           <div className="flex items-center justify-between text-[10px] text-slate-500 pt-0.5 select-none shrink-0">
             <span>
               Updated{' '}
@@ -615,28 +662,30 @@ export const AdminFloatingNotepad: React.FC<AdminFloatingNotepadProps> = ({
                 day: 'numeric',
                 hour: '2-digit',
                 minute: '2-digit',
-              })}{' '}
-              • Drag corner to resize
+              })}
+              {isMobileView ? ' • Saved until deleted' : ' • Drag corner to resize'}
             </span>
 
-            <div
-              onPointerDown={(e) => {
-                e.preventDefault();
-                dragStateRef.current = {
-                  type: 'resize',
-                  startX: e.clientX,
-                  startY: e.clientY,
-                  origX: prefs.x,
-                  origY: prefs.y,
-                  origW: prefs.width,
-                  origH: prefs.height,
-                };
-              }}
-              className="p-1 rounded-lg bg-white/90 border border-slate-300 text-slate-600 hover:text-brand-600 cursor-nwse-resize"
-              title="Drag to resize window width & height"
-            >
-              <MoveDiagonal2 className="w-3.5 h-3.5" />
-            </div>
+            {!isMobileView && (
+              <div
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  dragStateRef.current = {
+                    type: 'resize',
+                    startX: e.clientX,
+                    startY: e.clientY,
+                    origX: prefs.x,
+                    origY: prefs.y,
+                    origW: prefs.width,
+                    origH: prefs.height,
+                  };
+                }}
+                className="p-1 rounded-lg bg-white/90 border border-slate-300 text-slate-600 hover:text-brand-600 cursor-nwse-resize"
+                title="Drag to resize window width & height"
+              >
+                <MoveDiagonal2 className="w-3.5 h-3.5" />
+              </div>
+            )}
           </div>
         </div>
       )}

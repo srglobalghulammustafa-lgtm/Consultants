@@ -5,11 +5,14 @@ import { useLiveData } from '../context/LiveDataContext';
 import { useSiteSettings } from '../context/SettingsContext';
 import { COMPANY_CONTACT } from '../data/mockData';
 import { Appointment } from '../types';
+import { Reveal } from '../components/Reveal';
+import { usePageTransition } from '../components/PageTransition';
 
 export const TrackAppointment: React.FC = () => {
   const location = useLocation();
   const { getAppointmentByCodeOrPhone, refreshData } = useLiveData();
   const { settings } = useSiteSettings();
+  const { navigateWithTransition } = usePageTransition();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [searched, setSearched] = useState(false);
@@ -37,51 +40,55 @@ export const TrackAppointment: React.FC = () => {
   const whatsappPhone = settings.whatsapp?.phone || COMPANY_CONTACT.whatsappNumber || '923278321560';
 
   return (
-    <div className="py-16 bg-slate-50 min-h-screen">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+    <div className="py-10 sm:py-16 bg-slate-50 min-h-screen">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 sm:space-y-8">
         {/* Page Header */}
-        <div className="text-center space-y-3">
-          <span className="text-xs font-bold tracking-widest text-brand-600 uppercase bg-brand-50 px-3 py-1 rounded-full">
-            Real-Time Status Tracker
-          </span>
-          <h1 className="text-4xl font-black text-navy-950 font-serif">Track Appointment Status</h1>
-          <p className="text-slate-600 text-sm max-w-lg mx-auto">
-            Enter your 4-digit unique Appointment Reference ID (e.g., <strong>SRG-APT-8492</strong>) or registered phone number to check your live slot status.
-          </p>
-        </div>
+        <Reveal variant="fade-up">
+          <div className="text-center space-y-3">
+            <span className="text-xs font-bold tracking-widest text-brand-600 uppercase bg-brand-50 px-3 py-1 rounded-full">
+              Real-Time Status Tracker
+            </span>
+            <h1 className="text-3xl sm:text-4xl font-black text-navy-950 font-serif">Track Appointment Status</h1>
+            <p className="text-slate-600 text-sm max-w-lg mx-auto">
+              Enter your 4-digit unique Appointment Reference ID (e.g., <strong>SRG-APT-8492</strong>) or registered phone number to check your live slot status.
+            </p>
+          </div>
+        </Reveal>
 
         {/* Search Bar Card */}
-        <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-2xl shadow-brand-500/10">
-          <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="w-5 h-5 text-brand-500 absolute left-4 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                required
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Enter SRG-APT-XXXX Reference ID"
-                className="w-full pl-12 pr-4 py-4 rounded-2xl border-2 border-slate-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none text-sm font-semibold tracking-wide transition-all"
-              />
-            </div>
-            <button
-              type="submit"
-              className="bg-navy-950 hover:bg-navy-900 text-white font-bold px-8 py-4 rounded-2xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 text-sm shrink-0"
-            >
-              <span>Track Application</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </form>
-          <p className="text-slate-400 text-[11px] mt-4 text-center">
-            Need help? Contact us via the WhatsApp button at the bottom right.
-          </p>
-        </div>
+        <Reveal variant="fade-up" delay={90}>
+          <div className="bg-white p-5 sm:p-8 rounded-3xl border border-slate-200 shadow-2xl shadow-brand-500/10">
+            <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-4">
+              <div className="relative flex-1">
+                <Search className="w-5 h-5 text-brand-500 absolute left-4 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  required
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Enter SRG-APT-XXXX Reference ID"
+                  className="w-full pl-12 pr-4 py-4 rounded-2xl border-2 border-slate-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none text-sm font-semibold tracking-wide transition-all"
+                />
+              </div>
+              <button
+                type="submit"
+                className="bg-navy-950 hover:bg-navy-900 text-white font-bold px-8 py-4 rounded-2xl shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all flex items-center justify-center gap-2 text-sm shrink-0"
+              >
+                <span>Track Application</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </form>
+            <p className="text-slate-400 text-[11px] mt-4 text-center">
+              Need help? Contact us via the WhatsApp button at the bottom right.
+            </p>
+          </div>
+        </Reveal>
 
         {/* Search Results Display */}
         {searched && (
           <div>
             {result ? (
-              <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-2xl space-y-6 animate-fade-in">
+              <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-2xl space-y-6 animate-tab-reveal">
                 {/* Result Header */}
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-6 border-b border-slate-100">
                   <div>
@@ -241,7 +248,7 @@ export const TrackAppointment: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-md text-center space-y-4">
+              <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-md text-center space-y-4 animate-tab-reveal">
                 <div className="w-12 h-12 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto">
                   <AlertCircle className="w-6 h-6" />
                 </div>
@@ -253,7 +260,11 @@ export const TrackAppointment: React.FC = () => {
                 </div>
                 <Link
                   to="/book-appointment"
-                  className="inline-flex items-center gap-2 bg-brand-500 text-white font-bold px-5 py-2.5 rounded-xl text-xs shadow-md"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigateWithTransition('/book-appointment', 'Book Consultation');
+                  }}
+                  className="inline-flex items-center gap-2 bg-brand-500 hover:bg-brand-600 text-white font-bold px-5 py-2.5 rounded-xl text-xs shadow-md transition-all hover:scale-105"
                 >
                   <Calendar className="w-4 h-4" />
                   <span>Book New Appointment</span>

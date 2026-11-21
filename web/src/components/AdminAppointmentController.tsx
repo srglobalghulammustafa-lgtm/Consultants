@@ -18,14 +18,16 @@ import {
   X,
   Users,
 } from 'lucide-react';
-import { Appointment } from '../types';
+import { Appointment, TargetCountryOption } from '../types';
 import { TIME_SLOTS } from '../data/mockData';
+import { DEFAULT_TARGET_COUNTRIES } from '../context/SettingsContext';
 
 interface AdminAppointmentControllerProps {
   appointments: Appointment[];
   maxPerDay: number;
   blockedDates: string[];
   blockedSlots: Record<string, string[]>;
+  targetCountries?: TargetCountryOption[];
   isSyncing: boolean;
   onSaveConfig: (next: {
     maxPerDay: number;
@@ -57,6 +59,7 @@ export const AdminAppointmentController: React.FC<AdminAppointmentControllerProp
   maxPerDay,
   blockedDates,
   blockedSlots,
+  targetCountries,
   isSyncing,
   onSaveConfig,
   onUpdateStatus,
@@ -67,6 +70,12 @@ export const AdminAppointmentController: React.FC<AdminAppointmentControllerProp
   onNotify,
 }) => {
   const todayIso = new Date().toISOString().split('T')[0];
+
+  const activeCountries = useMemo(() => {
+    const raw = targetCountries && targetCountries.length > 0 ? targetCountries : DEFAULT_TARGET_COUNTRIES;
+    const filtered = raw.filter((c) => c.isActive !== false && c.name.trim() !== '');
+    return filtered.length > 0 ? filtered : DEFAULT_TARGET_COUNTRIES;
+  }, [targetCountries]);
 
   const [viewDate, setViewDate] = useState(() => {
     const d = new Date();
@@ -246,33 +255,35 @@ export const AdminAppointmentController: React.FC<AdminAppointmentControllerProp
   return (
     <div className="space-y-6">
       {/* 1. Unified Command Header & Daily Quota Bar */}
-      <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+      <div className="bg-white p-4 sm:p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
         <div>
           <div className="flex items-center gap-2.5">
-            <span className="p-2 rounded-xl bg-brand-50 text-brand-600">
+            <span className="p-2 rounded-xl bg-brand-50 text-brand-600 shrink-0">
               <CalendarIcon className="w-5 h-5" />
             </span>
-            <h2 className="text-xl font-bold text-navy-950">Appointment Calendar & Booking Controller</h2>
+            <h2 className="text-lg sm:text-xl font-bold text-navy-950">Appointment Calendar & Controller</h2>
           </div>
           <p className="text-xs text-slate-500 mt-1">
             Inspect filled dates visually on the calendar, block or open time slots, reschedule clients, and manage all bookings in one place.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+        <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 w-full lg:w-auto">
           <form
             onSubmit={handleSaveQuota}
-            className="flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-2xl border border-slate-200"
+            className="flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-2xl border border-slate-200 flex-1 sm:flex-initial justify-between sm:justify-start"
           >
-            <span className="text-xs font-bold text-slate-700 whitespace-nowrap">Max / Day:</span>
-            <input
-              type="number"
-              min={1}
-              max={50}
-              value={dailyLimitInput}
-              onChange={(e) => setDailyLimitInput(Number(e.target.value))}
-              className="w-14 px-2 py-1 rounded-xl border border-slate-300 font-bold text-xs text-center bg-white"
-            />
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-700 whitespace-nowrap">Max / Day:</span>
+              <input
+                type="number"
+                min={1}
+                max={50}
+                value={dailyLimitInput}
+                onChange={(e) => setDailyLimitInput(Number(e.target.value))}
+                className="w-14 px-2 py-1 rounded-xl border border-slate-300 font-bold text-xs text-center bg-white"
+              />
+            </div>
             <button
               type="submit"
               disabled={isSyncing}
@@ -286,7 +297,7 @@ export const AdminAppointmentController: React.FC<AdminAppointmentControllerProp
           <button
             type="button"
             onClick={() => openManualBookForSlot(selectedDate)}
-            className="inline-flex items-center gap-1.5 bg-navy-950 hover:bg-navy-900 text-white font-bold px-4 py-2.5 rounded-2xl text-xs shadow-md transition-all"
+            className="inline-flex items-center justify-center gap-1.5 bg-navy-950 hover:bg-navy-900 text-white font-bold px-4 py-2.5 rounded-2xl text-xs shadow-md transition-all flex-1 sm:flex-initial"
           >
             <Plus className="w-4 h-4 text-amber-400" />
             <span>Manual Booking</span>
@@ -321,11 +332,11 @@ export const AdminAppointmentController: React.FC<AdminAppointmentControllerProp
       {/* 3. Interactive Calendar + Date Slot Inspector Split Grid */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
         {/* Left: Monthly Calendar Grid */}
-        <div className="xl:col-span-7 bg-white rounded-3xl border border-slate-200 shadow-sm p-5 sm:p-6 space-y-4">
+        <div className="xl:col-span-7 bg-white rounded-3xl border border-slate-200 shadow-sm p-4 sm:p-6 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h3 className="text-base font-bold text-navy-950">{monthLabel}</h3>
-              <p className="text-[11px] text-slate-500">Click any date to see filled slots & control availability</p>
+              <p className="text-[11px] text-slate-500">Tap any date to see filled slots & control availability</p>
             </div>
 
             <div className="flex items-center gap-2">
@@ -368,7 +379,7 @@ export const AdminAppointmentController: React.FC<AdminAppointmentControllerProp
           </div>
 
           {/* Weekday Headers */}
-          <div className="grid grid-cols-7 gap-1.5 text-center text-[11px] font-bold uppercase tracking-wider text-slate-400">
+          <div className="grid grid-cols-7 gap-1 sm:gap-1.5 text-center text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-400">
             {WEEKDAYS.map((w) => (
               <div key={w} className="py-1">
                 {w}
@@ -377,10 +388,10 @@ export const AdminAppointmentController: React.FC<AdminAppointmentControllerProp
           </div>
 
           {/* Calendar Cells */}
-          <div className="grid grid-cols-7 gap-1.5">
+          <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
             {calendarCells.map((cell, idx) => {
               if (!cell.day || !cell.iso) {
-                return <div key={`empty-${idx}`} className="h-20 rounded-2xl bg-slate-50/50" />;
+                return <div key={`empty-${idx}`} className="h-14 sm:h-20 rounded-xl sm:rounded-2xl bg-slate-50/50" />;
               }
 
               const dayAppts = (appointmentsByDate[cell.iso] || []).filter((a) => a.status !== 'Cancelled');
@@ -397,7 +408,7 @@ export const AdminAppointmentController: React.FC<AdminAppointmentControllerProp
                   key={cell.iso}
                   type="button"
                   onClick={() => setSelectedDate(cell.iso!)}
-                  className={`h-20 p-2 rounded-2xl border text-left flex flex-col justify-between transition-all ${
+                  className={`h-14 sm:h-20 p-1 sm:p-2 rounded-xl sm:rounded-2xl border text-left flex flex-col justify-between transition-all ${
                     isSelected
                       ? 'bg-brand-50 border-brand-500 ring-2 ring-brand-500/30 shadow-sm'
                       : isBlocked
@@ -409,9 +420,9 @@ export const AdminAppointmentController: React.FC<AdminAppointmentControllerProp
                 >
                   <div className="flex items-center justify-between w-full">
                     <span
-                      className={`text-xs font-black ${
+                      className={`text-[11px] sm:text-xs font-black ${
                         isToday
-                          ? 'bg-navy-950 text-white px-1.5 py-0.5 rounded-md'
+                          ? 'bg-navy-950 text-white px-1 sm:px-1.5 py-0.5 rounded-md'
                           : isSelected
                           ? 'text-brand-700'
                           : 'text-slate-800'
@@ -421,23 +432,23 @@ export const AdminAppointmentController: React.FC<AdminAppointmentControllerProp
                     </span>
 
                     {isBlocked ? (
-                      <Lock className="w-3 h-3 text-rose-500" />
+                      <Lock className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-rose-500 shrink-0" />
                     ) : isFull ? (
-                      <span className="text-[9px] font-black uppercase bg-rose-100 text-rose-700 px-1.5 py-0.5 rounded">
+                      <span className="hidden sm:inline text-[9px] font-black uppercase bg-rose-100 text-rose-700 px-1.5 py-0.5 rounded">
                         Full
                       </span>
                     ) : null}
                   </div>
 
-                  <div className="space-y-1">
+                  <div className="space-y-0.5 sm:space-y-1">
                     {dayAppts.length > 0 ? (
-                      <div className="flex items-center justify-between gap-1">
+                      <div className="flex items-center justify-between gap-0.5 sm:gap-1">
                         <span
-                          className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
+                          className={`text-[9px] sm:text-[10px] font-bold px-1 sm:px-1.5 py-0.5 rounded-md ${
                             isFull ? 'bg-rose-100 text-rose-700' : 'bg-brand-100 text-brand-800'
                           }`}
                         >
-                          {dayAppts.length}/{maxPerDay}
+                          {dayAppts.length}<span className="hidden sm:inline">/{maxPerDay}</span>
                         </span>
                         <div className="flex items-center gap-0.5">
                           {confirmedCount > 0 && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" title="Confirmed" />}
@@ -445,11 +456,11 @@ export const AdminAppointmentController: React.FC<AdminAppointmentControllerProp
                         </div>
                       </div>
                     ) : slotBlockCount > 0 ? (
-                      <span className="text-[9px] font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded inline-block">
-                        {slotBlockCount} locked
+                      <span className="text-[9px] font-semibold text-amber-700 bg-amber-50 px-1 sm:px-1.5 py-0.5 rounded inline-block">
+                        {slotBlockCount}<span className="hidden sm:inline"> locked</span>
                       </span>
                     ) : (
-                      <span className="text-[9px] text-slate-400">Open</span>
+                      <span className="hidden sm:inline text-[9px] text-slate-400">Open</span>
                     )}
                   </div>
                 </button>
@@ -678,7 +689,134 @@ export const AdminAppointmentController: React.FC<AdminAppointmentControllerProp
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        {/* Mobile Touch Cards (< md) */}
+        <div className="md:hidden divide-y divide-slate-100">
+          {visibleAppointments.length === 0 ? (
+            <div className="py-10 px-4 text-center text-slate-400 text-xs">
+              No appointments match the current filter.
+            </div>
+          ) : (
+            visibleAppointments.map((appt) => (
+              <div key={appt.id} className="p-4 space-y-3 bg-white">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <span className="font-mono font-bold text-[11px] text-brand-600 bg-brand-50 px-2 py-0.5 rounded-md inline-block">
+                      {appt.appointment_code || `SRG-APT-${appt.id.slice(0, 4)}`}
+                    </span>
+                    <div className="font-bold text-navy-950 text-base mt-1">{appt.client_name}</div>
+                    <div className="text-xs text-slate-500 truncate">{appt.phone} • {appt.email}</div>
+                  </div>
+                  <span
+                    className={`shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-full ${
+                      appt.mode === 'Office' ? 'bg-orange-50 text-orange-700' : 'bg-blue-50 text-blue-700'
+                    }`}
+                  >
+                    {appt.mode}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 bg-slate-50 p-3 rounded-2xl text-xs border border-slate-100">
+                  <div>
+                    <div className="text-[10px] uppercase font-bold text-slate-400">Date & Slot</div>
+                    <div className="font-bold text-slate-800 mt-0.5">{appt.appointment_date}</div>
+                    <div className="text-slate-600">{appt.time_slot}</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase font-bold text-slate-400">Destination</div>
+                    <div className="font-bold text-navy-950 mt-0.5">{appt.destination}</div>
+                    {appt.notes && <div className="text-[11px] text-slate-500 truncate">{appt.notes}</div>}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                  <select
+                    value={appt.status}
+                    onChange={(e) => {
+                      onUpdateStatus(appt.id, e.target.value as Appointment['status']);
+                      onNotify(`Appointment ${appt.appointment_code || ''} updated to ${e.target.value}`);
+                    }}
+                    className={`text-xs font-bold px-3 py-2 rounded-xl border focus:outline-none ${
+                      appt.status === 'Confirmed'
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : appt.status === 'Completed'
+                        ? 'bg-blue-50 text-blue-700 border-blue-200'
+                        : appt.status === 'Rescheduled'
+                        ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                        : appt.status === 'Cancelled'
+                        ? 'bg-rose-50 text-rose-700 border-rose-200'
+                        : 'bg-amber-50 text-amber-700 border-amber-200'
+                    }`}
+                  >
+                    <option value="Pending">Pending Fee</option>
+                    <option value="Confirmed">Confirmed</option>
+                    <option value="Rescheduled">Rescheduled</option>
+                    <option value="Completed">Completed</option>
+                    <option value="Cancelled">Cancelled</option>
+                  </select>
+
+                  <div className="flex items-center gap-1.5">
+                    {appt.status !== 'Confirmed' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onUpdateStatus(appt.id, 'Confirmed');
+                          onNotify(`Confirmed ${appt.client_name}'s appointment!`);
+                        }}
+                        className="p-2 rounded-xl bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
+                        title="Quick Confirm"
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => openRescheduleModal(appt)}
+                      className="p-2 rounded-xl bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
+                      title="Reschedule"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onInspect(appt)}
+                      className="inline-flex items-center gap-1 text-xs font-bold text-brand-600 bg-brand-50 hover:bg-brand-100 px-3 py-2 rounded-xl"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Inspect</span>
+                    </button>
+                    <a
+                      href={`https://wa.me/${appt.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+                        `Hello ${appt.client_name}! Regarding your SR Global Appointment (${appt.appointment_code || 'SRG-APT'}) on ${appt.appointment_date} (${appt.time_slot}) — current status: ${appt.status}.`
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-2 rounded-xl bg-green-50 text-green-600 hover:bg-green-100"
+                      title="WhatsApp"
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (window.confirm(`Delete appointment for ${appt.client_name}?`)) {
+                          onDeleteAppointment(appt.id);
+                          onNotify('Appointment deleted');
+                        }
+                      }}
+                      className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                      title="Delete"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Desktop Table (md+) */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
@@ -884,11 +1022,11 @@ export const AdminAppointmentController: React.FC<AdminAppointmentControllerProp
                     onChange={(e) => setManualForm({ ...manualForm, destination: e.target.value })}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm bg-white"
                   >
-                    <option value="Australia">Australia</option>
-                    <option value="United Kingdom">United Kingdom</option>
-                    <option value="Canada">Canada</option>
-                    <option value="United States">United States</option>
-                    <option value="Europe">Europe</option>
+                    {activeCountries.map((country) => (
+                      <option key={country.id} value={country.name}>
+                        {country.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>

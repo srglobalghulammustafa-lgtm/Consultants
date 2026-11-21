@@ -45,7 +45,7 @@ const AppLayout: React.FC = () => {
         </div>
       </main>
       {!isAdmin && <Footer />}
-      <FloatingWhatsApp />
+      {!isAdmin && <FloatingWhatsApp />}
     </div>
   );
 };

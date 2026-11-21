@@ -32,8 +32,8 @@ export const AdminLogin: React.FC = () => {
   };
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center bg-slate-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full bg-white rounded-3xl shadow-xl border border-slate-200 p-8 sm:p-10 text-center space-y-6">
+    <div className="min-h-[78vh] flex items-center justify-center bg-slate-50 py-10 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full bg-white rounded-3xl shadow-xl border border-slate-200 p-6 sm:p-10 text-center space-y-6">
         <div className="w-16 h-16 bg-navy-950 rounded-2xl flex items-center justify-center text-brand-400 mx-auto shadow-md">
           <Shield className="w-8 h-8" />
         </div>
@@ -64,7 +64,8 @@ export const AdminLogin: React.FC = () => {
               <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type="password"
-                maxLength={4}
+                inputMode="numeric"
+                maxLength={6}
                 required
                 value={pin}
                 onChange={(e) => {

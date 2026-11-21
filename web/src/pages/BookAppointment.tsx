@@ -1,14 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Calendar, Clock, MapPin, Video, CheckCircle2, AlertCircle, Send, ArrowRight, Copy, Check, ShieldCheck, MessageCircle, ExternalLink } from 'lucide-react';
 import { TIME_SLOTS, COMPANY_CONTACT } from '../data/mockData';
 import { supabase } from '../lib/supabase';
 import { useLiveData } from '../context/LiveDataContext';
-import { useSiteSettings } from '../context/SettingsContext';
+import { useSiteSettings, DEFAULT_TARGET_COUNTRIES } from '../context/SettingsContext';
+import { Reveal } from '../components/Reveal';
+import { usePageTransition } from '../components/PageTransition';
 
 export const BookAppointment: React.FC = () => {
   const { addAppointment } = useLiveData();
   const { settings } = useSiteSettings();
+  const { navigateWithTransition } = usePageTransition();
+
+  const activeCountries = useMemo(() => {
+    const raw = settings.targetCountries && settings.targetCountries.length > 0
+      ? settings.targetCountries
+      : DEFAULT_TARGET_COUNTRIES;
+    const filtered = raw.filter((c) => c.isActive !== false && c.name.trim() !== '');
+    return filtered.length > 0 ? filtered : DEFAULT_TARGET_COUNTRIES;
+  }, [settings.targetCountries]);
 
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     const today = new Date();
@@ -23,10 +34,16 @@ export const BookAppointment: React.FC = () => {
     name: '',
     phone: '',
     email: '',
-    destination: 'Australia',
+    destination: activeCountries[0]?.name || 'Australia',
     mode: 'Office' as 'Office' | 'Online',
     message: ''
   });
+
+  useEffect(() => {
+    if (activeCountries.length > 0 && !activeCountries.some((c) => c.name === form.destination)) {
+      setForm((prev) => ({ ...prev, destination: activeCountries[0].name }));
+    }
+  }, [activeCountries, form.destination]);
 
   const [submitting, setSubmitting] = useState(false);
   const [successData, setSuccessData] = useState<any | null>(null);
@@ -138,21 +155,23 @@ export const BookAppointment: React.FC = () => {
   const targetWhatsAppNumber = settings.whatsapp?.phone || COMPANY_CONTACT.whatsappNumber || '923278321560';
 
   return (
-    <div className="py-16 bg-slate-50 min-h-screen">
+    <div className="py-10 sm:py-16 bg-slate-50 min-h-screen">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="text-center mb-12">
-          <span className="text-xs font-bold tracking-widest text-brand-600 uppercase bg-brand-50 px-3 py-1 rounded-full">
-            Direct Scheduling
-          </span>
-          <h1 className="text-4xl font-black text-navy-950 mt-3 font-serif">Book Consultation Appointment</h1>
-          <p className="text-slate-600 mt-2 text-base">
-            Guaranteed one-on-one session with our certified counselors. Unique ID & fee verification enabled.
-          </p>
-        </div>
+        <Reveal variant="fade-up">
+          <div className="text-center mb-8 sm:mb-12">
+            <span className="text-xs font-bold tracking-widest text-brand-600 uppercase bg-brand-50 px-3 py-1 rounded-full">
+              Direct Scheduling
+            </span>
+            <h1 className="text-3xl sm:text-4xl font-black text-navy-950 mt-3 font-serif">Book Consultation Appointment</h1>
+            <p className="text-slate-600 mt-2 text-sm sm:text-base">
+              Guaranteed one-on-one session with our certified counselors. Unique ID & fee verification enabled.
+            </p>
+          </div>
+        </Reveal>
 
         {successData ? (
-          <div className="bg-white rounded-3xl p-8 sm:p-12 shadow-2xl border border-brand-200 text-center max-w-2xl mx-auto space-y-6 animate-fade-in">
+          <div className="bg-white rounded-3xl p-6 sm:p-12 shadow-2xl border border-brand-200 text-center max-w-2xl mx-auto space-y-6 animate-tab-reveal">
             <div className="w-16 h-16 bg-amber-100 border border-amber-200 rounded-full flex items-center justify-center text-amber-600 mx-auto shadow-sm">
               <Clock className="w-9 h-9" />
             </div>
@@ -161,7 +180,7 @@ export const BookAppointment: React.FC = () => {
               <span className="bg-amber-100 text-amber-800 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
                 ● Pending Fee Verification
               </span>
-              <h2 className="text-3xl font-black text-navy-950 mt-3">Slot Reserved! Pay Fee to Confirm</h2>
+              <h2 className="text-2xl sm:text-3xl font-black text-navy-950 mt-3">Slot Reserved! Pay Fee to Confirm</h2>
               <p className="text-slate-600 text-sm mt-2 leading-relaxed">
                 Thank you, <strong>{successData.client_name}</strong>. Your consultation slot has been reserved for{' '}
                 <strong className="text-brand-600">{successData.appointment_date}</strong> at{' '}
@@ -170,12 +189,12 @@ export const BookAppointment: React.FC = () => {
             </div>
 
             {/* UNIQUE APPOINTMENT CODE BOX */}
-            <div className="p-6 bg-slate-900 text-white rounded-2xl border border-slate-800 space-y-3 shadow-inner">
+            <div className="p-5 sm:p-6 bg-slate-900 text-white rounded-2xl border border-slate-800 space-y-3 shadow-inner">
               <div className="text-xs font-bold uppercase tracking-widest text-amber-400">
                 Unique Appointment Reference ID
               </div>
               <div className="flex items-center justify-center gap-3">
-                <span className="text-3xl sm:text-4xl font-mono font-black tracking-widest text-white">
+                <span className="text-2xl sm:text-4xl font-mono font-black tracking-widest text-white">
                   {successData.appointment_code || 'SRG-APT-8492'}
                 </span>
                 <button
@@ -223,6 +242,10 @@ export const BookAppointment: React.FC = () => {
               <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
                 <Link
                   to={`/track-appointment?id=${encodeURIComponent(successData.appointment_code || '')}`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigateWithTransition(`/track-appointment?id=${encodeURIComponent(successData.appointment_code || '')}`, 'Track Appointment');
+                  }}
                   className="inline-flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold py-3 px-5 rounded-xl text-xs transition-colors"
                 >
                   <ExternalLink className="w-4 h-4 text-brand-400" />
@@ -242,7 +265,8 @@ export const BookAppointment: React.FC = () => {
             </div>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="bg-white rounded-3xl p-6 sm:p-10 shadow-xl border border-slate-200 space-y-8">
+          <Reveal variant="fade-up" delay={90}>
+          <form onSubmit={handleSubmit} className="bg-white rounded-3xl p-5 sm:p-10 shadow-xl border border-slate-200 space-y-6 sm:space-y-8">
             {errorMessage && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-3 text-sm font-medium">
                 <AlertCircle className="w-5 h-5 shrink-0 text-red-500" />
@@ -422,11 +446,11 @@ export const BookAppointment: React.FC = () => {
                     onChange={(e) => setForm({ ...form, destination: e.target.value })}
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm bg-white"
                   >
-                    <option value="Australia">Australia (Subclass 500)</option>
-                    <option value="United Kingdom">United Kingdom (Student Visa)</option>
-                    <option value="Canada">Canada (Study Permit)</option>
-                    <option value="United States">United States (F-1)</option>
-                    <option value="Europe">Europe (National D)</option>
+                    {activeCountries.map((country) => (
+                      <option key={country.id} value={country.name}>
+                        {country.visaLabel ? `${country.name} (${country.visaLabel})` : country.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -460,7 +484,8 @@ export const BookAppointment: React.FC = () => {
                 </span>
               </button>
             </div>
-          </form>
+            </form>
+          </Reveal>
         )}
       </div>
     </div>

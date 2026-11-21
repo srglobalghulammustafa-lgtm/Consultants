@@ -147,6 +147,8 @@ export interface FooterConfig {
   copyright: string;
   copyrightYear?: string;
   accreditedBadgeUrl?: string;
+  logoUrl?: string;
+  accreditedBadgeImageUrl?: string;
 }
 
 export interface BroadcastNotification {
@@ -198,6 +200,13 @@ export interface AdminNote {
   updated_at: string;
 }
 
+export interface TargetCountryOption {
+  id: string;
+  name: string;
+  visaLabel?: string;
+  isActive: boolean;
+}
+
 export interface SiteSettings {
   whatsapp: WhatsAppConfig;
   header: HeaderConfig;
@@ -206,6 +215,7 @@ export interface SiteSettings {
   ipstack: IpstackConfig;
   appointmentConfig?: AppointmentConfig;
   hero?: HeroConfig;
+  targetCountries?: TargetCountryOption[];
   adminPin?: string;
   activeBroadcast?: BroadcastNotification;
   broadcastHistory?: BroadcastNotification[];

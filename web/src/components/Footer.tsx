@@ -2,22 +2,45 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Phone, Mail, MapPin, Clock, ShieldCheck, ArrowRight } from 'lucide-react';
 import { useSiteSettings } from '../context/SettingsContext';
+import { SmartImage } from './SmartImage';
+import { usePageTransition } from './PageTransition';
 
 export const Footer: React.FC = () => {
   const { settings } = useSiteSettings();
+  const { navigateWithTransition } = usePageTransition();
   const footer = settings.footer;
+  const footerLogoSrc = footer.logoUrl || settings.header.logoUrl || '/logo.png';
+  const badgeImageSrc = footer.accreditedBadgeImageUrl || '/assets/icef_badge.png';
+
+  const handleFooterNavClick = (
+    e: React.MouseEvent<HTMLAnchorElement>,
+    path: string,
+    label?: string
+  ) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+    if (path.startsWith('http') || path.startsWith('/admin')) return;
+    e.preventDefault();
+    navigateWithTransition(path, label);
+  };
 
   return (
-    <footer className="bg-navy-950 text-slate-300 pt-16 pb-8 border-t-4 border-brand-500">
+    <footer className="bg-navy-950 text-slate-300 pt-12 sm:pt-16 pb-24 sm:pb-10 border-t-4 border-brand-500">
       <div className="max-w-[98%] xl:max-w-[96%] mx-auto px-4 sm:px-6 lg:px-10">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 sm:gap-10 mb-10 sm:mb-12">
           {/* Brand Info & ICEF Badge side-by-side */}
           <div>
             <div className="flex items-center gap-3.5 mb-4">
-              <img 
-                src="/logo.png" 
+              <SmartImage 
+                src={footerLogoSrc} 
                 alt="SR Global Consultants Logo" 
-                className="w-16 h-16 rounded-full object-cover shadow-md bg-white p-0.5" 
+                className="w-16 h-16 rounded-full object-cover shadow-md bg-white p-0.5 shrink-0"
+                fallback={
+                  <img 
+                    src="/logo.png" 
+                    alt="SR Global Consultants Logo" 
+                    className="w-16 h-16 rounded-full object-cover shadow-md bg-white p-0.5 shrink-0" 
+                  />
+                }
               />
               <div>
                 <span className="font-serif font-black text-xl text-white tracking-wider block">SR GLOBAL</span>
@@ -42,10 +65,17 @@ export const Footer: React.FC = () => {
                 className="inline-block group mt-2"
                 title="ICEF Accredited Certified Global Partner #7092"
               >
-                <img
-                  src="/assets/icef_badge.png"
+                <SmartImage
+                  src={badgeImageSrc}
                   alt="ICEF Accredited Certified Global Partner"
                   className="h-20 w-auto object-contain rounded-xl shadow-lg group-hover:scale-105 transition-transform bg-navy-900/80 p-1"
+                  fallback={
+                    <img
+                      src="/assets/icef_badge.png"
+                      alt="ICEF Accredited Certified Global Partner"
+                      className="h-20 w-auto object-contain rounded-xl shadow-lg group-hover:scale-105 transition-transform bg-navy-900/80 p-1"
+                    />
+                  }
                 />
               </a>
             </div>
@@ -59,8 +89,12 @@ export const Footer: React.FC = () => {
             <ul className="space-y-2.5 text-sm">
               {footer.destinationLinks.map((link) => (
                 <li key={link.id || link.label}>
-                  <Link to={link.path} className="hover:text-brand-400 transition-colors flex items-center gap-2">
-                    <ArrowRight className="w-3.5 h-3.5 text-brand-500" />
+                  <Link
+                    to={link.path}
+                    onClick={(e) => handleFooterNavClick(e, link.path, link.label)}
+                    className="hover:text-brand-400 transition-colors flex items-center gap-2 group"
+                  >
+                    <ArrowRight className="w-3.5 h-3.5 text-brand-500 group-hover:translate-x-1 transition-transform" />
                     <span>{link.label}</span>
                   </Link>
                 </li>
@@ -76,8 +110,12 @@ export const Footer: React.FC = () => {
             <ul className="space-y-2.5 text-sm">
               {footer.quickLinks.map((link) => (
                 <li key={link.id || link.label}>
-                  <Link to={link.path} className="hover:text-brand-400 transition-colors flex items-center gap-2">
-                    <ArrowRight className="w-3.5 h-3.5 text-brand-500" />
+                  <Link
+                    to={link.path}
+                    onClick={(e) => handleFooterNavClick(e, link.path, link.label)}
+                    className="hover:text-brand-400 transition-colors flex items-center gap-2 group"
+                  >
+                    <ArrowRight className="w-3.5 h-3.5 text-brand-500 group-hover:translate-x-1 transition-transform" />
                     <span>{link.label}</span>
                   </Link>
                 </li>
@@ -120,11 +158,23 @@ export const Footer: React.FC = () => {
         </div>
 
         {/* Bottom Bar */}
-        <div className="pt-8 border-t border-navy-800 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-slate-400">
+        <div className="pt-8 border-t border-navy-800 flex flex-col sm:flex-row justify-between items-center text-center sm:text-left gap-4 text-xs text-slate-400">
           <p>© {footer.copyrightYear || new Date().getFullYear()} {footer.copyright}</p>
-          <div className="flex gap-6">
-            <Link to="/privacy-policy" className="hover:text-white transition-colors">Privacy Policy</Link>
-            <Link to="/terms" className="hover:text-white transition-colors">Terms of Service</Link>
+          <div className="flex flex-wrap justify-center gap-x-6 gap-y-2">
+            <Link
+              to="/privacy-policy"
+              onClick={(e) => handleFooterNavClick(e, '/privacy-policy', 'Privacy Policy')}
+              className="hover:text-white transition-colors"
+            >
+              Privacy Policy
+            </Link>
+            <Link
+              to="/terms"
+              onClick={(e) => handleFooterNavClick(e, '/terms', 'Terms of Service')}
+              className="hover:text-white transition-colors"
+            >
+              Terms of Service
+            </Link>
             <Link to="/admin" className="hover:text-white transition-colors opacity-70 hover:opacity-100 flex items-center gap-1">
               <span>Staff Login</span>
             </Link>

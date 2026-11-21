@@ -3,6 +3,7 @@ import { MapPin, Phone, Mail, Clock, Send, CheckCircle2, MessageCircle } from 'l
 import { COMPANY_CONTACT } from '../data/mockData';
 import { supabase } from '../lib/supabase';
 import { fetchUserLocationWithQuota } from '../lib/ipstack';
+import { Reveal } from '../components/Reveal';
 
 export const Contact: React.FC = () => {
   const [form, setForm] = useState({
@@ -55,21 +56,24 @@ export const Contact: React.FC = () => {
   };
 
   return (
-    <div className="py-16 bg-slate-50 min-h-screen">
+    <div className="py-10 sm:py-16 bg-slate-50 min-h-screen">
       <div className="max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-12 xl:px-16">
         {/* Header */}
-        <div className="text-center max-w-3xl mx-auto mb-16">
-          <span className="text-xs font-bold tracking-widest text-brand-600 uppercase bg-brand-50 px-3 py-1 rounded-full">Get In Touch</span>
-          <h1 className="text-4xl font-black text-navy-950 mt-3 font-serif">Contact SR Global Consultants</h1>
-          <p className="text-slate-600 mt-3 text-base">
-            Reach out directly to our central Gujranwala office or contact our Australian liaison branch for urgent migration guidance.
-          </p>
-        </div>
+        <Reveal variant="fade-up">
+          <div className="text-center max-w-3xl mx-auto mb-10 sm:mb-16">
+            <span className="text-xs font-bold tracking-widest text-brand-600 uppercase bg-brand-50 px-3 py-1 rounded-full">Get In Touch</span>
+            <h1 className="text-3xl sm:text-4xl font-black text-navy-950 mt-3 font-serif">Contact SR Global Consultants</h1>
+            <p className="text-slate-600 mt-2 sm:mt-3 text-sm sm:text-base">
+              Reach out directly to our central Gujranwala office or contact our Australian liaison branch for urgent migration guidance.
+            </p>
+          </div>
+        </Reveal>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 sm:gap-12">
           {/* Contact Information & Channels */}
           <div className="lg:col-span-5 space-y-6">
-            <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 space-y-6">
+            <Reveal variant="fade-right" delay={70}>
+            <div className="bg-white p-5 sm:p-8 rounded-3xl shadow-sm border border-slate-200 hover:shadow-xl transition-shadow space-y-6">
               <h3 className="text-2xl font-bold text-navy-950">Head Office Details</h3>
 
               <div className="space-y-5 text-sm">
@@ -142,11 +146,13 @@ export const Contact: React.FC = () => {
                 </a>
               </div>
             </div>
+            </Reveal>
           </div>
 
           {/* Contact Message Form */}
           <div className="lg:col-span-7">
-            <div className="bg-white p-8 sm:p-10 rounded-3xl shadow-sm border border-slate-200">
+            <Reveal variant="fade-left" delay={140}>
+            <div className="bg-white p-5 sm:p-10 rounded-3xl shadow-sm border border-slate-200 hover:shadow-xl transition-shadow">
               <h3 className="text-2xl font-bold text-navy-950 mb-2">Send an Official Message</h3>
               <p className="text-sm text-slate-500 mb-6">Our senior counseling team responds to all formal correspondence within 24 hours.</p>
 
@@ -236,20 +242,23 @@ export const Contact: React.FC = () => {
                 </form>
               )}
             </div>
+            </Reveal>
           </div>
         </div>
 
         {/* Full Width Google Maps Embed */}
-        <div className="mt-14 rounded-3xl overflow-hidden shadow-xl border border-slate-200">
-          <iframe
-            title="SR Global Consultants Gujranwala Map Location"
-            src={`https://maps.google.com/maps?q=${COMPANY_CONTACT.latitude},${COMPANY_CONTACT.longitude}&hl=en&z=16&output=embed`}
-            width="100%"
-            height="400"
-            className="w-full border-0"
-            loading="lazy"
-          />
-        </div>
+        <Reveal variant="fade-up" delay={120}>
+          <div className="mt-14 rounded-3xl overflow-hidden shadow-xl border border-slate-200">
+            <iframe
+              title="SR Global Consultants Gujranwala Map Location"
+              src={`https://maps.google.com/maps?q=${COMPANY_CONTACT.latitude},${COMPANY_CONTACT.longitude}&hl=en&z=16&output=embed`}
+              width="100%"
+              height="400"
+              className="w-full border-0"
+              loading="lazy"
+            />
+          </div>
+        </Reveal>
       </div>
     </div>
   );

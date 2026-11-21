@@ -1,7 +1,15 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { SiteSettings, BroadcastNotification } from '../types';
+import { SiteSettings, BroadcastNotification, TargetCountryOption } from '../types';
 import { COMPANY_CONTACT, SITE_METRICS } from '../data/mockData';
+
+export const DEFAULT_TARGET_COUNTRIES: TargetCountryOption[] = [
+  { id: 'tc-au', name: 'Australia', visaLabel: 'Subclass 500', isActive: true },
+  { id: 'tc-uk', name: 'United Kingdom', visaLabel: 'Student Visa', isActive: true },
+  { id: 'tc-ca', name: 'Canada', visaLabel: 'Study Permit', isActive: true },
+  { id: 'tc-us', name: 'United States', visaLabel: 'F-1', isActive: true },
+  { id: 'tc-eu', name: 'Europe', visaLabel: 'National D', isActive: true },
+];
 
 const DEFAULT_SETTINGS: SiteSettings = {
   whatsapp: {
@@ -15,6 +23,7 @@ const DEFAULT_SETTINGS: SiteSettings = {
     phoneAustralia: COMPANY_CONTACT.phoneAustralia || '+61 415 331872',
     email: COMPANY_CONTACT.email || 'contact@srglobalconsultants.com',
     address: COMPANY_CONTACT.address || '1st Floor, 239A Civic Center, Gujranwala, Pakistan',
+    logoUrl: '/logo.png',
     navLinks: [
       { id: '1', name: 'Home', path: '/', isVisible: true },
       { id: '2', name: 'About Us', path: '/about', isVisible: true },
@@ -49,6 +58,8 @@ const DEFAULT_SETTINGS: SiteSettings = {
     copyright: 'SR Global Consultants. All rights reserved. Gujranwala • Australia.',
     copyrightYear: '2026',
     accreditedBadgeUrl: 'https://www.icef.com/agency-status/#7092',
+    logoUrl: '/logo.png',
+    accreditedBadgeImageUrl: '/assets/icef_badge.png',
   },
   metrics: {
     studentsGuided: SITE_METRICS.studentsGuided || 5200,
@@ -73,6 +84,7 @@ const DEFAULT_SETTINGS: SiteSettings = {
     overlayOpacity: 0.72,
     badgeText: 'Certified Education & Visa Counselors',
   },
+  targetCountries: DEFAULT_TARGET_COUNTRIES,
   adminPin: '1234',
   broadcastHistory: [],
 };
@@ -88,6 +100,7 @@ interface SettingsContextType {
   updateIpstack: (config: SiteSettings['ipstack']) => Promise<boolean>;
   updateAppointmentConfig: (config: NonNullable<SiteSettings['appointmentConfig']>) => Promise<boolean>;
   updateHero: (config: NonNullable<SiteSettings['hero']>) => Promise<boolean>;
+  updateTargetCountries: (countries: TargetCountryOption[]) => Promise<boolean>;
   updateAdminPin: (newPin: string) => Promise<boolean>;
   sendBroadcastNotification: (notif: Omit<BroadcastNotification, 'id' | 'created_at'>) => Promise<boolean>;
   deleteBroadcast: (id: string) => Promise<boolean>;
@@ -157,6 +170,22 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 ...liveMerged.hero,
                 ...row.setting_value,
               };
+            } else if (row.setting_key === 'target_countries_config' && row.setting_value) {
+              const rawList = Array.isArray(row.setting_value)
+                ? row.setting_value
+                : Array.isArray(row.setting_value?.countries)
+                ? row.setting_value.countries
+                : null;
+              if (rawList) {
+                liveMerged.targetCountries = rawList
+                  .filter((c: any) => c && typeof c.name === 'string' && c.name.trim() !== '')
+                  .map((c: any, idx: number) => ({
+                    id: c.id || `tc-${idx}-${Date.now()}`,
+                    name: c.name.trim(),
+                    visaLabel: typeof c.visaLabel === 'string' ? c.visaLabel.trim() : '',
+                    isActive: c.isActive !== false,
+                  }));
+              }
             } else if (row.setting_key === 'admin_security' && row.setting_value) {
               liveMerged.adminPin = row.setting_value.pin || row.setting_value;
             }
@@ -279,6 +308,22 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return true;
   };
 
+  const updateTargetCountries = async (countries: TargetCountryOption[]) => {
+    const sanitized = countries
+      .map((c, idx) => ({
+        id: c.id || `tc-${idx}-${Date.now()}`,
+        name: c.name.trim(),
+        visaLabel: (c.visaLabel || '').trim(),
+        isActive: c.isActive !== false,
+      }))
+      .filter((c) => c.name.length > 0);
+    const next = { ...settings, targetCountries: sanitized };
+    setSettings(next);
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(next));
+    await saveToSupabase('target_countries_config', sanitized);
+    return true;
+  };
+
   const updateAdminPin = async (newPin: string) => {
     const next = { ...settings, adminPin: newPin };
     setSettings(next);
@@ -389,6 +434,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         updateIpstack,
         updateAppointmentConfig,
         updateHero,
+        updateTargetCountries,
         updateAdminPin,
         sendBroadcastNotification,
         deleteBroadcast,

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Users, Calendar, CheckCircle2, Clock, Phone, Download, 
@@ -6,11 +6,12 @@ import {
   ShieldCheck, ArrowRight, Filter, Save, Plus, Globe, Sparkles,
   LayoutDashboard, BookOpen, Star, Settings, ExternalLink, Copy, Check,
   ChevronRight, MapPin, Mail, AlertCircle, Eye, EyeOff, Activity,
-  Navigation, ShieldAlert, X, Send, Bell, Volume2, StickyNote, Image as ImageIcon
+  Navigation, ShieldAlert, X, Send, Bell, Volume2, StickyNote, Image as ImageIcon,
+  Flag, ArrowUp, ArrowDown
 } from 'lucide-react';
-import { useSiteSettings } from '../context/SettingsContext';
+import { useSiteSettings, DEFAULT_TARGET_COUNTRIES } from '../context/SettingsContext';
 import { useLiveData } from '../context/LiveDataContext';
-import { Lead, Appointment, Destination, Course, Testimonial, Banner } from '../types';
+import { Lead, Appointment, Destination, Course, Testimonial, Banner, TargetCountryOption } from '../types';
 import { fetchUserLocationWithQuota } from '../lib/ipstack';
 import { normalizeGoogleImageUrl } from '../lib/imageUtils';
 import { SmartImage } from '../components/SmartImage';
@@ -43,7 +44,7 @@ export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { 
     settings, updateWhatsApp, updateHeader, updateFooter, 
-    updateMetrics, updateIpstack, updateAppointmentConfig, updateHero, updateAdminPin, 
+    updateMetrics, updateIpstack, updateAppointmentConfig, updateHero, updateTargetCountries, updateAdminPin, 
     sendBroadcastNotification, deleteBroadcast, clearBroadcastHistory,
     resetIpstackQuota, isSyncing, isLiveSupabase 
   } = useSiteSettings();
@@ -58,8 +59,37 @@ export const AdminDashboard: React.FC = () => {
   } = useLiveData();
 
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'leads' | 'appointments' | 'destinations' | 'courses' | 'testimonials' | 'whatsapp' | 'broadcast' | 'header' | 'footer' | 'banners' | 'ipstack' | 'security' | 'database'
+    'overview' | 'leads' | 'appointments' | 'destinations' | 'countries' | 'courses' | 'testimonials' | 'whatsapp' | 'broadcast' | 'header' | 'footer' | 'banners' | 'ipstack' | 'security' | 'database'
   >('overview');
+
+  const mobileTabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const handleSelectTab = (
+    tab:
+      | 'overview'
+      | 'leads'
+      | 'appointments'
+      | 'destinations'
+      | 'countries'
+      | 'courses'
+      | 'testimonials'
+      | 'whatsapp'
+      | 'broadcast'
+      | 'header'
+      | 'footer'
+      | 'banners'
+      | 'ipstack'
+      | 'security'
+      | 'database'
+  ) => {
+    setActiveTab(tab);
+    const pillEl = mobileTabRefs.current[tab];
+    if (pillEl) {
+      pillEl.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
 
   // Filter & Selected Lead Modal State
   const [leadStatusFilter, setLeadStatusFilter] = useState<string>('all');
@@ -210,18 +240,142 @@ export const AdminDashboard: React.FC = () => {
     showToast('WhatsApp configuration saved and published live!');
   };
 
+  // Target Countries Manager State
+  const [targetCountriesForm, setTargetCountriesForm] = useState<TargetCountryOption[]>(
+    settings.targetCountries && settings.targetCountries.length > 0
+      ? settings.targetCountries
+      : DEFAULT_TARGET_COUNTRIES
+  );
+  const [newCountryName, setNewCountryName] = useState('');
+  const [newCountryVisaLabel, setNewCountryVisaLabel] = useState('');
+
+  useEffect(() => {
+    if (settings.targetCountries && settings.targetCountries.length > 0) {
+      setTargetCountriesForm(settings.targetCountries);
+    }
+  }, [settings.targetCountries]);
+
+  const handleAddTargetCountry = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmedName = newCountryName.trim();
+    if (!trimmedName) return;
+    if (targetCountriesForm.some((c) => c.name.toLowerCase() === trimmedName.toLowerCase())) {
+      showToast(`"${trimmedName}" is already in the Target Countries list.`);
+      return;
+    }
+    const nextList: TargetCountryOption[] = [
+      ...targetCountriesForm,
+      {
+        id: `tc-${Date.now()}`,
+        name: trimmedName,
+        visaLabel: newCountryVisaLabel.trim(),
+        isActive: true,
+      },
+    ];
+    setTargetCountriesForm(nextList);
+    setNewCountryName('');
+    setNewCountryVisaLabel('');
+    await updateTargetCountries(nextList);
+    showToast(`Added "${trimmedName}" to Free Assessment & Booking forms!`);
+  };
+
+  const handleSaveAllTargetCountries = async () => {
+    await updateTargetCountries(targetCountriesForm);
+    showToast('Target Countries saved & published live to all forms!');
+  };
+
+  const handleMoveTargetCountry = async (index: number, direction: -1 | 1) => {
+    const targetIdx = index + direction;
+    if (targetIdx < 0 || targetIdx >= targetCountriesForm.length) return;
+    const nextList = [...targetCountriesForm];
+    const [moved] = nextList.splice(index, 1);
+    nextList.splice(targetIdx, 0, moved);
+    setTargetCountriesForm(nextList);
+    await updateTargetCountries(nextList);
+  };
+
+  const handleToggleTargetCountry = async (id: string) => {
+    const nextList = targetCountriesForm.map((c) =>
+      c.id === id ? { ...c, isActive: !c.isActive } : c
+    );
+    setTargetCountriesForm(nextList);
+    await updateTargetCountries(nextList);
+    showToast('Country visibility updated!');
+  };
+
+  const handleDeleteTargetCountry = async (id: string, name: string) => {
+    const remaining = targetCountriesForm.filter((c) => c.id !== id);
+    if (remaining.length === 0) {
+      showToast('At least one Target Country must remain in the list.');
+      return;
+    }
+    setTargetCountriesForm(remaining);
+    await updateTargetCountries(remaining);
+    showToast(`Removed "${name}" from forms.`);
+  };
+
+  const handleImportDestinationsToCountries = async () => {
+    const existingNames = new Set(targetCountriesForm.map((c) => c.name.toLowerCase()));
+    const additions: TargetCountryOption[] = destinations
+      .filter((d) => d.country_name && !existingNames.has(d.country_name.toLowerCase()))
+      .map((d, idx) => ({
+        id: `tc-dest-${Date.now()}-${idx}`,
+        name: d.country_name,
+        visaLabel: d.visa_subclass || '',
+        isActive: true,
+      }));
+    if (additions.length === 0) {
+      showToast('All Study Destinations are already listed in Target Countries!');
+      return;
+    }
+    const nextList = [...targetCountriesForm, ...additions];
+    setTargetCountriesForm(nextList);
+    await updateTargetCountries(nextList);
+    showToast(`Imported ${additions.length} new country option(s) from Destinations!`);
+  };
+
+  // Keep local forms synchronized when live Supabase settings finish hydrating
+  useEffect(() => {
+    setHeaderForm((prev) => ({ ...settings.header, logoUrl: prev.logoUrl || settings.header.logoUrl || '/logo.png' }));
+  }, [settings.header]);
+
+  useEffect(() => {
+    setFooterForm((prev) => ({
+      ...settings.footer,
+      logoUrl: prev.logoUrl || settings.footer.logoUrl || '/logo.png',
+      accreditedBadgeImageUrl: prev.accreditedBadgeImageUrl || settings.footer.accreditedBadgeImageUrl || '/assets/icef_badge.png',
+    }));
+  }, [settings.footer]);
+
   // Header form submit
   const handleSaveHeader = async (e: React.FormEvent) => {
     e.preventDefault();
-    await updateHeader(headerForm);
-    showToast('Header & navigation settings updated successfully!');
+    const cleanedLogo = headerForm.logoUrl?.trim()
+      ? fixGoogleDriveLink(headerForm.logoUrl.trim())
+      : '/logo.png';
+    const nextHeader = { ...headerForm, logoUrl: cleanedLogo };
+    setHeaderForm(nextHeader);
+    await updateHeader(nextHeader);
+    showToast('Header logo & navigation settings updated live!');
   };
 
   // Footer form submit
   const handleSaveFooter = async (e: React.FormEvent) => {
     e.preventDefault();
-    await updateFooter(footerForm);
-    showToast('Footer contacts and links updated successfully!');
+    const cleanedLogo = footerForm.logoUrl?.trim()
+      ? fixGoogleDriveLink(footerForm.logoUrl.trim())
+      : '/logo.png';
+    const cleanedBadge = footerForm.accreditedBadgeImageUrl?.trim()
+      ? fixGoogleDriveLink(footerForm.accreditedBadgeImageUrl.trim())
+      : '/assets/icef_badge.png';
+    const nextFooter = {
+      ...footerForm,
+      logoUrl: cleanedLogo,
+      accreditedBadgeImageUrl: cleanedBadge,
+    };
+    setFooterForm(nextFooter);
+    await updateFooter(nextFooter);
+    showToast('Footer logo, badge & contacts updated live!');
   };
 
   // Metrics form submit
@@ -539,20 +693,23 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
     <div className="min-h-screen bg-slate-100 flex flex-col">
       {/* Top Bar Header */}
       <header className="bg-navy-950 text-white border-b border-navy-800 sticky top-0 z-40">
-        <div className="max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="SR Global" className="w-9 h-9 rounded-full ring-2 ring-brand-500" />
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-serif font-black tracking-wide text-sm sm:text-base">SR GLOBAL</span>
-                <span className="bg-brand-500 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase">
+        <div className="max-w-[1536px] mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <img src="/logo.png" alt="SR Global" className="w-8 h-8 sm:w-9 sm:h-9 rounded-full ring-2 ring-brand-500 shrink-0" />
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-serif font-black tracking-wide text-sm sm:text-base truncate">SR GLOBAL</span>
+                <span className="hidden sm:inline-block bg-brand-500 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase">
                   Staff Command Center
+                </span>
+                <span className="sm:hidden bg-brand-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded uppercase">
+                  Admin
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             {/* Supabase status indicator */}
             <div className={`hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
               isLiveSupabase || isSupabaseConnected
@@ -565,14 +722,14 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
 
             <button
               onClick={() => setShowNotepad((v) => !v)}
-              className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors ${
+              className={`inline-flex items-center justify-center gap-1.5 text-xs font-bold px-2.5 sm:px-3 py-2 sm:py-1.5 min-h-[40px] sm:min-h-0 rounded-lg border transition-colors ${
                 showNotepad
                   ? 'bg-amber-400 text-navy-950 border-amber-300'
                   : 'bg-white/10 hover:bg-white/20 text-amber-300 border-white/15'
               }`}
               title="Toggle Floating Admin Notepad"
             >
-              <StickyNote className="w-3.5 h-3.5" />
+              <StickyNote className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
               <span className="hidden sm:inline">Notepad</span>
             </button>
 
@@ -581,7 +738,7 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                 refreshData();
                 showToast('Refreshed data from Supabase!');
               }}
-              className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-slate-200 transition-colors"
+              className="p-2 min-w-[40px] min-h-[40px] sm:min-w-0 sm:min-h-0 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 text-slate-200 transition-colors"
               title="Refresh Live Data"
             >
               <RefreshCw className="w-4 h-4" />
@@ -599,27 +756,93 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
 
             <button
               onClick={handleLogout}
-              className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg bg-red-600/80 hover:bg-red-600 text-white transition-colors"
+              className="inline-flex items-center justify-center gap-1.5 text-xs font-bold px-2.5 sm:px-3 py-2 sm:py-1.5 min-h-[40px] sm:min-h-0 rounded-lg bg-red-600/80 hover:bg-red-600 text-white transition-colors"
+              title="Sign Out"
             >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>Sign Out</span>
+              <LogOut className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+              <span className="hidden sm:inline">Sign Out</span>
             </button>
           </div>
         </div>
       </header>
 
+      {/* Mobile Sticky Horizontal Scrollable Tab Pill Bar */}
+      <nav
+        aria-label="Admin sections"
+        className="md:hidden sticky top-16 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 px-3 py-2.5 shadow-sm"
+      >
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+          {[
+            { id: 'overview' as const, label: 'Overview', icon: LayoutDashboard },
+            { id: 'leads' as const, label: 'Leads', count: leads.length, icon: Users },
+            { id: 'appointments' as const, label: 'Appointments', count: appointments.length, icon: Calendar },
+            { id: 'countries' as const, label: 'Target Countries', count: targetCountriesForm.filter((c) => c.isActive !== false).length, icon: Flag },
+            { id: 'destinations' as const, label: 'Destinations', count: destinations.length, icon: Globe },
+            { id: 'courses' as const, label: 'Courses', count: courses.length, icon: BookOpen },
+            { id: 'testimonials' as const, label: 'Stories', count: testimonials.length, icon: Star },
+            { id: 'whatsapp' as const, label: 'WhatsApp', icon: MessageCircle },
+            { id: 'broadcast' as const, label: 'Broadcast', badge: 'Live', icon: Bell },
+            { id: 'ipstack' as const, label: 'IPstack', badge: `${ipstackUsed}/99`, icon: Navigation },
+            { id: 'header' as const, label: 'Header', icon: Settings },
+            { id: 'footer' as const, label: 'Footer', icon: Settings },
+            { id: 'banners' as const, label: 'Banners', icon: ImageIcon },
+            { id: 'security' as const, label: 'Security', icon: ShieldCheck },
+            { id: 'database' as const, label: 'SQL Setup', icon: Database },
+          ].map((tabItem) => {
+            const Icon = tabItem.icon;
+            const isActive = activeTab === tabItem.id;
+            return (
+              <button
+                key={tabItem.id}
+                ref={(el) => {
+                  mobileTabRefs.current[tabItem.id] = el;
+                }}
+                type="button"
+                onClick={() => handleSelectTab(tabItem.id)}
+                className={`shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 min-h-[40px] rounded-full text-xs font-bold border transition-all ${
+                  isActive
+                    ? 'bg-navy-950 text-white border-navy-950 shadow-sm'
+                    : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
+                }`}
+              >
+                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-brand-400' : 'text-brand-600'}`} />
+                <span>{tabItem.label}</span>
+                {typeof tabItem.count === 'number' && (
+                  <span
+                    className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
+                      isActive ? 'bg-white/15 text-white' : 'bg-white text-slate-700'
+                    }`}
+                  >
+                    {tabItem.count}
+                  </span>
+                )}
+                {tabItem.badge && (
+                  <span
+                    className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
+                      isActive ? 'bg-amber-400 text-navy-950' : 'bg-amber-100 text-amber-800'
+                    }`}
+                  >
+                    {tabItem.badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-navy-950 text-white px-5 py-3 rounded-2xl shadow-2xl border border-brand-500 flex items-center gap-3 animate-fade-in">
+        <div className="fixed bottom-20 sm:bottom-6 right-3 sm:right-6 left-3 sm:left-auto z-50 bg-navy-950 text-white px-4 sm:px-5 py-3 rounded-2xl shadow-2xl border border-brand-500 flex items-center gap-3 animate-fade-in">
           <CheckCircle2 className="w-5 h-5 text-green-400 shrink-0" />
-          <span className="text-sm font-semibold">{toastMessage}</span>
+          <span className="text-xs sm:text-sm font-semibold">{toastMessage}</span>
         </div>
       )}
 
       {/* Main Container with Sidebar + Content */}
-      <div className="max-w-[1536px] mx-auto w-full flex-1 flex flex-col md:flex-row px-4 sm:px-6 lg:px-8 py-6 gap-6">
-        {/* Navigation Sidebar */}
-        <aside className="w-full md:w-64 bg-white rounded-3xl border border-slate-200 p-4 shadow-sm shrink-0 flex flex-col justify-between">
+      <div className="max-w-[1536px] mx-auto w-full flex-1 flex flex-col md:flex-row px-3 sm:px-6 lg:px-8 py-4 sm:py-6 pb-24 sm:pb-8 gap-6">
+        {/* Desktop Navigation Sidebar (hidden on mobile; mobile uses sticky horizontal pill bar above) */}
+        <aside className="hidden md:flex md:w-64 bg-white rounded-3xl border border-slate-200 p-4 shadow-sm shrink-0 flex-col justify-between">
           <div className="space-y-1">
             <div className="px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
               Core Operations
@@ -689,6 +912,23 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
               </div>
               <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-bold">
                 {destinations.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('countries')}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+                activeTab === 'countries'
+                  ? 'bg-brand-50 text-brand-600 font-bold'
+                  : 'text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Flag className="w-4 h-4 text-brand-500" />
+                <span>Target Countries</span>
+              </div>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-brand-100 text-brand-700 font-bold">
+                {targetCountriesForm.filter((c) => c.isActive !== false).length}
               </span>
             </button>
 
@@ -843,7 +1083,7 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
         </aside>
 
         {/* Content Area Panel */}
-        <main className="flex-1 space-y-6">
+        <main className="flex-1 min-w-0 space-y-6">
           {/* TAB 1: OVERVIEW */}
           {activeTab === 'overview' && (
             <div className="space-y-6">
@@ -904,8 +1144,8 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
               </div>
 
               {/* Homepage Counters Form */}
-              <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-                <div className="flex justify-between items-center">
+              <div className="bg-white p-5 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
                   <div>
                     <h3 className="text-lg font-bold text-navy-950">Homepage Key Metric Counters</h3>
                     <p className="text-xs text-slate-500">Live numbers shown in the hero stats banner on the website</p>
@@ -913,7 +1153,7 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                   <button
                     onClick={handleSaveMetrics}
                     disabled={isSyncing}
-                    className="inline-flex items-center gap-1.5 bg-brand-500 hover:bg-brand-600 text-white font-bold px-4 py-2 rounded-xl text-xs shadow-sm transition-all"
+                    className="inline-flex items-center justify-center gap-1.5 bg-brand-500 hover:bg-brand-600 text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow-sm transition-all w-full sm:w-auto"
                   >
                     <Save className="w-3.5 h-3.5" />
                     <span>Save Counters</span>
@@ -965,27 +1205,27 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
           {/* TAB 2: LEADS CRM */}
           {activeTab === 'leads' && (
             <div className="space-y-6">
-              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                   <h2 className="text-xl font-bold text-navy-950">Student Leads & Inquiries</h2>
                   <p className="text-xs text-slate-500">
-                    Click any student row to view complete details, IP location, and direct actions.
+                    Tap any student to view complete details, IP location, and direct actions.
                   </p>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-3">
+                <div className="w-full md:w-auto flex flex-wrap items-center gap-2.5 sm:gap-3">
                   <input
                     type="text"
                     placeholder="Search name, phone, city..."
                     value={leadSearch}
                     onChange={(e) => setLeadSearch(e.target.value)}
-                    className="px-3.5 py-2 rounded-xl border border-slate-300 text-xs w-48 sm:w-64"
+                    className="px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs w-full sm:w-64"
                   />
 
                   <select
                     value={leadStatusFilter}
                     onChange={(e) => setLeadStatusFilter(e.target.value)}
-                    className="px-3 py-2 rounded-xl border border-slate-300 text-xs bg-white font-medium"
+                    className="px-3 py-2.5 rounded-xl border border-slate-300 text-xs bg-white font-medium flex-1 sm:flex-initial"
                   >
                     <option value="all">All Statuses</option>
                     <option value="New">New</option>
@@ -997,7 +1237,7 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
 
                   <button
                     onClick={exportLeadsCSV}
-                    className="inline-flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold px-3.5 py-2 rounded-xl text-xs transition-colors"
+                    className="inline-flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold px-3.5 py-2.5 rounded-xl text-xs transition-colors flex-1 sm:flex-initial"
                   >
                     <Download className="w-3.5 h-3.5" />
                     <span>Export CSV</span>
@@ -1005,9 +1245,127 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                 </div>
               </div>
 
-              {/* Leads Table */}
+              {/* Leads Mobile Touch Cards + Desktop Table */}
               <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="overflow-x-auto">
+                {/* Mobile Touch Cards (<md) */}
+                <div className="md:hidden divide-y divide-slate-100">
+                  {filteredLeads.length === 0 ? (
+                    <div className="py-8 px-4 text-center text-slate-400 text-xs">
+                      No student inquiries found matching criteria.
+                    </div>
+                  ) : (
+                    filteredLeads.map((lead) => {
+                      const displayCity = lead.city || lead.location_data?.city;
+                      const displayCountry = lead.country_name || lead.location_data?.country_name;
+
+                      return (
+                        <div
+                          key={lead.id}
+                          onClick={() => {
+                            setSelectedLead(lead);
+                            setModalNotes(lead.notes || '');
+                            setModalStatus(lead.status);
+                          }}
+                          className="p-4 space-y-3 hover:bg-brand-50/30 active:bg-brand-50/50 transition-colors cursor-pointer"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="font-bold text-sm text-navy-950 truncate">{lead.full_name}</div>
+                              <div className="text-xs text-slate-500 truncate">{lead.email}</div>
+                            </div>
+                            <span className="shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-full bg-brand-50 text-brand-700 border border-brand-200">
+                              {lead.destination}
+                            </span>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2 text-xs">
+                            <a
+                              href={`https://wa.me/${lead.phone.replace(/[^0-9]/g, '')}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-flex items-center gap-1.5 font-mono font-semibold text-slate-700 bg-green-50 border border-green-200 px-2.5 py-1 rounded-lg"
+                            >
+                              <MessageCircle className="w-3.5 h-3.5 text-green-600" />
+                              <span>{lead.phone}</span>
+                            </a>
+
+                            {displayCity ? (
+                              <span className="inline-flex items-center gap-1 font-semibold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-lg">
+                                <MapPin className="w-3 h-3 text-red-500" />
+                                <span>{displayCity}{displayCountry ? `, ${displayCountry}` : ''}</span>
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 italic text-[11px]">Direct / Local</span>
+                            )}
+                          </div>
+
+                          {lead.course_interest && (
+                            <div className="text-xs text-slate-600 truncate">
+                              Interest: <strong className="text-navy-900">{lead.course_interest}</strong>
+                            </div>
+                          )}
+
+                          <div className="flex items-center justify-between gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
+                            <select
+                              value={lead.status}
+                              onChange={(e) => {
+                                updateLeadStatus(lead.id, e.target.value as any);
+                                showToast(`Status updated to ${e.target.value}`);
+                              }}
+                              className={`text-xs font-bold px-2.5 py-2 rounded-xl border focus:outline-none ${
+                                lead.status === 'New'
+                                  ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                  : lead.status === 'Contacted'
+                                  ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
+                                  : lead.status === 'In Progress'
+                                  ? 'bg-purple-50 text-purple-700 border-purple-200'
+                                  : lead.status === 'Converted'
+                                  ? 'bg-green-50 text-green-700 border-green-200'
+                                  : 'bg-slate-100 text-slate-600 border-slate-300'
+                              }`}
+                            >
+                              <option value="New">New</option>
+                              <option value="Contacted">Contacted</option>
+                              <option value="In Progress">In Progress</option>
+                              <option value="Converted">Converted</option>
+                              <option value="Closed">Closed</option>
+                            </select>
+
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => {
+                                  setSelectedLead(lead);
+                                  setModalNotes(lead.notes || '');
+                                  setModalStatus(lead.status);
+                                }}
+                                className="inline-flex items-center gap-1 text-xs font-bold text-brand-600 bg-brand-50 hover:bg-brand-100 px-3 py-2 rounded-xl transition-colors"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                                <span>View</span>
+                              </button>
+                              <button
+                                onClick={() => {
+                                  if (window.confirm(`Are you sure you want to delete lead for ${lead.full_name}?`)) {
+                                    deleteLead(lead.id);
+                                    showToast('Lead deleted successfully');
+                                  }
+                                }}
+                                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors"
+                                title="Delete Lead"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Desktop Table (>=md) */}
+                <div className="hidden md:block overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
@@ -1400,6 +1758,7 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
               maxPerDay={settings.appointmentConfig?.maxPerDay || 10}
               blockedDates={settings.appointmentConfig?.blockedDates || []}
               blockedSlots={settings.appointmentConfig?.blockedSlots || {}}
+              targetCountries={settings.targetCountries}
               isSyncing={isSyncing}
               onSaveConfig={async (nextCfg) => {
                 setMaxPerDayInput(nextCfg.maxPerDay);
@@ -1418,22 +1777,285 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
             />
           )}
 
+          {/* TAB: FORM TARGET COUNTRIES MANAGER */}
+          {activeTab === 'countries' && (
+            <div className="space-y-6">
+              <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="p-2 rounded-xl bg-brand-50 text-brand-600">
+                      <Flag className="w-5 h-5" />
+                    </span>
+                    <h2 className="text-xl font-bold text-navy-950">Form Target Countries Manager</h2>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Add unlimited Target Country names for both the <strong>Free Profile Assessment</strong> form (Homepage) and <strong>Book Consultation Appointment</strong> form.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                  <button
+                    type="button"
+                    onClick={handleImportDestinationsToCountries}
+                    className="inline-flex items-center justify-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-navy-950 font-bold px-3.5 py-2.5 rounded-xl text-xs transition-colors flex-1 sm:flex-initial"
+                  >
+                    <Globe className="w-3.5 h-3.5 text-brand-600" />
+                    <span>Import from Destinations</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleSaveAllTargetCountries}
+                    disabled={isSyncing}
+                    className="inline-flex items-center justify-center gap-1.5 bg-brand-500 hover:bg-brand-600 text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow-md transition-all flex-1 sm:flex-initial"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>{isSyncing ? 'Saving...' : 'Save Changes'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Quick Add Target Country Card */}
+              <form
+                onSubmit={handleAddTargetCountry}
+                className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-sm font-bold text-navy-950 uppercase tracking-wider">
+                    + Add New Target Country
+                  </h3>
+                  <span className="text-[11px] font-semibold text-slate-400">
+                    Syncs live to Assessment &amp; Booking Forms
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                  <div className="sm:col-span-5">
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                      Country Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={newCountryName}
+                      onChange={(e) => setNewCountryName(e.target.value)}
+                      placeholder="e.g. Germany, Ireland, Malaysia, Turkey..."
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm font-semibold"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-4">
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                      Visa / Pathway Subtitle (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={newCountryVisaLabel}
+                      onChange={(e) => setNewCountryVisaLabel(e.target.value)}
+                      placeholder="e.g. Subclass 500, National D, Student Pass"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-3">
+                    <button
+                      type="submit"
+                      className="w-full inline-flex items-center justify-center gap-1.5 bg-navy-950 hover:bg-navy-900 text-white font-bold px-4 py-2.5 rounded-xl text-sm shadow-md transition-all"
+                    >
+                      <Plus className="w-4 h-4 text-brand-400" />
+                      <span>Add Country</span>
+                    </button>
+                  </div>
+                </div>
+              </form>
+
+              {/* Active List of Countries */}
+              <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="p-4 sm:p-5 border-b border-slate-100 bg-slate-50/70 flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h3 className="text-sm font-bold text-navy-950">
+                      Configured Target Countries ({targetCountriesForm.length})
+                    </h3>
+                    <p className="text-[11px] text-slate-500">
+                      #1 active country is pre-selected by default. Edit names or visa labels inline and click Save Changes.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setTargetCountriesForm(DEFAULT_TARGET_COUNTRIES);
+                      await updateTargetCountries(DEFAULT_TARGET_COUNTRIES);
+                      showToast('Restored default 5 target countries.');
+                    }}
+                    className="text-xs font-bold text-slate-500 hover:text-navy-950 px-3 py-1.5 rounded-lg hover:bg-slate-200/70 transition-colors"
+                  >
+                    Restore Defaults
+                  </button>
+                </div>
+
+                <div className="divide-y divide-slate-100">
+                  {targetCountriesForm.map((country, idx) => (
+                    <div
+                      key={country.id}
+                      className={`p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center gap-3 transition-colors ${
+                        country.isActive ? 'bg-white' : 'bg-slate-50/80 opacity-75'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="w-7 h-7 rounded-lg bg-slate-100 text-slate-700 text-xs font-black flex items-center justify-center">
+                          #{idx + 1}
+                        </span>
+                        {idx === 0 && country.isActive && (
+                          <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200">
+                            Default
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 flex-1 min-w-0">
+                        <input
+                          type="text"
+                          value={country.name}
+                          onChange={(e) => {
+                            const updated = targetCountriesForm.map((item, i) =>
+                              i === idx ? { ...item, name: e.target.value } : item
+                            );
+                            setTargetCountriesForm(updated);
+                          }}
+                          placeholder="Country Name"
+                          className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs sm:text-sm font-bold text-navy-950"
+                        />
+                        <input
+                          type="text"
+                          value={country.visaLabel || ''}
+                          onChange={(e) => {
+                            const updated = targetCountriesForm.map((item, i) =>
+                              i === idx ? { ...item, visaLabel: e.target.value } : item
+                            );
+                            setTargetCountriesForm(updated);
+                          }}
+                          placeholder="Optional visa label (shown on Booking form)"
+                          className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-600"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between sm:justify-end gap-1.5 shrink-0">
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            disabled={idx === 0}
+                            onClick={() => handleMoveTargetCountry(idx, -1)}
+                            className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-35"
+                            title="Move Up"
+                          >
+                            <ArrowUp className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            disabled={idx === targetCountriesForm.length - 1}
+                            onClick={() => handleMoveTargetCountry(idx, 1)}
+                            className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-35"
+                            title="Move Down"
+                          >
+                            <ArrowDown className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleTargetCountry(country.id)}
+                            className={`px-3 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-1 transition-colors ${
+                              country.isActive
+                                ? 'bg-green-100 text-green-700'
+                                : 'bg-slate-200 text-slate-500'
+                            }`}
+                          >
+                            {country.isActive ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                            <span>{country.isActive ? 'Active' : 'Hidden'}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteTargetCountry(country.id, country.name)}
+                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors"
+                            title="Delete Country"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Live Form Dropdown Preview */}
+              <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  Live Visitor Form Dropdown Preview
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                      Free Profile Assessment (Homepage)
+                    </label>
+                    <select className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm bg-slate-50">
+                      {targetCountriesForm
+                        .filter((c) => c.isActive !== false && c.name.trim() !== '')
+                        .map((c) => (
+                          <option key={c.id} value={c.name}>
+                            {c.name}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                      Book Consultation Appointment Form
+                    </label>
+                    <select className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm bg-slate-50">
+                      {targetCountriesForm
+                        .filter((c) => c.isActive !== false && c.name.trim() !== '')
+                        .map((c) => (
+                          <option key={c.id} value={c.name}>
+                            {c.visaLabel ? `${c.name} (${c.visaLabel})` : c.name}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* TAB 4: DESTINATIONS */}
           {activeTab === 'destinations' && (
             <div className="space-y-6">
-              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex justify-between items-center">
+              <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                 <div>
                   <h2 className="text-xl font-bold text-navy-950">Study Destinations Management</h2>
                   <p className="text-xs text-slate-500">Edit visa requirements, living costs, and work rights live</p>
                 </div>
 
-                <button
-                  onClick={() => setShowAddDestinationModal(true)}
-                  className="inline-flex items-center gap-1.5 bg-brand-500 hover:bg-brand-600 text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow-md transition-all"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Add Country</span>
-                </button>
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                  <button
+                    type="button"
+                    onClick={() => handleSelectTab('countries')}
+                    className="inline-flex items-center justify-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-navy-950 font-bold px-3.5 py-2.5 rounded-xl text-xs transition-all flex-1 sm:flex-initial"
+                  >
+                    <Flag className="w-3.5 h-3.5 text-brand-600" />
+                    <span>Form Target Countries</span>
+                  </button>
+
+                  <button
+                    onClick={() => setShowAddDestinationModal(true)}
+                    className="inline-flex items-center justify-center gap-1.5 bg-brand-500 hover:bg-brand-600 text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow-md transition-all flex-1 sm:flex-initial"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Add Country</span>
+                  </button>
+                </div>
               </div>
 
               {/* Destinations Grid */}
@@ -1532,7 +2154,7 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                         />
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                           <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Select Flag</label>
                           <select
@@ -1598,7 +2220,7 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
           {/* TAB 5: COURSES */}
           {activeTab === 'courses' && (
             <div className="space-y-6">
-              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex justify-between items-center">
+              <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                 <div>
                   <h2 className="text-xl font-bold text-navy-950">Academic & Trade Courses Catalog</h2>
                   <p className="text-xs text-slate-500">Live programs listed on the courses page with fee estimates</p>
@@ -1606,16 +2228,60 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
 
                 <button
                   onClick={() => setShowAddCourseModal(true)}
-                  className="inline-flex items-center gap-1.5 bg-brand-500 hover:bg-brand-600 text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow-md transition-all"
+                  className="inline-flex items-center justify-center gap-1.5 bg-brand-500 hover:bg-brand-600 text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow-md transition-all w-full sm:w-auto"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Add Course</span>
                 </button>
               </div>
 
-              {/* Courses Table */}
+              {/* Courses Mobile Touch Cards + Desktop Table */}
               <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="overflow-x-auto">
+                {/* Mobile Touch Cards (<md) */}
+                <div className="md:hidden divide-y divide-slate-100">
+                  {courses.map((course) => (
+                    <div key={course.id} className="p-4 space-y-2.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="font-bold text-sm text-navy-950">{course.title}</div>
+                          <div className="text-[11px] font-semibold text-brand-600 mt-0.5">{course.category_slug}</div>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => setEditingCourse(course)}
+                            className="p-2 text-slate-400 hover:text-brand-600 rounded-xl hover:bg-brand-50 transition-colors"
+                            title="Edit Course"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              deleteCourse(course.id);
+                              showToast(`Deleted ${course.title}`);
+                            }}
+                            className="p-2 text-slate-400 hover:text-red-500 rounded-xl hover:bg-red-50 transition-colors"
+                            title="Delete Course"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2 text-xs">
+                        <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-medium">{course.country}</span>
+                        <span className="px-2 py-0.5 rounded-md bg-green-50 text-green-700 font-semibold">{course.estimated_fees}</span>
+                        <span className="px-2 py-0.5 rounded-md bg-slate-50 text-slate-500">{course.duration}</span>
+                      </div>
+
+                      {course.career_paths && (
+                        <div className="text-xs text-slate-500 line-clamp-2">{course.career_paths}</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Desktop Table (>=md) */}
+                <div className="hidden md:block overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
@@ -1696,7 +2362,7 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                         />
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                           <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Category</label>
                           <select
@@ -1723,7 +2389,7 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                           <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Duration</label>
                           <input
@@ -1786,7 +2452,7 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
           {/* TAB 6: TESTIMONIALS */}
           {activeTab === 'testimonials' && (
             <div className="space-y-6">
-              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex justify-between items-center">
+              <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                 <div>
                   <h2 className="text-xl font-bold text-navy-950">Student Success Testimonials</h2>
                   <p className="text-xs text-slate-500">Student quotes and star ratings displayed on homepage</p>
@@ -1794,7 +2460,7 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
 
                 <button
                   onClick={() => setShowAddTestimonialModal(true)}
-                  className="inline-flex items-center gap-1.5 bg-brand-500 hover:bg-brand-600 text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow-md transition-all"
+                  className="inline-flex items-center justify-center gap-1.5 bg-brand-500 hover:bg-brand-600 text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow-md transition-all w-full sm:w-auto"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Add Review</span>
@@ -1928,7 +2594,7 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                         </p>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                           <label className="block text-xs font-bold text-slate-700 uppercase mb-1">University</label>
                           <input
@@ -2272,16 +2938,40 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Website Logo URL</label>
-                      <input
-                        type="text"
-                        value={headerForm.logoUrl || '/logo.png'}
-                        onChange={(e) => setHeaderForm({ ...headerForm, logoUrl: e.target.value })}
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-mono"
-                        placeholder="/logo.png"
-                      />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <label className="block text-xs font-bold text-slate-700 uppercase">
+                          Header Company Logo URL
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setHeaderForm({ ...headerForm, logoUrl: '/logo.png' })}
+                          className="text-[11px] font-bold text-brand-600 hover:underline"
+                        >
+                          Reset Default
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-full bg-white border border-slate-200 shadow-sm overflow-hidden shrink-0 flex items-center justify-center">
+                          <SmartImage
+                            src={fixGoogleDriveLink(headerForm.logoUrl || '/logo.png')}
+                            alt="Header Logo Preview"
+                            className="w-full h-full object-cover rounded-full"
+                            fallback={<img src="/logo.png" alt="Default Logo" className="w-full h-full object-cover rounded-full" />}
+                          />
+                        </div>
+                        <input
+                          type="text"
+                          value={headerForm.logoUrl ?? '/logo.png'}
+                          onChange={(e) => setHeaderForm({ ...headerForm, logoUrl: e.target.value })}
+                          className="min-w-0 flex-1 px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-sm font-mono"
+                          placeholder="/logo.png or Google Drive link"
+                        />
+                      </div>
+                      <p className="text-[11px] text-slate-500">
+                        Supports direct image URLs, <code>/logo.png</code>, or Google Drive share links (updates Navbar & Page Transition crest).
+                      </p>
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Official Email</label>
@@ -2325,7 +3015,7 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                     <h4 className="text-sm font-bold text-navy-950 mb-3">Navbar Page Links</h4>
                     <div className="space-y-3">
                       {headerForm.navLinks.map((link, idx) => (
-                        <div key={link.id || idx} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                        <div key={link.id || idx} className="flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
                           <input
                             type="text"
                             value={link.name}
@@ -2334,7 +3024,7 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                               updated[idx].name = e.target.value;
                               setHeaderForm({ ...headerForm, navLinks: updated });
                             }}
-                            className="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold w-40"
+                            className="px-3 py-2 rounded-lg border border-slate-300 text-xs font-semibold w-full sm:w-40"
                           />
 
                           <input
@@ -2345,35 +3035,37 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                               updated[idx].path = e.target.value;
                               setHeaderForm({ ...headerForm, navLinks: updated });
                             }}
-                            className="px-3 py-1.5 rounded-lg border border-slate-300 text-xs flex-1 font-mono"
+                            className="px-3 py-2 rounded-lg border border-slate-300 text-xs w-full sm:flex-1 font-mono"
                           />
 
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const updated = [...headerForm.navLinks];
-                              updated[idx].isVisible = !updated[idx].isVisible;
-                              setHeaderForm({ ...headerForm, navLinks: updated });
-                            }}
-                            className={`p-2 rounded-lg text-xs font-bold flex items-center gap-1 ${
-                              link.isVisible ? 'bg-green-100 text-green-700' : 'bg-slate-200 text-slate-500'
-                            }`}
-                          >
-                            {link.isVisible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-                            <span>{link.isVisible ? 'Visible' : 'Hidden'}</span>
-                          </button>
+                          <div className="flex items-center justify-between sm:justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = [...headerForm.navLinks];
+                                updated[idx].isVisible = !updated[idx].isVisible;
+                                setHeaderForm({ ...headerForm, navLinks: updated });
+                              }}
+                              className={`px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1 ${
+                                link.isVisible ? 'bg-green-100 text-green-700' : 'bg-slate-200 text-slate-500'
+                              }`}
+                            >
+                              {link.isVisible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                              <span>{link.isVisible ? 'Visible' : 'Hidden'}</span>
+                            </button>
 
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const updated = headerForm.navLinks.filter((_, i) => i !== idx);
-                              setHeaderForm({ ...headerForm, navLinks: updated });
-                            }}
-                            className="p-1.5 text-slate-400 hover:text-red-500"
-                            title="Delete Link"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = headerForm.navLinks.filter((_, i) => i !== idx);
+                                setHeaderForm({ ...headerForm, navLinks: updated });
+                              }}
+                              className="p-2 text-slate-400 hover:text-red-500 rounded-lg hover:bg-red-50"
+                              title="Delete Link"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
                       ))}
 
@@ -2498,6 +3190,89 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                     </div>
                   </div>
 
+                  {/* Footer Company Logo & Accredited Badge Editors */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <label className="block text-xs font-bold text-slate-700 uppercase">
+                          Footer Company Logo URL
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setFooterForm({ ...footerForm, logoUrl: headerForm.logoUrl || '/logo.png' })}
+                            className="text-[11px] font-bold text-brand-600 hover:underline"
+                          >
+                            Use Header Logo
+                          </button>
+                          <span className="text-slate-300">|</span>
+                          <button
+                            type="button"
+                            onClick={() => setFooterForm({ ...footerForm, logoUrl: '/logo.png' })}
+                            className="text-[11px] font-bold text-slate-500 hover:text-slate-700 hover:underline"
+                          >
+                            Reset
+                          </button>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-full bg-white border border-slate-200 shadow-sm overflow-hidden shrink-0 flex items-center justify-center">
+                          <SmartImage
+                            src={fixGoogleDriveLink(footerForm.logoUrl || headerForm.logoUrl || '/logo.png')}
+                            alt="Footer Logo Preview"
+                            className="w-full h-full object-cover rounded-full"
+                            fallback={<img src="/logo.png" alt="Default Logo" className="w-full h-full object-cover rounded-full" />}
+                          />
+                        </div>
+                        <input
+                          type="text"
+                          value={footerForm.logoUrl ?? '/logo.png'}
+                          onChange={(e) => setFooterForm({ ...footerForm, logoUrl: e.target.value })}
+                          placeholder="/logo.png or Google Drive link"
+                          className="min-w-0 flex-1 px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-sm font-mono"
+                        />
+                      </div>
+                      <p className="text-[11px] text-slate-500">
+                        Accepts direct image URLs, <code>/logo.png</code>, or Google Drive share links.
+                      </p>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <label className="block text-xs font-bold text-slate-700 uppercase">
+                          ICEF Accredited Badge Image
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setFooterForm({ ...footerForm, accreditedBadgeImageUrl: '/assets/icef_badge.png' })}
+                          className="text-[11px] font-bold text-brand-600 hover:underline"
+                        >
+                          Reset Default
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-xl bg-navy-950 border border-slate-200 shadow-sm overflow-hidden shrink-0 flex items-center justify-center p-1">
+                          <SmartImage
+                            src={fixGoogleDriveLink(footerForm.accreditedBadgeImageUrl || '/assets/icef_badge.png')}
+                            alt="Accredited Badge Preview"
+                            className="w-full h-full object-contain"
+                            fallback={<img src="/assets/icef_badge.png" alt="ICEF Badge" className="w-full h-full object-contain" />}
+                          />
+                        </div>
+                        <input
+                          type="text"
+                          value={footerForm.accreditedBadgeImageUrl ?? '/assets/icef_badge.png'}
+                          onChange={(e) => setFooterForm({ ...footerForm, accreditedBadgeImageUrl: e.target.value })}
+                          placeholder="/assets/icef_badge.png or URL"
+                          className="min-w-0 flex-1 px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-sm font-mono"
+                        />
+                      </div>
+                      <p className="text-[11px] text-slate-500">
+                        Displayed in both Homepage Hero Banner & Footer Column 1.
+                      </p>
+                    </div>
+                  </div>
+
                   <div>
                     <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
                       Accredited Badge Clickable Link URL (ICEF / Partner Directory)
@@ -2516,19 +3291,19 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                     <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
                       <h4 className="text-sm font-bold text-navy-950">Footer Column 1 Links</h4>
                       <div className="flex items-center gap-2">
-                        <label className="text-xs font-bold text-slate-500 uppercase">Heading:</label>
+                        <label className="text-xs font-bold text-slate-500 uppercase shrink-0">Heading:</label>
                         <input
                           type="text"
                           value={footerForm.destinationsTitle || 'Study Destinations'}
                           onChange={(e) => setFooterForm({ ...footerForm, destinationsTitle: e.target.value })}
-                          className="px-3 py-1 rounded-lg border border-slate-300 text-xs font-bold w-48"
+                          className="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-bold w-full sm:w-48"
                         />
                       </div>
                     </div>
 
                     <div className="space-y-2">
                       {footerForm.destinationLinks.map((link, idx) => (
-                        <div key={link.id || idx} className="flex items-center gap-2 p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                        <div key={link.id || idx} className="flex flex-col sm:flex-row sm:items-center gap-2 p-2.5 bg-slate-50 rounded-xl border border-slate-200">
                           <input
                             type="text"
                             value={link.label}
@@ -2538,29 +3313,31 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                               setFooterForm({ ...footerForm, destinationLinks: updated });
                             }}
                             placeholder="Link Label"
-                            className="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold w-1/2"
+                            className="px-3 py-2 rounded-lg border border-slate-300 text-xs font-semibold w-full sm:w-1/2"
                           />
-                          <input
-                            type="text"
-                            value={link.path}
-                            onChange={(e) => {
-                              const updated = [...footerForm.destinationLinks];
-                              updated[idx].path = e.target.value;
-                              setFooterForm({ ...footerForm, destinationLinks: updated });
-                            }}
-                            placeholder="/path"
-                            className="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-mono w-1/2"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const updated = footerForm.destinationLinks.filter((_, i) => i !== idx);
-                              setFooterForm({ ...footerForm, destinationLinks: updated });
-                            }}
-                            className="p-1.5 text-slate-400 hover:text-red-500"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          <div className="flex items-center gap-2 w-full sm:w-1/2">
+                            <input
+                              type="text"
+                              value={link.path}
+                              onChange={(e) => {
+                                const updated = [...footerForm.destinationLinks];
+                                updated[idx].path = e.target.value;
+                                setFooterForm({ ...footerForm, destinationLinks: updated });
+                              }}
+                              placeholder="/path"
+                              className="px-3 py-2 rounded-lg border border-slate-300 text-xs font-mono flex-1 min-w-0"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = footerForm.destinationLinks.filter((_, i) => i !== idx);
+                                setFooterForm({ ...footerForm, destinationLinks: updated });
+                              }}
+                              className="p-2 text-slate-400 hover:text-red-500 shrink-0"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
                       ))}
 
@@ -2586,19 +3363,19 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                     <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
                       <h4 className="text-sm font-bold text-navy-950">Footer Column 2 Links</h4>
                       <div className="flex items-center gap-2">
-                        <label className="text-xs font-bold text-slate-500 uppercase">Heading:</label>
+                        <label className="text-xs font-bold text-slate-500 uppercase shrink-0">Heading:</label>
                         <input
                           type="text"
                           value={footerForm.quickLinksTitle || 'Useful Links'}
                           onChange={(e) => setFooterForm({ ...footerForm, quickLinksTitle: e.target.value })}
-                          className="px-3 py-1 rounded-lg border border-slate-300 text-xs font-bold w-48"
+                          className="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-bold w-full sm:w-48"
                         />
                       </div>
                     </div>
 
                     <div className="space-y-2">
                       {footerForm.quickLinks.map((link, idx) => (
-                        <div key={link.id || idx} className="flex items-center gap-2 p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                        <div key={link.id || idx} className="flex flex-col sm:flex-row sm:items-center gap-2 p-2.5 bg-slate-50 rounded-xl border border-slate-200">
                           <input
                             type="text"
                             value={link.label}
@@ -2608,29 +3385,31 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                               setFooterForm({ ...footerForm, quickLinks: updated });
                             }}
                             placeholder="Link Label"
-                            className="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold w-1/2"
+                            className="px-3 py-2 rounded-lg border border-slate-300 text-xs font-semibold w-full sm:w-1/2"
                           />
-                          <input
-                            type="text"
-                            value={link.path}
-                            onChange={(e) => {
-                              const updated = [...footerForm.quickLinks];
-                              updated[idx].path = e.target.value;
-                              setFooterForm({ ...footerForm, quickLinks: updated });
-                            }}
-                            placeholder="/path"
-                            className="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-mono w-1/2"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const updated = footerForm.quickLinks.filter((_, i) => i !== idx);
-                              setFooterForm({ ...footerForm, quickLinks: updated });
-                            }}
-                            className="p-1.5 text-slate-400 hover:text-red-500"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          <div className="flex items-center gap-2 w-full sm:w-1/2">
+                            <input
+                              type="text"
+                              value={link.path}
+                              onChange={(e) => {
+                                const updated = [...footerForm.quickLinks];
+                                updated[idx].path = e.target.value;
+                                setFooterForm({ ...footerForm, quickLinks: updated });
+                              }}
+                              placeholder="/path"
+                              className="px-3 py-2 rounded-lg border border-slate-300 text-xs font-mono flex-1 min-w-0"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = footerForm.quickLinks.filter((_, i) => i !== idx);
+                                setFooterForm({ ...footerForm, quickLinks: updated });
+                              }}
+                              className="p-2 text-slate-400 hover:text-red-500 shrink-0"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
                       ))}
 
@@ -2749,14 +3528,14 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                 </form>
               </div>
 
-              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex justify-between items-center">
+              <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                 <div>
                   <h2 className="text-xl font-bold text-navy-950">Homepage Highlight Slider Banners</h2>
                   <p className="text-xs text-slate-500">Add or manage rotating promotional slides displayed below the hero.</p>
                 </div>
                 <button 
                   onClick={() => setShowAddBannerModal(true)}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-500 text-white font-bold text-sm hover:bg-brand-600 shadow-sm"
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand-500 text-white font-bold text-sm hover:bg-brand-600 shadow-sm w-full sm:w-auto"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Add New Banner</span>
@@ -2764,7 +3543,59 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
               </div>
 
               <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-                 <div className="overflow-x-auto">
+                 {/* Mobile Touch Cards (<md) */}
+                 <div className="md:hidden divide-y divide-slate-100">
+                   {banners.length === 0 ? (
+                     <div className="px-4 py-10 text-center text-slate-400 text-sm">
+                       No custom banners added. The homepage will use built-in curated campus slides.
+                     </div>
+                   ) : (
+                     banners.map((banner) => (
+                       <div key={banner.id} className="p-4 space-y-3">
+                         <div className="flex items-start gap-3">
+                           <SmartImage 
+                             src={banner.imageUrl} 
+                             alt={banner.title} 
+                             className="w-20 h-14 object-cover rounded-xl border border-slate-200 shrink-0" 
+                             fallback={
+                               <img
+                                 src="/slide-australia.jpg"
+                                 alt={banner.title}
+                                 className="w-20 h-14 object-cover rounded-xl border border-slate-200 shrink-0"
+                               />
+                             }
+                           />
+                           <div className="min-w-0 flex-1">
+                             <p className="font-bold text-sm text-navy-950 truncate">{banner.title}</p>
+                             <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{banner.description}</p>
+                           </div>
+                         </div>
+                         <div className="flex items-center justify-between gap-2 pt-1">
+                           <span className="text-xs font-mono bg-slate-100 px-2.5 py-1 rounded-lg text-slate-600 truncate max-w-[60%]">{banner.link}</span>
+                           <div className="flex items-center gap-1 shrink-0">
+                             <button 
+                               onClick={() => setEditingBanner(banner)} 
+                               className="p-2 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-xl transition-colors"
+                               title="Edit Banner"
+                             >
+                               <Edit3 className="w-4 h-4" />
+                             </button>
+                             <button 
+                               onClick={() => { if(confirm('Delete this banner?')) { deleteBanner(banner.id); showToast('Banner deleted'); } }} 
+                               className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+                               title="Delete Banner"
+                             >
+                               <Trash2 className="w-4 h-4" />
+                             </button>
+                           </div>
+                         </div>
+                       </div>
+                     ))
+                   )}
+                 </div>
+
+                 {/* Desktop Table (>=md) */}
+                 <div className="hidden md:block overflow-x-auto">
                    <table className="w-full text-left border-collapse">
                      <thead>
                        <tr className="bg-slate-50 border-b border-slate-200">
@@ -3102,9 +3933,9 @@ CREATE TABLE IF NOT EXISTS public.leads (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
           <div className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
             {/* Modal Header */}
-            <div className="bg-navy-950 text-white p-6 flex justify-between items-start">
-              <div>
-                <div className="flex items-center gap-2">
+            <div className="bg-navy-950 text-white p-4 sm:p-6 flex justify-between items-start gap-3">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="text-xs font-bold uppercase tracking-wider text-brand-400 bg-brand-950/60 border border-brand-500/30 px-2.5 py-0.5 rounded-full">
                     Student Profile Details
                   </span>
@@ -3112,23 +3943,23 @@ CREATE TABLE IF NOT EXISTS public.leads (
                     Source: {selectedLead.source || 'Website'}
                   </span>
                 </div>
-                <h3 className="text-2xl font-black mt-2 font-serif">{selectedLead.full_name}</h3>
-                <p className="text-xs text-slate-300 mt-0.5">{selectedLead.email} • {selectedLead.phone}</p>
+                <h3 className="text-xl sm:text-2xl font-black mt-2 font-serif truncate">{selectedLead.full_name}</h3>
+                <p className="text-xs text-slate-300 mt-0.5 break-all">{selectedLead.email} • {selectedLead.phone}</p>
               </div>
 
               <button
                 onClick={() => setSelectedLead(null)}
-                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 transition-colors"
+                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 transition-colors shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Modal Scrollable Body */}
-            <div className="p-6 space-y-6 overflow-y-auto flex-1 text-slate-800">
+            <div className="p-4 sm:p-6 space-y-5 sm:space-y-6 overflow-y-auto flex-1 text-slate-800">
               {/* Geolocation Audit Box */}
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2 text-xs font-bold text-navy-950 uppercase tracking-wider">
                     <Navigation className="w-4 h-4 text-blue-500" />
                     <span>IPstack Geolocation & Network Audit</span>
@@ -3242,15 +4073,15 @@ CREATE TABLE IF NOT EXISTS public.leads (
             </div>
 
             {/* Modal Footer with Direct Actions */}
-            <div className="p-6 bg-slate-50 border-t border-slate-200 flex flex-wrap justify-between items-center gap-3">
-              <div className="flex gap-2">
+            <div className="p-4 sm:p-6 bg-slate-50 border-t border-slate-200 flex flex-wrap justify-between items-center gap-3">
+              <div className="flex flex-wrap gap-2">
                 <a
                   href={`https://wa.me/${selectedLead.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
                     `Hello ${selectedLead.full_name}! This is SR Global Consultants regarding your ${selectedLead.destination} study inquiry.`
                   )}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 bg-[#25D366] hover:bg-[#20ba5a] text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow-sm transition-all"
+                  className="inline-flex items-center gap-2 bg-[#25D366] hover:bg-[#20ba5a] text-white font-bold px-3.5 sm:px-4 py-2.5 rounded-xl text-xs shadow-sm transition-all"
                 >
                   <MessageCircle className="w-4 h-4" />
                   <span>Chat on WhatsApp</span>
@@ -3258,7 +4089,7 @@ CREATE TABLE IF NOT EXISTS public.leads (
 
                 <a
                   href={`tel:${selectedLead.phone}`}
-                  className="inline-flex items-center gap-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold px-4 py-2.5 rounded-xl text-xs transition-all"
+                  className="inline-flex items-center gap-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold px-3.5 py-2.5 rounded-xl text-xs transition-all"
                 >
                   <Phone className="w-3.5 h-3.5" />
                   <span>Call</span>
@@ -3266,14 +4097,14 @@ CREATE TABLE IF NOT EXISTS public.leads (
 
                 <a
                   href={`mailto:${selectedLead.email}?subject=SR Global Consultation Follow-up`}
-                  className="inline-flex items-center gap-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold px-4 py-2.5 rounded-xl text-xs transition-all"
+                  className="inline-flex items-center gap-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold px-3.5 py-2.5 rounded-xl text-xs transition-all"
                 >
                   <Mail className="w-3.5 h-3.5" />
                   <span>Email</span>
                 </a>
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex gap-2 w-full sm:w-auto justify-end">
                 <button
                   onClick={() => setSelectedLead(null)}
                   className="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 text-xs font-semibold hover:bg-slate-100 transition-colors"
@@ -3302,9 +4133,9 @@ CREATE TABLE IF NOT EXISTS public.leads (
       {selectedAppointment && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
           <div className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
-            <div className="bg-navy-950 text-white p-6 flex justify-between items-start">
-              <div>
-                <div className="flex items-center gap-2">
+            <div className="bg-navy-950 text-white p-4 sm:p-6 flex justify-between items-start gap-3">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="text-xs font-bold uppercase tracking-wider text-brand-400 bg-brand-950/60 border border-brand-500/30 px-2.5 py-0.5 rounded-full">
                     Appointment Details CRM
                   </span>
@@ -3312,19 +4143,19 @@ CREATE TABLE IF NOT EXISTS public.leads (
                     ID: {selectedAppointment.appointment_code || `SRG-APT-${selectedAppointment.id.slice(0, 4)}`}
                   </span>
                 </div>
-                <h3 className="text-2xl font-black mt-2 font-serif">{selectedAppointment.client_name}</h3>
-                <p className="text-xs text-slate-300 mt-0.5">{selectedAppointment.email} • {selectedAppointment.phone}</p>
+                <h3 className="text-xl sm:text-2xl font-black mt-2 font-serif truncate">{selectedAppointment.client_name}</h3>
+                <p className="text-xs text-slate-300 mt-0.5 break-all">{selectedAppointment.email} • {selectedAppointment.phone}</p>
               </div>
 
               <button
                 onClick={() => setSelectedAppointment(null)}
-                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 transition-colors"
+                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 transition-colors shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-6 space-y-6 overflow-y-auto flex-1 text-slate-800">
+            <div className="p-4 sm:p-6 space-y-5 sm:space-y-6 overflow-y-auto flex-1 text-slate-800">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                 <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-1">
                   <div className="text-[10px] uppercase font-bold text-slate-400">Scheduled Date & Time</div>
@@ -3385,7 +4216,7 @@ CREATE TABLE IF NOT EXISTS public.leads (
               </div>
             </div>
 
-            <div className="p-6 bg-slate-50 border-t border-slate-200 flex flex-wrap justify-between items-center gap-3">
+            <div className="p-4 sm:p-6 bg-slate-50 border-t border-slate-200 flex flex-wrap justify-between items-center gap-3">
               <div className="flex gap-2">
                 <a
                   href={`https://wa.me/${selectedAppointment.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
@@ -3400,7 +4231,7 @@ CREATE TABLE IF NOT EXISTS public.leads (
                 </a>
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex gap-2 w-full sm:w-auto justify-end">
                 <button
                   onClick={() => setSelectedAppointment(null)}
                   className="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 text-xs font-semibold hover:bg-slate-100"
@@ -3454,7 +4285,7 @@ CREATE TABLE IF NOT EXISTS public.leads (
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Visa Subclass</label>
                   <input
@@ -3491,7 +4322,7 @@ CREATE TABLE IF NOT EXISTS public.leads (
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Est. Living Cost</label>
                   <input
@@ -3571,7 +4402,7 @@ CREATE TABLE IF NOT EXISTS public.leads (
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Country</label>
                   <input
@@ -3592,7 +4423,7 @@ CREATE TABLE IF NOT EXISTS public.leads (
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Duration</label>
                   <input
@@ -3672,7 +4503,7 @@ CREATE TABLE IF NOT EXISTS public.leads (
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">University</label>
                   <input
