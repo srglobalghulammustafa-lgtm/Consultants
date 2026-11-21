@@ -115,29 +115,27 @@ export const PageTransitionProvider: React.FC<{ children: React.ReactNode }> = (
           <div className="absolute w-[28rem] h-[28rem] rounded-full bg-brand-500/20 blur-3xl pointer-events-none" />
           <div className="absolute w-64 h-64 rounded-full bg-yellow-400/10 blur-2xl pointer-events-none" />
 
-          {/* Lottie orbital ring + Editable Company Logo Crest */}
-          <div className="relative flex items-center justify-center w-48 h-48 animate-remotion-logo">
+          {/* Lottie orbital ring + Unclipped Company Logo */}
+          <div className="relative flex items-center justify-center w-56 h-56 animate-remotion-logo">
             <Lottie
               src={SR_TRANSITION_LOTTIE}
               loop
               autoplay
-              className="w-48 h-48"
+              className="w-56 h-56"
             />
             <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-24 h-24 rounded-full bg-white p-1.5 shadow-2xl ring-4 ring-brand-400/50 flex items-center justify-center overflow-hidden">
-                <SmartImage
-                  src={logoSrc}
-                  alt="SR Global Consultants"
-                  className="w-full h-full rounded-full object-cover"
-                  fallback={
-                    <img
-                      src="/logo.png"
-                      alt="SR Global Consultants"
-                      className="w-full h-full rounded-full object-cover"
-                    />
-                  }
-                />
-              </div>
+              <SmartImage
+                src={logoSrc}
+                alt="SR Global Consultants"
+                className="h-20 sm:h-24 w-auto object-contain bg-white/95 px-3 py-2 rounded-xl shadow-2xl"
+                fallback={
+                  <img
+                    src="/logo.png"
+                    alt="SR Global Consultants"
+                    className="h-20 sm:h-24 w-auto object-contain bg-white/95 px-3 py-2 rounded-xl shadow-2xl"
+                  />
+                }
+              />
             </div>
           </div>
 

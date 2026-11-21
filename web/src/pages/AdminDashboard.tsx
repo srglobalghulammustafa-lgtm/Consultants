@@ -695,7 +695,7 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
       <header className="bg-navy-950 text-white border-b border-navy-800 sticky top-0 z-40">
         <div className="max-w-[1536px] mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-            <img src="/logo.png" alt="SR Global" className="w-8 h-8 sm:w-9 sm:h-9 rounded-full ring-2 ring-brand-500 shrink-0" />
+            <img src="/logo.png" alt="SR Global" className="h-9 sm:h-10 w-auto object-contain bg-white/95 px-1.5 py-1 rounded-lg shrink-0" />
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-serif font-black tracking-wide text-sm sm:text-base truncate">SR GLOBAL</span>
@@ -2953,12 +2953,12 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                         </button>
                       </div>
                       <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-full bg-white border border-slate-200 shadow-sm overflow-hidden shrink-0 flex items-center justify-center">
+                        <div className="h-12 px-2 py-1 rounded-lg bg-white shrink-0 flex items-center justify-center">
                           <SmartImage
                             src={fixGoogleDriveLink(headerForm.logoUrl || '/logo.png')}
                             alt="Header Logo Preview"
-                            className="w-full h-full object-cover rounded-full"
-                            fallback={<img src="/logo.png" alt="Default Logo" className="w-full h-full object-cover rounded-full" />}
+                            className="h-10 w-auto object-contain"
+                            fallback={<img src="/logo.png" alt="Default Logo" className="h-10 w-auto object-contain" />}
                           />
                         </div>
                         <input
@@ -3216,12 +3216,12 @@ CREATE POLICY "Full access to appointments" ON public.appointments FOR ALL USING
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-full bg-white border border-slate-200 shadow-sm overflow-hidden shrink-0 flex items-center justify-center">
+                        <div className="h-12 px-2 py-1 rounded-lg bg-white shrink-0 flex items-center justify-center">
                           <SmartImage
                             src={fixGoogleDriveLink(footerForm.logoUrl || headerForm.logoUrl || '/logo.png')}
                             alt="Footer Logo Preview"
-                            className="w-full h-full object-cover rounded-full"
-                            fallback={<img src="/logo.png" alt="Default Logo" className="w-full h-full object-cover rounded-full" />}
+                            className="h-10 w-auto object-contain"
+                            fallback={<img src="/logo.png" alt="Default Logo" className="h-10 w-auto object-contain" />}
                           />
                         </div>
                         <input

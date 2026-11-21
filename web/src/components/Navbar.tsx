@@ -183,12 +183,12 @@ export const Navbar: React.FC = () => {
             <SmartImage
               src={header.logoUrl || '/logo.png'}
               alt="SR Global Consultants Logo"
-              className="h-10 w-10 sm:h-12 sm:w-12 rounded-full object-cover shadow-sm group-hover:scale-105 transition-transform bg-white shrink-0"
+              className="h-11 sm:h-14 w-auto object-contain group-hover:scale-105 transition-transform shrink-0"
               fallback={
                 <img
                   src="/logo.png"
                   alt="SR Global Consultants Logo"
-                  className="h-10 w-10 sm:h-12 sm:w-12 rounded-full object-cover shadow-sm group-hover:scale-105 transition-transform shrink-0"
+                  className="h-11 sm:h-14 w-auto object-contain group-hover:scale-105 transition-transform shrink-0"
                 />
               }
             />

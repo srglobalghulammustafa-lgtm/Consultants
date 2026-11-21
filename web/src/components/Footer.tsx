@@ -33,12 +33,12 @@ export const Footer: React.FC = () => {
               <SmartImage 
                 src={footerLogoSrc} 
                 alt="SR Global Consultants Logo" 
-                className="w-16 h-16 rounded-full object-cover shadow-md bg-white p-0.5 shrink-0"
+                className="h-12 sm:h-14 w-auto object-contain bg-white/95 px-2.5 py-1.5 rounded-lg shrink-0"
                 fallback={
                   <img 
                     src="/logo.png" 
                     alt="SR Global Consultants Logo" 
-                    className="w-16 h-16 rounded-full object-cover shadow-md bg-white p-0.5 shrink-0" 
+                    className="h-12 sm:h-14 w-auto object-contain bg-white/95 px-2.5 py-1.5 rounded-lg shrink-0" 
                   />
                 }
               />
